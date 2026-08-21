@@ -190,15 +190,37 @@ jobs:
               --key "$RUNNER_TEMP/notary.p8" \
               --key-id "$APPLE_API_KEY_ID" \
               --issuer "$APPLE_API_ISSUER_ID" \
-              --wait --timeout 30m
+              --wait --timeout 30m | tee "$RUNNER_TEMP/notary_${arch}.log"
+
+            if ! grep -q "status: Accepted" "$RUNNER_TEMP/notary_${arch}.log"; then
+              echo "notarisation of the $arch binary did not come back Accepted" >&2
+              exit 1
+            fi
           done
 
-      - name: Check what a clean mac will make of it
-        if: steps.trust.outputs.notarise == 'true'
+      - name: Check the signature a clean mac will see
+        if: steps.trust.outputs.sign == 'true'
         run: |
           set -euo pipefail
           for arch in amd64 arm64; do
-            spctl --assess --type exec --verbose=4 "build/darwin_${arch}/norn"
+            binary="build/darwin_${arch}/norn"
+            described=$(codesign --display --verbose=4 "$binary" 2>&1)
+
+            authority=$(awk -F= '/^Authority=/ { print $2; exit }' <<<"$described")
+            case $authority in
+            "Developer ID Application:"*) ;;
+            *)
+              echo "$arch is signed by '$authority', not a Developer ID Application certificate" >&2
+              exit 1
+              ;;
+            esac
+
+            if ! grep -q 'flags=.*runtime' <<<"$described"; then
+              echo "$arch is not signed with the hardened runtime, which notarisation requires" >&2
+              exit 1
+            fi
+
+            echo "$arch: $authority, hardened runtime on"
           done
 
       - name: Remove the signing keychain
