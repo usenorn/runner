@@ -44,6 +44,17 @@ func TestDefaultsProduceAUsableConfigWithoutAnyFile(t *testing.T) {
 	if cfg.Runner.Retention.RunsMaxAge != 14*24*time.Hour {
 		t.Fatalf("runs_max_age defaulted to %s, want 336h", cfg.Runner.Retention.RunsMaxAge)
 	}
+
+	if cfg.Session.RefreshLead != 2*time.Minute {
+		t.Fatalf("session.refresh_lead defaulted to %s, want 2m", cfg.Session.RefreshLead)
+	}
+
+	if cfg.Session.RetryMin >= cfg.Session.RetryMax {
+		t.Fatalf(
+			"session backoff defaulted to %s..%s, and a floor at or above the ceiling never backs off",
+			cfg.Session.RetryMin, cfg.Session.RetryMax,
+		)
+	}
 }
 
 func TestTheFlatTopLevelKeysOfTheSpecReachTheRunnerSection(t *testing.T) {
@@ -210,6 +221,14 @@ func TestAConfigurationThatCannotWorkIsRefused(t *testing.T) {
 		{
 			name: "a drain shorter than a request",
 			body: "control:\n  request_timeout: 30s\n  shutdown_timeout: 5s\n",
+		},
+		{
+			name: "a session that renews at no point before expiry",
+			body: "session:\n  refresh_lead: 0s\n",
+		},
+		{
+			name: "a backoff ceiling below its floor",
+			body: "session:\n  retry_min: 5m\n  retry_max: 5s\n",
 		},
 	}
 

@@ -155,6 +155,11 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("control.request_timeout", 10*time.Second)
 	v.SetDefault("control.read_header_timeout", 5*time.Second)
 	v.SetDefault("control.shutdown_timeout", 15*time.Second)
+
+	v.SetDefault("session.request_timeout", 15*time.Second)
+	v.SetDefault("session.refresh_lead", 2*time.Minute)
+	v.SetDefault("session.retry_min", 5*time.Second)
+	v.SetDefault("session.retry_max", 5*time.Minute)
 }
 
 var extendedDurationPattern = regexp.MustCompile(`^(\d+)([dw])$`)
@@ -329,7 +334,11 @@ func validate(cfg Config) error {
 		return fmt.Errorf("state.root must name a directory the runner may own")
 	}
 
-	return validateControl(cfg.Control)
+	if err := validateControl(cfg.Control); err != nil {
+		return err
+	}
+
+	return validateSession(cfg.Session)
 }
 
 func validatePortRange(ports [2]int) error {
@@ -366,6 +375,21 @@ func validateRetention(retention Retention) error {
 
 	if retention.RunsMaxDisk <= 0 {
 		return fmt.Errorf("retention.runs_max_disk must be positive")
+	}
+
+	return nil
+}
+
+func validateSession(session Session) error {
+	if session.RequestTimeout <= 0 || session.RefreshLead <= 0 {
+		return fmt.Errorf("session.request_timeout and session.refresh_lead must both be positive")
+	}
+
+	if session.RetryMin <= 0 || session.RetryMax < session.RetryMin {
+		return fmt.Errorf(
+			"session.retry_min (%s) must be positive and session.retry_max (%s) must not be shorter",
+			session.RetryMin, session.RetryMax,
+		)
 	}
 
 	return nil

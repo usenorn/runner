@@ -9,12 +9,15 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/mock/gomock"
+
 	"github.com/usenorn/runner/internal"
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
+	sessionsvc "github.com/usenorn/runner/internal/service/session"
 )
 
 func newDaemon(t *testing.T, shutdown time.Duration, handler http.Handler) (*internal.Daemon, *statedir.Dir) {
@@ -48,7 +51,10 @@ func newDaemon(t *testing.T, shutdown time.Duration, handler http.Handler) (*int
 
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
-	return internal.NewDaemon(cfg, handler, listener, logger), dir
+	sessions := sessionsvc.NewMockSessions(gomock.NewController(t))
+	sessions.EXPECT().Run(gomock.Any()).AnyTimes()
+
+	return internal.NewDaemon(cfg, handler, listener, sessions, logger), dir
 }
 
 func TestCancellingTheContextDrainsAndReturnsNothing(t *testing.T) {

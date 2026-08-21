@@ -12,12 +12,14 @@ import (
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/observability/logging"
 	"github.com/usenorn/runner/internal/pkg/socket"
+	"github.com/usenorn/runner/internal/service"
 )
 
 type Daemon struct {
 	cfg      config.Control
 	handler  http.Handler
 	listener *socket.Listener
+	sessions service.Sessions
 	logger   *slog.Logger
 }
 
@@ -25,9 +27,16 @@ func NewDaemon(
 	cfg config.Control,
 	handler http.Handler,
 	listener *socket.Listener,
+	sessions service.Sessions,
 	logger *slog.Logger,
 ) *Daemon {
-	return &Daemon{cfg: cfg, handler: handler, listener: listener, logger: logger}
+	return &Daemon{
+		cfg:      cfg,
+		handler:  handler,
+		listener: listener,
+		sessions: sessions,
+		logger:   logger,
+	}
 }
 
 func (d *Daemon) Run(ctx context.Context) error {
@@ -38,6 +47,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 		ReadHeaderTimeout: d.cfg.ReadHeaderTimeout,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
+
+	renewing := make(chan struct{})
+
+	go func() {
+		defer close(renewing)
+
+		d.sessions.Run(ctx)
+	}()
 
 	serving := make(chan error, 1)
 
@@ -82,6 +99,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 			entity.ExitDrainForced, fmt.Errorf("drain the local control api: %w", err),
 		)
 	}
+
+	<-renewing
 
 	logging.From(ctx).InfoContext(ctx, "runner stopped")
 

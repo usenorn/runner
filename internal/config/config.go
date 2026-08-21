@@ -8,6 +8,7 @@ type Config struct {
 	State   State   `mapstructure:"state"`
 	Log     Log     `mapstructure:"log"`
 	Control Control `mapstructure:"control"`
+	Session Session `mapstructure:"session"`
 }
 
 type Runner struct {
@@ -49,6 +50,13 @@ type Control struct {
 	RequestTimeout    time.Duration `mapstructure:"request_timeout"`
 	ReadHeaderTimeout time.Duration `mapstructure:"read_header_timeout"`
 	ShutdownTimeout   time.Duration `mapstructure:"shutdown_timeout"`
+}
+
+type Session struct {
+	RequestTimeout time.Duration `mapstructure:"request_timeout"`
+	RefreshLead    time.Duration `mapstructure:"refresh_lead"`
+	RetryMin       time.Duration `mapstructure:"retry_min"`
+	RetryMax       time.Duration `mapstructure:"retry_max"`
 }
 
 type Runtime string

@@ -11,9 +11,16 @@ import (
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/observability/logging"
+	"github.com/usenorn/runner/internal/pkg/dashboardclient"
+	"github.com/usenorn/runner/internal/pkg/hostfacts"
 	"github.com/usenorn/runner/internal/pkg/servicemanager"
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
+	"github.com/usenorn/runner/internal/repository/credential"
+	"github.com/usenorn/runner/internal/repository/dashboard"
+	"github.com/usenorn/runner/internal/repository/identity"
+	"github.com/usenorn/runner/internal/service/enrolment"
+	"github.com/usenorn/runner/internal/service/session"
 	"net/http"
 )
 
@@ -32,7 +39,21 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	if err != nil {
 		return nil, nil, err
 	}
-	server := control.NewServer(runner, state, app, dir)
+	configSession := config.NewSession(configConfig)
+	client, err := dashboardclient.New(runner, configSession, app)
+	if err != nil {
+		return nil, nil, err
+	}
+	repositoryDashboard := dashboard.New(client, runner)
+	repositoryIdentity := identity.New(dir)
+	repositoryCredential := credential.New(dir)
+	sessions := session.New(repositoryDashboard, repositoryIdentity, repositoryCredential, configSession)
+	host, err := hostfacts.New(app)
+	if err != nil {
+		return nil, nil, err
+	}
+	enrolments := enrolment.New(repositoryDashboard, repositoryIdentity, repositoryCredential, sessions, host)
+	server := control.NewServer(runner, state, app, dir, enrolments, sessions)
 	listener, cleanup, err := socket.New(dir)
 	if err != nil {
 		return nil, nil, err
@@ -43,7 +64,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 		cleanup()
 		return nil, nil, err
 	}
-	daemon := NewDaemon(configControl, server, listener, logger)
+	daemon := NewDaemon(configControl, server, listener, sessions, logger)
 	return daemon, func() {
 		cleanup2()
 		cleanup()
@@ -67,6 +88,23 @@ func InitStatus(cfgFile string, overrides config.Overrides) (*Status, func(), er
 	}, nil
 }
 
+func InitBinding(cfgFile string, overrides config.Overrides) (*Binding, func(), error) {
+	configConfig, err := config.New(cfgFile, overrides)
+	if err != nil {
+		return nil, nil, err
+	}
+	configControl := config.NewControl(configConfig)
+	state := config.NewState(configConfig)
+	dir, err := statedir.New(state)
+	if err != nil {
+		return nil, nil, err
+	}
+	client := control.NewClient(configControl, dir)
+	binding := NewBinding(client)
+	return binding, func() {
+	}, nil
+}
+
 func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func(), error) {
 	configConfig, err := config.New(cfgFile, overrides)
 	if err != nil {
@@ -85,7 +123,8 @@ func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, identity.Set, credential.Set, dashboard.Set, session.Set, enrolment.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
+	NewBinding,
 	NewInstaller,
 )

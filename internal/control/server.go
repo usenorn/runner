@@ -2,23 +2,28 @@ package control
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/usenorn/runner/internal/config"
+	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/observability/logging"
 	"github.com/usenorn/runner/internal/pkg/statedir"
+	"github.com/usenorn/runner/internal/service"
 )
 
 type Server struct {
-	runner    config.Runner
-	state     config.State
-	app       config.App
-	dir       *statedir.Dir
-	startedAt time.Time
-	handler   http.Handler
+	runner     config.Runner
+	state      config.State
+	app        config.App
+	dir        *statedir.Dir
+	enrolments service.Enrolments
+	sessions   service.Sessions
+	startedAt  time.Time
+	handler    http.Handler
 }
 
 func NewServer(
@@ -26,17 +31,23 @@ func NewServer(
 	state config.State,
 	app config.App,
 	dir *statedir.Dir,
+	enrolments service.Enrolments,
+	sessions service.Sessions,
 ) *Server {
 	server := &Server{
-		runner:    runner,
-		state:     state,
-		app:       app,
-		dir:       dir,
-		startedAt: time.Now().UTC(),
+		runner:     runner,
+		state:      state,
+		app:        app,
+		dir:        dir,
+		enrolments: enrolments,
+		sessions:   sessions,
+		startedAt:  time.Now().UTC(),
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+StatusPath, server.status)
+	mux.HandleFunc("POST "+ConnectPath, server.connect)
+	mux.HandleFunc("POST "+DisconnectPath, server.disconnect)
 
 	server.handler = recovering(mux)
 
@@ -48,7 +59,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) status(w http.ResponseWriter, r *http.Request) {
-	respond(w, r, http.StatusOK, Status{
+	status := Status{
 		Version:    s.app.Version,
 		PID:        os.Getpid(),
 		StartedAt:  s.startedAt,
@@ -58,8 +69,102 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 		Server:     s.runner.Server,
 		Capacity:   s.runner.Capacity,
 		Runtime:    string(s.runner.Runtime),
-		Enrolled:   s.dir.Enrolled(),
+		Session:    string(entity.SessionUnenrolled),
+	}
+
+	report := s.sessions.Report()
+	status.Session = string(report.State)
+	status.SessionDetail = report.Detail
+	status.Expires = expiry(report.ExpiresAt)
+
+	identity, err := s.enrolments.Current(r.Context())
+	if err != nil {
+		if !errors.Is(err, entity.ErrNotEnrolled) {
+			status.SessionDetail = err.Error()
+		}
+
+		respond(w, r, http.StatusOK, status)
+
+		return
+	}
+
+	status.Enrolled = true
+	status.Agent = identity.Agent()
+	status.Machine = identity.RunnerName
+	status.RunnerID = identity.RunnerID.String()
+	status.Store = string(identity.Store)
+
+	respond(w, r, http.StatusOK, status)
+}
+
+func (s *Server) connect(w http.ResponseWriter, r *http.Request) {
+	var request ConnectRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		respond(w, r, http.StatusBadRequest, Failure{Reason: ReasonRefused, Message: "that connect request is malformed"})
+
+		return
+	}
+
+	connected, err := s.enrolments.Connect(r.Context(), service.ConnectInput{
+		Token: request.Token,
+		Name:  request.Name,
+		Store: entity.Store(request.Store),
+		Force: request.Force,
 	})
+	if err != nil {
+		s.refuse(w, r, err)
+
+		return
+	}
+
+	respond(w, r, http.StatusOK, Connected{
+		Agent:         connected.Identity.Agent(),
+		Machine:       connected.Identity.RunnerName,
+		RunnerID:      connected.Identity.RunnerID.String(),
+		Server:        connected.Identity.Server,
+		Store:         string(connected.Identity.Store),
+		Session:       string(connected.Session.State),
+		SessionDetail: connected.Session.Detail,
+		Expires:       expiry(connected.Session.ExpiresAt),
+	})
+}
+
+func (s *Server) disconnect(w http.ResponseWriter, r *http.Request) {
+	identity, err := s.enrolments.Disconnect(r.Context())
+	if err != nil {
+		s.refuse(w, r, err)
+
+		return
+	}
+
+	respond(w, r, http.StatusOK, Disconnected{
+		Agent:    identity.Agent(),
+		Machine:  identity.RunnerName,
+		RunnerID: identity.RunnerID.String(),
+		Server:   identity.Server,
+	})
+}
+
+func (s *Server) refuse(w http.ResponseWriter, r *http.Request, err error) {
+	status, reason, message := adviceFor(err)
+
+	logging.From(r.Context()).WarnContext(
+		r.Context(),
+		"the runner refused a control request",
+		slog.String("path", r.URL.Path),
+		slog.String("error", err.Error()),
+	)
+
+	respond(w, r, status, Failure{Reason: reason, Message: message})
+}
+
+func expiry(at time.Time) *time.Time {
+	if at.IsZero() {
+		return nil
+	}
+
+	return &at
 }
 
 func recovering(next http.Handler) http.Handler {
@@ -74,6 +179,7 @@ func recovering(next http.Handler) http.Handler {
 				)
 
 				respond(w, r, http.StatusInternalServerError, Failure{
+					Reason:  ReasonRefused,
 					Message: "the runner could not answer that",
 				})
 			}
