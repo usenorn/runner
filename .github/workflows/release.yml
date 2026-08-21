@@ -1,8 +1,8 @@
 name: release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
@@ -11,12 +11,12 @@ on:
         type: string
 
 concurrency:
-  group: release-${{ github.event.release.tag_name || inputs.version }}
+  group: release-${{ inputs.version || github.ref_name }}
   cancel-in-progress: false
 
 env:
   MODULE: github.com/usenorn/runner
-  VERSION: ${{ github.event.release.tag_name || inputs.version }}
+  VERSION: ${{ inputs.version || github.ref_name }}
 
 jobs:
   version:
@@ -25,6 +25,7 @@ jobs:
     outputs:
       number: ${{ steps.resolve.outputs.number }}
       publish: ${{ steps.resolve.outputs.publish }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
     steps:
       - id: resolve
         env:
@@ -35,11 +36,19 @@ jobs:
             echo "a release tag must be vMAJOR.MINOR.PATCH with an optional prerelease suffix; got '$VERSION'" >&2
             exit 1
           fi
+
           echo "number=${VERSION#v}" >> "$GITHUB_OUTPUT"
-          if [ "$EVENT" = "release" ]; then
+
+          if [ "$EVENT" = "push" ]; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
             echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
   checks:
@@ -275,11 +284,21 @@ jobs:
         if: needs.version.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$VERSION" dist/*.tar.gz dist/checksums.txt --clobber --repo "$GITHUB_REPOSITORY"
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          flags=(--draft --title "$VERSION" --notes "" --target "$GITHUB_SHA")
+          if [ "$PRERELEASE" = "true" ]; then
+            flags+=(--prerelease)
+          fi
+
+          gh release create "$VERSION" "${flags[@]}" dist/*.tar.gz dist/checksums.txt
+          gh release edit "$VERSION" --draft=false
 
   tap:
     needs: [version, package]
-    if: needs.version.outputs.publish == 'true' && github.event.release.prerelease == false
+    if: needs.version.outputs.publish == 'true' && needs.version.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
