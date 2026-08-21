@@ -293,8 +293,9 @@ jobs:
             flags+=(--prerelease)
           fi
 
-          gh release create "$VERSION" "${flags[@]}" dist/*.tar.gz dist/checksums.txt
-          gh release edit "$VERSION" --draft=false
+          gh release create "$VERSION" "${flags[@]}" --repo "$GITHUB_REPOSITORY" \
+            dist/*.tar.gz dist/checksums.txt
+          gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false
 
   tap:
     needs: [version, package]
