@@ -10,6 +10,7 @@ PREFIX=${NORN_RUNNER_PREFIX:-}
 TOKEN=${NORN_TOKEN:-}
 COMMAND=install
 SERVICE=yes
+WORK=
 
 say() { printf '  %s\n' "$*"; }
 step() { printf '  %-28s' "$*"; }
@@ -38,6 +39,14 @@ USAGE
 }
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+cleanup() {
+	if [ -n "$WORK" ]; then
+		rm -rf "$WORK"
+	fi
+}
+
+trap cleanup EXIT
 
 while [ $# -gt 0 ]; do
 	case $1 in
@@ -118,7 +127,7 @@ install_dir() {
 		return
 	fi
 
-	if [ -w /usr/local/bin ] || have sudo; then
+	if [ -w /usr/local/bin ]; then
 		printf '/usr/local/bin'
 		return
 	fi
@@ -126,20 +135,27 @@ install_dir() {
 	printf '%s/.local/bin' "$HOME"
 }
 
+# Renamed into place rather than written over: an upgrade must not rewrite the bytes under a
+# daemon that is still running them, which on macOS invalidates its signature and kills it.
 place() {
-	local from=$1 to=$2
+	local from=$1 to=$2 dir
+	dir=$(dirname "$to")
 
-	mkdir -p "$(dirname "$to")" 2>/dev/null || true
+	mkdir -p "$dir" 2>/dev/null || true
 
-	if [ -w "$(dirname "$to")" ]; then
-		install -m 0755 "$from" "$to"
+	if [ -w "$dir" ]; then
+		cp "$from" "$to.incoming"
+		chmod 0755 "$to.incoming"
+		mv -f "$to.incoming" "$to"
 		return
 	fi
 
-	have sudo || die "$(dirname "$to") is not writable and sudo is not available"
+	have sudo || die "$dir is not writable and sudo is not available"
 
-	sudo mkdir -p "$(dirname "$to")"
-	sudo install -m 0755 "$from" "$to"
+	sudo mkdir -p "$dir"
+	sudo cp "$from" "$to.incoming"
+	sudo chmod 0755 "$to.incoming"
+	sudo mv -f "$to.incoming" "$to"
 }
 
 remove() {
@@ -188,37 +204,37 @@ do_install() {
 	local number=${VERSION#v}
 	local archive="norn-runner_${number}_${target}.tar.gz"
 	local download="$RELEASES_URL/download/$VERSION"
-	local work
-	work=$(mktemp -d)
-	trap 'rm -rf "$work"' EXIT
+	WORK=$(mktemp -d)
 
 	step "downloading $VERSION"
-	curl -fsSL -o "$work/$archive" "$download/$archive" ||
+	curl -fsSL -o "$WORK/$archive" "$download/$archive" ||
 		die "could not download $archive from $download"
-	curl -fsSL -o "$work/checksums.txt" "$download/checksums.txt" ||
+	curl -fsSL -o "$WORK/checksums.txt" "$download/checksums.txt" ||
 		die "could not download the checksums from $download"
 	done_
 
 	step "verifying the download"
 	local expected actual
-	expected=$(awk -v file="$archive" '$2 == file { print $1 }' "$work/checksums.txt")
+	expected=$(awk -v file="$archive" '$2 == file { print $1 }' "$WORK/checksums.txt")
 	[ -n "$expected" ] || die "checksums.txt has no entry for $archive"
 
-	actual=$(sha256_of "$work/$archive")
+	actual=$(sha256_of "$WORK/$archive")
 	[ "$expected" = "$actual" ] ||
 		die "$archive does not match its published checksum, so it was not downloaded intact"
 	done_
 
-	tar -xzf "$work/$archive" -C "$work"
-	[ -f "$work/$BINARY" ] || die "$archive does not contain a $BINARY binary"
+	tar -xzf "$WORK/$archive" -C "$WORK"
+	[ -f "$WORK/$BINARY" ] || die "$archive does not contain a $BINARY binary"
 
 	local dir binary
 	dir=$(install_dir)
 	binary="$dir/$BINARY"
 
-	step "installing into $dir"
-	place "$work/$BINARY" "$binary"
+	step "installing the binary"
+	place "$WORK/$BINARY" "$binary"
 	done_
+
+	say "installed at $binary"
 
 	case ":$PATH:" in
 	*":$dir:"*) ;;
@@ -272,9 +288,11 @@ do_uninstall() {
 	"$binary" runner uninstall >/dev/null 2>&1 || true
 	done_
 
-	step "removing $binary"
+	step "removing the binary"
 	remove "$binary"
 	done_
+
+	say "removed $binary"
 
 	say "the runner is gone from this machine. Norn still lists it; revoke it there to retire it"
 }
