@@ -5,6 +5,7 @@ import "errors"
 const (
 	ExitOK                = 0
 	ExitFailure           = 1
+	ExitNotEnrolled       = 2
 	ExitDrainForced       = 3
 	ExitDaemonUnavailable = 4
 )

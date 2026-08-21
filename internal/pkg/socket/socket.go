@@ -21,8 +21,34 @@ const (
 type Listener struct {
 	net.Listener
 
-	path string
-	lock *os.File
+	path  string
+	lock  *os.File
+	owner int
+}
+
+func (l *Listener) Accept() (net.Conn, error) {
+	for {
+		conn, err := l.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+
+		unixConn, ok := conn.(*net.UnixConn)
+		if !ok {
+			_ = conn.Close()
+
+			continue
+		}
+
+		peer, err := peerOwner(unixConn)
+		if err != nil || peer != l.owner {
+			_ = conn.Close()
+
+			continue
+		}
+
+		return conn, nil
+	}
 }
 
 func New(dir *statedir.Dir) (*Listener, func(), error) {
@@ -64,7 +90,7 @@ func New(dir *statedir.Dir) (*Listener, func(), error) {
 		return nil, nil, fmt.Errorf("restrict socket %s: %w", dir.Socket(), err)
 	}
 
-	listener := &Listener{Listener: inner, path: dir.Socket(), lock: lock}
+	listener := &Listener{Listener: inner, path: dir.Socket(), lock: lock, owner: os.Getuid()}
 
 	return listener, listener.close, nil
 }

@@ -63,6 +63,16 @@ func (s *Status) table(status control.Status) error {
 		{"enrolled", enrolled},
 	}
 
+	if status.Enrolled {
+		rows = append(rows,
+			[2]string{"agent", status.Agent},
+			[2]string{"machine", status.Machine},
+			[2]string{"store", status.Store},
+		)
+	}
+
+	rows = append(rows, [2]string{"session", s.session(status)})
+
 	writer := tabwriter.NewWriter(s.out, 0, 0, 3, ' ', 0)
 
 	for _, row := range rows {
@@ -72,4 +82,20 @@ func (s *Status) table(status control.Status) error {
 	}
 
 	return writer.Flush()
+}
+
+func (s *Status) session(status control.Status) string {
+	line := status.Session
+
+	if status.Expires != nil {
+		line += fmt.Sprintf(
+			", expires in %s", status.Expires.Sub(s.now().UTC()).Round(time.Second),
+		)
+	}
+
+	if status.SessionDetail != "" {
+		line += " — " + status.SessionDetail
+	}
+
+	return line
 }

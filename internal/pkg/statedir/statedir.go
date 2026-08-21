@@ -9,10 +9,12 @@ import (
 )
 
 const (
-	dirMode = 0o700
+	dirMode  = 0o700
+	fileMode = 0o600
 
 	configFile   = "runner.yaml"
 	identityFile = "identity.json"
+	secretsFile  = "credentials.enc"
 	socketFile   = "runner.sock"
 	lockFile     = "runner.lock"
 	logFile      = "runner.log"
@@ -59,6 +61,8 @@ func (d *Dir) Config() string { return filepath.Join(d.root, configFile) }
 
 func (d *Dir) Identity() string { return filepath.Join(d.root, identityFile) }
 
+func (d *Dir) Credentials() string { return filepath.Join(d.root, secretsFile) }
+
 func (d *Dir) Socket() string { return filepath.Join(d.root, socketFile) }
 
 func (d *Dir) Lock() string { return filepath.Join(d.root, lockFile) }
@@ -79,4 +83,41 @@ func (d *Dir) Enrolled() bool {
 	_, err := os.Stat(d.Identity())
 
 	return err == nil
+}
+
+func WriteSecret(path string, raw []byte) error {
+	temp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*")
+	if err != nil {
+		return fmt.Errorf("create a temporary file beside %s: %w", path, err)
+	}
+
+	defer func() { _ = os.Remove(temp.Name()) }()
+
+	if err := temp.Chmod(fileMode); err != nil {
+		_ = temp.Close()
+
+		return fmt.Errorf("restrict %s: %w", temp.Name(), err)
+	}
+
+	if _, err := temp.Write(raw); err != nil {
+		_ = temp.Close()
+
+		return fmt.Errorf("write %s: %w", temp.Name(), err)
+	}
+
+	if err := temp.Sync(); err != nil {
+		_ = temp.Close()
+
+		return fmt.Errorf("flush %s: %w", temp.Name(), err)
+	}
+
+	if err := temp.Close(); err != nil {
+		return fmt.Errorf("close %s: %w", temp.Name(), err)
+	}
+
+	if err := os.Rename(temp.Name(), path); err != nil {
+		return fmt.Errorf("move %s into place at %s: %w", temp.Name(), path, err)
+	}
+
+	return nil
 }
