@@ -135,8 +135,6 @@ install_dir() {
 	printf '%s/.local/bin' "$HOME"
 }
 
-# Renamed into place rather than written over: an upgrade must not rewrite the bytes under a
-# daemon that is still running them, which on macOS invalidates its signature and kills it.
 place() {
 	local from=$1 to=$2 dir
 	dir=$(dirname "$to")
