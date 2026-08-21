@@ -1,0 +1,17 @@
+[Unit]
+Description=Norn Runner
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart={{ .Binary }} runner start
+Restart=on-failure
+RestartSec=5
+StandardOutput=null
+StandardError=null
+{{- range $name, $value := .Environment }}
+Environment={{ $name }}={{ $value }}
+{{- end }}
+
+[Install]
+WantedBy=default.target
