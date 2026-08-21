@@ -20,6 +20,7 @@ type Daemon struct {
 	handler  http.Handler
 	listener *socket.Listener
 	sessions service.Sessions
+	updates  service.Updates
 	logger   *slog.Logger
 }
 
@@ -28,6 +29,7 @@ func NewDaemon(
 	handler http.Handler,
 	listener *socket.Listener,
 	sessions service.Sessions,
+	updates service.Updates,
 	logger *slog.Logger,
 ) *Daemon {
 	return &Daemon{
@@ -35,6 +37,7 @@ func NewDaemon(
 		handler:  handler,
 		listener: listener,
 		sessions: sessions,
+		updates:  updates,
 		logger:   logger,
 	}
 }
@@ -54,6 +57,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 		defer close(renewing)
 
 		d.sessions.Run(ctx)
+	}()
+
+	watching := make(chan struct{})
+
+	go func() {
+		defer close(watching)
+
+		d.updates.Run(ctx)
 	}()
 
 	serving := make(chan error, 1)
@@ -101,6 +112,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 
 	<-renewing
+	<-watching
 
 	logging.From(ctx).InfoContext(ctx, "runner stopped")
 

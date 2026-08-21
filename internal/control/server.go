@@ -22,6 +22,8 @@ type Server struct {
 	dir        *statedir.Dir
 	enrolments service.Enrolments
 	sessions   service.Sessions
+	updates    service.Updates
+	build      entity.Build
 	startedAt  time.Time
 	handler    http.Handler
 }
@@ -33,6 +35,8 @@ func NewServer(
 	dir *statedir.Dir,
 	enrolments service.Enrolments,
 	sessions service.Sessions,
+	updates service.Updates,
+	build entity.Build,
 ) *Server {
 	server := &Server{
 		runner:     runner,
@@ -41,11 +45,14 @@ func NewServer(
 		dir:        dir,
 		enrolments: enrolments,
 		sessions:   sessions,
+		updates:    updates,
+		build:      build,
 		startedAt:  time.Now().UTC(),
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+StatusPath, server.status)
+	mux.HandleFunc("GET "+VersionPath, server.version)
 	mux.HandleFunc("POST "+ConnectPath, server.connect)
 	mux.HandleFunc("POST "+DisconnectPath, server.disconnect)
 
@@ -70,12 +77,13 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 		Capacity:   s.runner.Capacity,
 		Runtime:    string(s.runner.Runtime),
 		Session:    string(entity.SessionUnenrolled),
+		Update:     updateOf(s.updates.Report()),
 	}
 
 	report := s.sessions.Report()
 	status.Session = string(report.State)
 	status.SessionDetail = report.Detail
-	status.Expires = expiry(report.ExpiresAt)
+	status.Expires = optionalTime(report.ExpiresAt)
 
 	identity, err := s.enrolments.Current(r.Context())
 	if err != nil {
@@ -95,6 +103,10 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	status.Store = string(identity.Store)
 
 	respond(w, r, http.StatusOK, status)
+}
+
+func (s *Server) version(w http.ResponseWriter, r *http.Request) {
+	respond(w, r, http.StatusOK, buildOf(s.build, s.updates.Report()))
 }
 
 func (s *Server) connect(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +138,7 @@ func (s *Server) connect(w http.ResponseWriter, r *http.Request) {
 		Store:         string(connected.Identity.Store),
 		Session:       string(connected.Session.State),
 		SessionDetail: connected.Session.Detail,
-		Expires:       expiry(connected.Session.ExpiresAt),
+		Expires:       optionalTime(connected.Session.ExpiresAt),
 	})
 }
 
@@ -159,7 +171,29 @@ func (s *Server) refuse(w http.ResponseWriter, r *http.Request, err error) {
 	respond(w, r, status, Failure{Reason: reason, Message: message})
 }
 
-func expiry(at time.Time) *time.Time {
+func buildOf(build entity.Build, update entity.Update) Build {
+	return Build{
+		Version:     build.Version,
+		Commit:      build.Commit,
+		Modified:    build.Modified,
+		CommittedAt: optionalTime(build.CommittedAt),
+		OS:          build.OS,
+		Arch:        build.Arch,
+		Go:          build.Go,
+		Update:      updateOf(update),
+	}
+}
+
+func updateOf(update entity.Update) Update {
+	return Update{
+		State:  string(update.State),
+		Latest: update.Latest,
+		URL:    update.URL,
+		Detail: update.Detail,
+	}
+}
+
+func optionalTime(at time.Time) *time.Time {
 	if at.IsZero() {
 		return nil
 	}

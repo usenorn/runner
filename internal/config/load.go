@@ -28,7 +28,13 @@ const (
 	highestPort            = 65535
 )
 
+const defaultUpdateFeed = "https://api.github.com/repos/usenorn/runner/releases/latest"
+
 var defaultVersion = "dev"
+
+func Version() string {
+	return defaultVersion
+}
 
 type Overrides struct {
 	Capacity *int
@@ -160,6 +166,11 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("session.refresh_lead", 2*time.Minute)
 	v.SetDefault("session.retry_min", 5*time.Second)
 	v.SetDefault("session.retry_max", 5*time.Minute)
+
+	v.SetDefault("update.check", true)
+	v.SetDefault("update.interval", 24*time.Hour)
+	v.SetDefault("update.timeout", 5*time.Second)
+	v.SetDefault("update.feed", defaultUpdateFeed)
 }
 
 var extendedDurationPattern = regexp.MustCompile(`^(\d+)([dw])$`)
@@ -338,7 +349,23 @@ func validate(cfg Config) error {
 		return err
 	}
 
-	return validateSession(cfg.Session)
+	if err := validateSession(cfg.Session); err != nil {
+		return err
+	}
+
+	return validateUpdate(cfg.Update)
+}
+
+func validateUpdate(update Update) error {
+	if update.Interval <= 0 || update.Timeout <= 0 {
+		return fmt.Errorf("update.interval and update.timeout must both be positive")
+	}
+
+	if strings.TrimSpace(update.Feed) == "" {
+		return fmt.Errorf("update.feed must name where releases are published")
+	}
+
+	return nil
 }
 
 func validatePortRange(ports [2]int) error {

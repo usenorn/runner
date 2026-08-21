@@ -45,6 +45,10 @@ func (c *Client) Status(ctx context.Context) (Status, error) {
 	return ask[Status](ctx, c, http.MethodGet, StatusPath, nil)
 }
 
+func (c *Client) Version(ctx context.Context) (Build, error) {
+	return ask[Build](ctx, c, http.MethodGet, VersionPath, nil)
+}
+
 func (c *Client) Connect(ctx context.Context, request ConnectRequest) (Connected, error) {
 	return ask[Connected](ctx, c, http.MethodPost, ConnectPath, request)
 }
@@ -105,7 +109,7 @@ func ask[T any](
 func (c *Client) unreachable(err error) error {
 	if errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, fs.ErrNotExist) {
 		return entity.Exit(entity.ExitDaemonUnavailable, fmt.Errorf(
-			"no runner is listening on %s; start one with 'norn runner start'", c.path,
+			"%w on %s; start one with 'norn runner start'", entity.ErrDaemonUnavailable, c.path,
 		))
 	}
 

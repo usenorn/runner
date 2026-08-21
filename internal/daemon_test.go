@@ -18,6 +18,7 @@ import (
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
+	updatesvc "github.com/usenorn/runner/internal/service/update"
 )
 
 func newDaemon(t *testing.T, shutdown time.Duration, handler http.Handler) (*internal.Daemon, *statedir.Dir) {
@@ -51,10 +52,15 @@ func newDaemon(t *testing.T, shutdown time.Duration, handler http.Handler) (*int
 
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
-	sessions := sessionsvc.NewMockSessions(gomock.NewController(t))
+	ctrl := gomock.NewController(t)
+
+	sessions := sessionsvc.NewMockSessions(ctrl)
 	sessions.EXPECT().Run(gomock.Any()).AnyTimes()
 
-	return internal.NewDaemon(cfg, handler, listener, sessions, logger), dir
+	updates := updatesvc.NewMockUpdates(ctrl)
+	updates.EXPECT().Run(gomock.Any()).AnyTimes()
+
+	return internal.NewDaemon(cfg, handler, listener, sessions, updates, logger), dir
 }
 
 func TestCancellingTheContextDrainsAndReturnsNothing(t *testing.T) {

@@ -1,0 +1,269 @@
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: A tag to build as a dry run, for example v0.0.0-dry. Nothing is published.
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.version }}
+  cancel-in-progress: false
+
+env:
+  MODULE: github.com/usenorn/runner
+  VERSION: ${{ github.event.release.tag_name || inputs.version }}
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      number: ${{ steps.resolve.outputs.number }}
+      publish: ${{ steps.resolve.outputs.publish }}
+    steps:
+      - id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "a release tag must be vMAJOR.MINOR.PATCH with an optional prerelease suffix; got '$VERSION'" >&2
+            exit 1
+          fi
+          echo "number=${VERSION#v}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = "release" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  checks:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/checks.yml
+
+  linux:
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        env:
+          NUMBER: ${{ needs.version.outputs.number }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath \
+              -ldflags "-s -w -X ${MODULE}/internal/config.defaultVersion=${VERSION}" \
+              -o "build/linux_${arch}/norn" .
+            tar -czf "dist/norn-runner_${NUMBER}_linux_${arch}.tar.gz" -C "build/linux_${arch}" norn
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  darwin:
+    needs: version
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Decide what this build can be trusted with
+        id: trust
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          PUBLISH: ${{ needs.version.outputs.publish }}
+        run: |
+          set -euo pipefail
+
+          sign=false
+          if [ -n "$APPLE_CERTIFICATE_P12" ]; then
+            sign=true
+          fi
+
+          notarise=false
+          if [ -n "$APPLE_API_KEY_P8" ]; then
+            notarise=true
+          fi
+
+          if [ "$PUBLISH" = "true" ] && [ "$sign" = false ]; then
+            echo "the macOS signing secrets are not set, so this release would ship a binary" >&2
+            echo "gatekeeper cannot verify. set them before publishing a release." >&2
+            exit 1
+          fi
+
+          echo "sign=$sign" >> "$GITHUB_OUTPUT"
+          echo "notarise=$notarise" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=darwin GOARCH="$arch" go build -trimpath \
+              -ldflags "-s -w -X ${MODULE}/internal/config.defaultVersion=${VERSION}" \
+              -o "build/darwin_${arch}/norn" .
+          done
+
+      - name: Import the signing certificate
+        if: steps.trust.outputs.sign == 'true'
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$RUNNER_TEMP/certificate.p12"' EXIT
+
+          keychain="$RUNNER_TEMP/norn-signing.keychain-db"
+          password=$(openssl rand -hex 32)
+
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 900 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+
+          printf '%s' "$APPLE_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+
+          identity=$(security find-identity -v -p codesigning "$keychain" |
+            awk '/Developer ID Application/ { print $2; exit }')
+          if [ -z "$identity" ]; then
+            echo "the imported certificate is not a Developer ID Application certificate" >&2
+            exit 1
+          fi
+          echo "SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      - name: Sign
+        if: steps.trust.outputs.sign == 'true'
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            codesign --force --timestamp --options runtime \
+              --sign "$SIGNING_IDENTITY" "build/darwin_${arch}/norn"
+            codesign --verify --strict --verbose=2 "build/darwin_${arch}/norn"
+          done
+
+      - name: Notarise
+        if: steps.trust.outputs.notarise == 'true'
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$RUNNER_TEMP/notary.p8"' EXIT
+
+          printf '%s' "$APPLE_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+
+          for arch in amd64 arm64; do
+            ditto -c -k "build/darwin_${arch}/norn" "$RUNNER_TEMP/norn_${arch}.zip"
+            xcrun notarytool submit "$RUNNER_TEMP/norn_${arch}.zip" \
+              --key "$RUNNER_TEMP/notary.p8" \
+              --key-id "$APPLE_API_KEY_ID" \
+              --issuer "$APPLE_API_ISSUER_ID" \
+              --wait --timeout 30m
+          done
+
+      - name: Check what a clean mac will make of it
+        if: steps.trust.outputs.notarise == 'true'
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            spctl --assess --type exec --verbose=4 "build/darwin_${arch}/norn"
+          done
+
+      - name: Remove the signing keychain
+        if: always() && steps.trust.outputs.sign == 'true'
+        run: |
+          security delete-keychain "$RUNNER_TEMP/norn-signing.keychain-db" || true
+
+      - name: Archive
+        env:
+          NUMBER: ${{ needs.version.outputs.number }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            tar --no-xattrs -czf "dist/norn-runner_${NUMBER}_darwin_${arch}.tar.gz" \
+              -C "build/darwin_${arch}" norn
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-darwin
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  package:
+    needs: [version, checks, linux, darwin]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: dist-*
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum norn-runner_*.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: checksums
+          path: dist/checksums.txt
+          if-no-files-found: error
+
+      - name: Publish
+        if: needs.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$VERSION" dist/*.tar.gz dist/checksums.txt --clobber --repo "$GITHUB_REPOSITORY"
+
+  tap:
+    needs: [version, package]
+    if: needs.version.outputs.publish == 'true' && github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Update the homebrew formula
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_DISPATCH_TOKEN }}
+        run: |
+          gh workflow run release.yml --repo usenorn/homebrew-norn --ref main \
+            --field version="$VERSION"

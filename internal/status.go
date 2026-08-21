@@ -71,7 +71,10 @@ func (s *Status) table(status control.Status) error {
 		)
 	}
 
-	rows = append(rows, [2]string{"session", s.session(status)})
+	rows = append(rows,
+		[2]string{"session", s.session(status)},
+		[2]string{"update", updateLine(status.Update)},
+	)
 
 	writer := tabwriter.NewWriter(s.out, 0, 0, 3, ' ', 0)
 

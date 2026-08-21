@@ -2,6 +2,8 @@ package entity
 
 import "errors"
 
+var ErrDaemonUnavailable = errors.New("no runner is listening")
+
 const (
 	ExitOK                = 0
 	ExitFailure           = 1
