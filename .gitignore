@@ -5,4 +5,5 @@
 *.test
 coverage.out
 *.prof
+/build/
 /dist/
