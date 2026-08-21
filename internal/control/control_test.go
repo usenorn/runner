@@ -97,3 +97,37 @@ func TestARunnerThatAcceptsButNeverAnswersIsGivenUpOn(t *testing.T) {
 		t.Fatalf("giving up took %s, longer than the request timeout allows", elapsed)
 	}
 }
+
+func TestTheDaemonSaysWhichBuildItIsRunningAndWhatItKnowsAboutReleases(t *testing.T) {
+	h := newHarness(t, nil)
+
+	build, err := h.client.Version(context.Background())
+	if err != nil {
+		t.Fatalf("version: %v", err)
+	}
+
+	if build.Version != h.build.Version {
+		t.Fatalf("the daemon reports build %q, want the one it was started from", build.Version)
+	}
+
+	if build.OS != h.build.OS || build.Arch != h.build.Arch {
+		t.Fatalf("the daemon reports %s/%s, want its own platform", build.OS, build.Arch)
+	}
+
+	if build.Update.State == "" {
+		t.Fatalf("the daemon says nothing about updates, so status has no row to show")
+	}
+}
+
+func TestStatusCarriesTheUpdateAnswerSoNobodyHasToAskTwice(t *testing.T) {
+	h := newHarness(t, nil)
+
+	status, err := h.client.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	if !entity.UpdateState(status.Update.State).Valid() {
+		t.Fatalf("status reported update state %q, which is not one this runner defines", status.Update.State)
+	}
+}

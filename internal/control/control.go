@@ -9,9 +9,28 @@ const (
 	ReasonRefused     = "refused"
 
 	StatusPath     = "/v1/status"
+	VersionPath    = "/v1/version"
 	ConnectPath    = "/v1/connect"
 	DisconnectPath = "/v1/disconnect"
 )
+
+type Update struct {
+	State  string `json:"state"`
+	Latest string `json:"latest,omitempty"`
+	URL    string `json:"url,omitempty"`
+	Detail string `json:"detail,omitempty"`
+}
+
+type Build struct {
+	Version     string     `json:"version"`
+	Commit      string     `json:"commit,omitempty"`
+	Modified    bool       `json:"modified,omitempty"`
+	CommittedAt *time.Time `json:"committedAt,omitempty"`
+	OS          string     `json:"os"`
+	Arch        string     `json:"arch"`
+	Go          string     `json:"go"`
+	Update      Update     `json:"update"`
+}
 
 type Status struct {
 	Version       string     `json:"version"`
@@ -31,6 +50,7 @@ type Status struct {
 	Session       string     `json:"session"`
 	SessionDetail string     `json:"sessionDetail,omitempty"`
 	Expires       *time.Time `json:"expires,omitempty"`
+	Update        Update     `json:"update"`
 }
 
 type ConnectRequest struct {

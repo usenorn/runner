@@ -17,13 +17,16 @@ import (
 	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
+	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
+	updatesvc "github.com/usenorn/runner/internal/service/update"
 )
 
 type harness struct {
 	dir         *statedir.Dir
 	client      *control.Client
+	build       entity.Build
 	dashboard   *dashboardrepo.MockDashboard
 	credentials *credentialrepo.MockCredential
 	identities  repository.Identity
@@ -35,6 +38,15 @@ func sessionSettings() config.Session {
 		RefreshLead:    time.Minute,
 		RetryMin:       time.Minute,
 		RetryMax:       time.Minute,
+	}
+}
+
+func updateSettings() config.Update {
+	return config.Update{
+		Check:    true,
+		Interval: time.Hour,
+		Timeout:  time.Second,
+		Feed:     "https://releases.example/latest",
 	}
 }
 
@@ -81,6 +93,12 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 	credentials := credentialrepo.NewMockCredential(ctrl)
 	identities := identityrepo.New(dir)
 
+	releases := releaserepo.NewMockRelease(ctrl)
+	releases.EXPECT().Latest(gomock.Any()).Return(entity.Release{Version: "v9.9.9"}, nil).AnyTimes()
+
+	build := entity.Build{Version: "v1.0.0", OS: "darwin", Arch: "arm64", Go: "go1.26.6"}
+	updates := updatesvc.New(releases, build, updateSettings())
+
 	sessions := sessionsvc.New(dashboard, identities, credentials, sessionSettings())
 	enrolments := enrolmentsvc.New(
 		dashboard,
@@ -98,6 +116,8 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			dir,
 			enrolments,
 			sessions,
+			updates,
+			build,
 		)
 	}
 
@@ -112,6 +132,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 
 	return &harness{
 		dir:         dir,
+		build:       build,
 		client:      control.NewClient(settings(), dir),
 		dashboard:   dashboard,
 		credentials: credentials,

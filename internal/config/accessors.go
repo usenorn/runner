@@ -11,3 +11,5 @@ func NewLog(cfg Config) Log { return cfg.Log }
 func NewControl(cfg Config) Control { return cfg.Control }
 
 func NewSession(cfg Config) Session { return cfg.Session }
+
+func NewUpdate(cfg Config) Update { return cfg.Update }

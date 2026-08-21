@@ -11,6 +11,7 @@ import (
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/observability/logging"
+	"github.com/usenorn/runner/internal/pkg/buildinfo"
 	"github.com/usenorn/runner/internal/pkg/dashboardclient"
 	"github.com/usenorn/runner/internal/pkg/hostfacts"
 	"github.com/usenorn/runner/internal/pkg/servicemanager"
@@ -19,8 +20,10 @@ import (
 	"github.com/usenorn/runner/internal/repository/credential"
 	"github.com/usenorn/runner/internal/repository/dashboard"
 	"github.com/usenorn/runner/internal/repository/identity"
+	"github.com/usenorn/runner/internal/repository/release"
 	"github.com/usenorn/runner/internal/service/enrolment"
 	"github.com/usenorn/runner/internal/service/session"
+	"github.com/usenorn/runner/internal/service/update"
 	"net/http"
 )
 
@@ -53,7 +56,11 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 		return nil, nil, err
 	}
 	enrolments := enrolment.New(repositoryDashboard, repositoryIdentity, repositoryCredential, sessions, host)
-	server := control.NewServer(runner, state, app, dir, enrolments, sessions)
+	configUpdate := config.NewUpdate(configConfig)
+	repositoryRelease := release.New(configUpdate, app)
+	build := buildinfo.New(app)
+	updates := update.New(repositoryRelease, build, configUpdate)
+	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, build)
 	listener, cleanup, err := socket.New(dir)
 	if err != nil {
 		return nil, nil, err
@@ -64,7 +71,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 		cleanup()
 		return nil, nil, err
 	}
-	daemon := NewDaemon(configControl, server, listener, sessions, logger)
+	daemon := NewDaemon(configControl, server, listener, sessions, updates, logger)
 	return daemon, func() {
 		cleanup2()
 		cleanup()
@@ -85,6 +92,28 @@ func InitStatus(cfgFile string, overrides config.Overrides) (*Status, func(), er
 	client := control.NewClient(configControl, dir)
 	status := NewStatus(client)
 	return status, func() {
+	}, nil
+}
+
+func InitVersion(cfgFile string, overrides config.Overrides) (*Version, func(), error) {
+	configConfig, err := config.New(cfgFile, overrides)
+	if err != nil {
+		return nil, nil, err
+	}
+	configControl := config.NewControl(configConfig)
+	state := config.NewState(configConfig)
+	dir, err := statedir.New(state)
+	if err != nil {
+		return nil, nil, err
+	}
+	client := control.NewClient(configControl, dir)
+	configUpdate := config.NewUpdate(configConfig)
+	app := config.NewApp(configConfig)
+	repositoryRelease := release.New(configUpdate, app)
+	build := buildinfo.New(app)
+	updates := update.New(repositoryRelease, build, configUpdate)
+	version := NewVersion(client, updates, build)
+	return version, func() {
 	}, nil
 }
 
@@ -123,8 +152,9 @@ func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, identity.Set, credential.Set, dashboard.Set, session.Set, enrolment.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, session.Set, enrolment.Set, update.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
+	NewVersion,
 	NewBinding,
 	NewInstaller,
 )

@@ -21,6 +21,7 @@ func newRunnerCommand() *cobra.Command {
 	runner.AddCommand(
 		newRunnerStartCommand(),
 		newRunnerStatusCommand(),
+		newRunnerVersionCommand(),
 		newRunnerConnectCommand(),
 		newRunnerDisconnectCommand(),
 		newRunnerInstallCommand(),
@@ -41,6 +42,19 @@ func withStatus(cmd *cobra.Command, run func(context.Context, *internal.Status) 
 	defer cleanup()
 
 	return run(ctx, status)
+}
+
+func withVersion(cmd *cobra.Command, run func(context.Context, *internal.Version) error) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	version, cleanup, err := internal.InitVersion(cfgFile, config.Overrides{})
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	return run(ctx, version)
 }
 
 func withInstaller(cmd *cobra.Command, run func(context.Context, *internal.Installer) error) error {

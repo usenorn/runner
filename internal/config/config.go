@@ -9,6 +9,7 @@ type Config struct {
 	Log     Log     `mapstructure:"log"`
 	Control Control `mapstructure:"control"`
 	Session Session `mapstructure:"session"`
+	Update  Update  `mapstructure:"update"`
 }
 
 type Runner struct {
@@ -57,6 +58,13 @@ type Session struct {
 	RefreshLead    time.Duration `mapstructure:"refresh_lead"`
 	RetryMin       time.Duration `mapstructure:"retry_min"`
 	RetryMax       time.Duration `mapstructure:"retry_max"`
+}
+
+type Update struct {
+	Check    bool          `mapstructure:"check"`
+	Interval time.Duration `mapstructure:"interval"`
+	Timeout  time.Duration `mapstructure:"timeout"`
+	Feed     string        `mapstructure:"feed"`
 }
 
 type Runtime string
