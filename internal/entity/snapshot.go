@@ -15,6 +15,7 @@ const (
 	RunMetadataDir   = "metadata"
 	SnapshotPatchDir = "local-changes"
 
+	RepositoryRoot  = "."
 	BranchNamespace = "norn"
 	IgnoreFileName  = ".nornignore"
 	SettingsDir     = ".norn"

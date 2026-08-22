@@ -295,6 +295,14 @@ func (s *snapshotsService) skipping(
 		held[repository.RelPath] = true
 	}
 
+	// A repository at the root of the folder is the whole of it, and the checkout has already put
+	// it in the workspace. The walk never offers the root itself to this, so nothing else would be
+	// skipped: every file that repository holds would be copied over the checkout, and its .git —
+	// a file in a worktree, not a folder — would be copied over as a folder.
+	if held[entity.RepositoryRoot] {
+		return func(string, bool) bool { return true }
+	}
+
 	return func(relPath string, isDir bool) bool {
 		if held[relPath] {
 			return true

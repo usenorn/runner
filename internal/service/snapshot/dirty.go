@@ -159,13 +159,23 @@ func (s *snapshotsService) recordPatch(
 		return "", fmt.Errorf("create %s: %w", dir, err)
 	}
 
-	name := strings.ReplaceAll(held.RelPath, "/", "-") + ".patch"
+	name := patchName(held) + ".patch"
 
 	if err := os.WriteFile(filepath.Join(dir, name), patch, patchMode); err != nil {
 		return "", fmt.Errorf("write %s: %w", filepath.Join(dir, name), err)
 	}
 
 	return filepath.Join(entity.SnapshotPatchDir, name), nil
+}
+
+// patchName falls back to the repository's own name for a repository at the root of the folder,
+// because its relative path is "." and a patch called "..patch" is hidden from whoever looks.
+func patchName(held entity.SnapshotRepository) string {
+	if held.RelPath == entity.RepositoryRoot {
+		return held.Name
+	}
+
+	return strings.ReplaceAll(held.RelPath, "/", "-")
 }
 
 func withoutSecrets(paths []string, ignores entity.IgnoreSet) []string {
