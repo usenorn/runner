@@ -68,6 +68,20 @@ func (mr *MockExecutionsMockRecorder) Configure(configuration any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Configure", reflect.TypeOf((*MockExecutions)(nil).Configure), configuration)
 }
 
+// Driver mocks base method.
+func (m *MockExecutions) Driver(ctx context.Context) entity.DriverHealth {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Driver", ctx)
+	ret0, _ := ret[0].(entity.DriverHealth)
+	return ret0
+}
+
+// Driver indicates an expected call of Driver.
+func (mr *MockExecutionsMockRecorder) Driver(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Driver", reflect.TypeOf((*MockExecutions)(nil).Driver), ctx)
+}
+
 // Greeting mocks base method.
 func (m *MockExecutions) Greeting() channelv1.Hello {
 	m.ctrl.T.Helper()

@@ -107,7 +107,7 @@ func (s *executionsService) prepare(base context.Context, executionID string) {
 		return
 	}
 
-	err := s.fill(ctx, execution)
+	err := s.carry(ctx, execution)
 
 	s.mu.Lock()
 	delete(s.work, executionID)
@@ -122,13 +122,13 @@ func (s *executionsService) prepare(base context.Context, executionID string) {
 	switch {
 	case owed:
 		s.complain(settled, executionID, s.teardown(settled, executionID))
+	case base.Err() != nil:
+		// The machine is stopping, not the run. It stays written down as it was, and the reclaim
+		// on the way back in is what says it was interrupted; failing it here would settle a run
+		// against a lease norn may still hold.
 	case err != nil:
 		s.complain(settled, executionID, s.fail(settled, execution, err.Error()))
 		s.complain(settled, executionID, s.teardown(settled, executionID))
-	default:
-		s.complain(
-			settled, executionID, s.note(settled, executionID, channelv1.EventPhase, parkedNote),
-		)
 	}
 }
 
@@ -145,25 +145,43 @@ func (s *executionsService) complain(ctx context.Context, executionID string, er
 	)
 }
 
-func (s *executionsService) fill(ctx context.Context, execution entity.Execution) error {
+func (s *executionsService) carry(ctx context.Context, execution entity.Execution) error {
+	snapshot, setup, err := s.fill(ctx, execution)
+	if err != nil {
+		return err
+	}
+
+	return s.drive(ctx, execution, snapshot, setup)
+}
+
+func (s *executionsService) fill(
+	ctx context.Context,
+	execution entity.Execution,
+) (entity.Snapshot, entity.RunSetup, error) {
 	codebase, err := s.codebase(ctx)
 	if err != nil {
-		return failure{step: entity.StepCodebase, err: err}
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepCodebase, err: err}
 	}
 
 	if err := s.note(ctx, execution.ID, channelv1.EventPhase, fmt.Sprintf(
 		"this run works in %s", codebase.RootPath,
 	)); err != nil {
-		return err
+		return entity.Snapshot{}, entity.RunSetup{}, err
 	}
 
 	setup, err := s.setup(ctx, execution, codebase)
 	if err != nil {
-		return failure{step: entity.StepSetup, err: err}
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSetup, err: err}
 	}
 
 	if err := s.note(ctx, execution.ID, channelv1.EventPhase, told(setup)); err != nil {
-		return err
+		return entity.Snapshot{}, entity.RunSetup{}, err
+	}
+
+	health := s.drivers.Preflight(ctx, setup.Driver.Kind)
+
+	if err := health.Fault(); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}
 	}
 
 	snapshot, err := s.snapshots.Take(ctx, service.TakeRequest{
@@ -174,16 +192,20 @@ func (s *executionsService) fill(ctx context.Context, execution entity.Execution
 		Branches: s.reused(ctx, execution),
 	})
 	if err != nil {
-		return failure{step: entity.StepSnapshot, err: err}
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSnapshot, err: err}
 	}
 
 	for _, warning := range snapshot.Warnings {
 		if err := s.note(ctx, execution.ID, channelv1.EventNote, warning); err != nil {
-			return err
+			return entity.Snapshot{}, entity.RunSetup{}, err
 		}
 	}
 
-	return s.note(ctx, execution.ID, channelv1.EventPhase, ready(snapshot))
+	if err := s.note(ctx, execution.ID, channelv1.EventPhase, ready(snapshot)); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, err
+	}
+
+	return snapshot, setup, nil
 }
 
 func (s *executionsService) codebase(ctx context.Context) (entity.Codebase, error) {
@@ -215,7 +237,7 @@ func (s *executionsService) setup(
 	}
 
 	setup := entity.RunSetup{
-		Permissions: profileFor(),
+		Permissions: profileFor(s.driver.Profile),
 		Plan:        plan,
 		Driver:      driverFor(execution, codebase),
 		Services:    runtimeFor(execution, s.runner.Runtime),
@@ -237,10 +259,15 @@ func (s *executionsService) plan(ctx context.Context, root string) (entity.RunPl
 	return entity.RunPlan{Source: entity.PlanCodebase, Path: path}, nil
 }
 
-func profileFor() entity.RunPermissions {
+func profileFor(asked config.Profile) entity.RunPermissions {
+	profile := entity.PermissionProfile(asked)
+	if !profile.Valid() {
+		profile = entity.ProfileStandard
+	}
+
 	return entity.RunPermissions{
-		Profile: entity.ProfileStandard,
-		Chosen:  "the delegation named no profile, so this machine took its default",
+		Profile: profile,
+		Chosen:  "the delegation named no profile, so this machine took its own default",
 	}
 }
 

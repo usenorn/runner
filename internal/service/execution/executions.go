@@ -19,10 +19,6 @@ import (
 	"github.com/usenorn/runner/internal/service"
 )
 
-const parkedNote = "the workspace for this run is ready. Running a coding agent in it is not " +
-	"built into this release, so the run waits here until it is cancelled. Services can be " +
-	"started in it with 'norn service start', scoped to this run with NORN_EXEC_ID"
-
 const interruptedNote = "this machine restarted while the run was under way, so the work it had " +
 	"started was left unfinished"
 
@@ -36,10 +32,13 @@ type executionsService struct {
 	inventories repository.Inventory
 	snapshots   service.Snapshots
 	services    service.Services
+	uploads     service.Uploads
+	drivers     repository.Driver
 	dir         *statedir.Dir
 	runner      config.Runner
 	app         config.App
 	scheduler   config.Scheduler
+	driver      config.Driver
 	now         func() time.Time
 
 	preparing chan string
@@ -60,10 +59,13 @@ func New(
 	inventories repository.Inventory,
 	snapshots service.Snapshots,
 	services service.Services,
+	uploads service.Uploads,
+	drivers repository.Driver,
 	dir *statedir.Dir,
 	runner config.Runner,
 	app config.App,
 	scheduler config.Scheduler,
+	driver config.Driver,
 ) service.Executions {
 	return &executionsService{
 		runs:        runs,
@@ -73,10 +75,13 @@ func New(
 		inventories: inventories,
 		snapshots:   snapshots,
 		services:    services,
+		uploads:     uploads,
+		drivers:     drivers,
 		dir:         dir,
 		runner:      runner,
 		app:         app,
 		scheduler:   scheduler,
+		driver:      driver,
 		now:         func() time.Time { return time.Now().UTC() },
 		preparing:   make(chan string, waitingToPrepare),
 		held:        map[string]entity.Execution{},

@@ -1,6 +1,7 @@
 package control_test
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"testing"
@@ -209,10 +210,18 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			snapshotSettings(),
 		),
 		services,
+		uploadStub{},
+		driverStub{},
 		dir,
 		config.Runner{Capacity: 2},
 		config.App{Version: "test"},
 		config.Scheduler{},
+		config.Driver{
+			Profile:        config.ProfileStandard,
+			ProbeTimeout:   time.Second,
+			SessionTimeout: time.Minute,
+			StopGrace:      time.Second,
+		},
 	)
 
 	channels := channelsvc.New(
@@ -263,4 +272,49 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		credentials: credentials,
 		identities:  identities,
 	}
+}
+
+type uploadStub struct{}
+
+func (uploadStub) Run(context.Context) {}
+
+func (uploadStub) Open(context.Context, string) (entity.TelemetryMode, error) {
+	return entity.TelemetryFull, nil
+}
+
+func (uploadStub) Event(context.Context, string, entity.DriverEvent) {}
+
+func (uploadStub) Line(context.Context, string, entity.LogLine) {}
+
+func (uploadStub) Flush(context.Context, string) error { return nil }
+
+func (uploadStub) Close(context.Context, string) {}
+
+type driverStub struct{}
+
+func (driverStub) Preflight(context.Context, entity.DriverKind) entity.DriverHealth {
+	return entity.DriverHealth{
+		Kind:      entity.DriverClaude,
+		Installed: true,
+		Version:   "2.1.239",
+		SignedIn:  true,
+		Account:   "runner@example",
+	}
+}
+
+func (driverStub) Start(
+	context.Context,
+	entity.ExecEnv,
+	entity.Task,
+) (repository.Session, error) {
+	return nil, entity.ErrDriverMissing
+}
+
+func (driverStub) Resume(
+	context.Context,
+	entity.ExecEnv,
+	entity.DriverSession,
+	string,
+) (repository.Session, error) {
+	return nil, entity.ErrDriverMissing
 }

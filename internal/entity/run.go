@@ -27,6 +27,7 @@ const (
 	StepSetup    PrepareStep = "work out how this run should be set up"
 	StepSnapshot PrepareStep = "copy that folder into a workspace of its own"
 	StepRecord   PrepareStep = "write down what it prepared"
+	StepDriver   PrepareStep = "start the coding agent"
 )
 
 func Failure(step PrepareStep, err error) string {
@@ -87,6 +88,16 @@ type RunDriver struct {
 	Installed bool
 	Model     string
 	Chosen    string
+	Resumes   int
+	Sessions  []DriverSession
+}
+
+func (d RunDriver) Latest() (DriverSession, bool) {
+	if len(d.Sessions) == 0 {
+		return DriverSession{}, false
+	}
+
+	return d.Sessions[len(d.Sessions)-1], true
 }
 
 type RunServices struct {

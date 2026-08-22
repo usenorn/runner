@@ -117,3 +117,18 @@ func (mr *MockDashboardMockRecorder) ListCodebases(ctx, token any) *gomock.Call 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCodebases", reflect.TypeOf((*MockDashboard)(nil).ListCodebases), ctx, token)
 }
+
+// Telemetry mocks base method.
+func (m *MockDashboard) Telemetry(ctx context.Context, token string) (entity.TelemetryMode, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Telemetry", ctx, token)
+	ret0, _ := ret[0].(entity.TelemetryMode)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Telemetry indicates an expected call of Telemetry.
+func (mr *MockDashboardMockRecorder) Telemetry(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Telemetry", reflect.TypeOf((*MockDashboard)(nil).Telemetry), ctx, token)
+}

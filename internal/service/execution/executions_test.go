@@ -754,7 +754,7 @@ func TestAStartForSomethingTheMachineNeverAcceptedIsFailedNotInvented(t *testing
 	}
 }
 
-func TestOnceTheWorkspaceIsReadyTheRunWaitsAndSaysWhatItIsWaitingFor(t *testing.T) {
+func TestOnceTheCodingAgentHasFinishedTheRunWaitsAndSaysWhatItIsWaitingFor(t *testing.T) {
 	h := newHarness(t, 2, 0)
 	ctx := context.Background()
 
@@ -773,7 +773,7 @@ func TestOnceTheWorkspaceIsReadyTheRunWaitsAndSaysWhatItIsWaitingFor(t *testing.
 
 	report := h.service.Report(ctx)
 
-	if len(report.Executions) != 1 || report.Executions[0].State != channelv1.StatePreparing {
+	if len(report.Executions) != 1 || report.Executions[0].State != channelv1.StateFinalizing {
 		t.Fatalf("a run with nothing left to do reads %+v", report.Executions)
 	}
 }

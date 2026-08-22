@@ -25,6 +25,7 @@ type Daemon struct {
 	channels  service.Channels
 	runs      service.Executions
 	services  service.Services
+	uploads   service.Uploads
 	logger    *slog.Logger
 }
 
@@ -38,6 +39,7 @@ func NewDaemon(
 	channels service.Channels,
 	runs service.Executions,
 	services service.Services,
+	uploads service.Uploads,
 	logger *slog.Logger,
 ) *Daemon {
 	return &Daemon{
@@ -50,6 +52,7 @@ func NewDaemon(
 		channels:  channels,
 		runs:      runs,
 		services:  services,
+		uploads:   uploads,
 		logger:    logger,
 	}
 }
@@ -111,6 +114,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.services.Run(ctx)
 	}()
 
+	sending := make(chan struct{})
+
+	go func() {
+		defer close(sending)
+
+		d.uploads.Run(ctx)
+	}()
+
 	serving := make(chan error, 1)
 
 	go func() {
@@ -161,6 +172,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	<-connecting
 	<-preparing
 	<-supervising
+	<-sending
 
 	logging.From(ctx).InfoContext(ctx, "runner stopped")
 

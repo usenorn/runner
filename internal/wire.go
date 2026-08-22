@@ -21,6 +21,7 @@ import (
 	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
 	diskrepo "github.com/usenorn/runner/internal/repository/disk"
+	driverrepo "github.com/usenorn/runner/internal/repository/driver"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
@@ -32,6 +33,7 @@ import (
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
+	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
 	channelsvc "github.com/usenorn/runner/internal/service/channel"
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
@@ -41,6 +43,7 @@ import (
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
+	uploadsvc "github.com/usenorn/runner/internal/service/upload"
 )
 
 var baseSet = wire.NewSet(
@@ -71,6 +74,8 @@ var baseSet = wire.NewSet(
 	processrepo.Set,
 	portrepo.Set,
 	servicelogrepo.Set,
+	driverrepo.Set,
+	uploadrepo.Set,
 
 	sessionsvc.Set,
 	enrolmentsvc.Set,
@@ -78,6 +83,7 @@ var baseSet = wire.NewSet(
 	codebasesvc.Set,
 	snapshotsvc.Set,
 	supervisorsvc.Set,
+	uploadsvc.Set,
 	executionsvc.Set,
 	channelsvc.Set,
 

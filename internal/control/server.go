@@ -112,6 +112,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	status.Codebases = s.heldCodebases(r)
 	status.Channel = channelOf(s.channels.Report(r.Context()))
 	status.Scheduler = schedulerOf(s.executions.Report(r.Context()))
+	status.Driver = driverOf(s.executions.Driver(r.Context()))
 
 	identity, err := s.enrolments.Current(r.Context())
 	if err != nil {
@@ -153,6 +154,17 @@ func channelOf(report entity.ChannelReport) Channel {
 		ConnectedAt: optionalTime(report.ConnectedAt),
 		LastHeard:   optionalTime(report.LastHeard),
 		Waiting:     report.Waiting,
+	}
+}
+
+func driverOf(health entity.DriverHealth) Driver {
+	return Driver{
+		Kind:      string(health.Kind),
+		Installed: health.Installed,
+		Version:   health.Version,
+		SignedIn:  health.SignedIn,
+		Account:   health.Account,
+		Problem:   health.Problem,
 	}
 }
 

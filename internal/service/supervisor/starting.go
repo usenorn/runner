@@ -273,7 +273,7 @@ func environment(
 ) []string {
 	values := slices.Clone(os.Environ())
 
-	values = append(values, "NORN_EXEC_ID="+execution.ID)
+	values = append(values, entity.ExecutionVariable+"="+execution.ID)
 
 	for name, port := range ports {
 		values = append(values, fmt.Sprintf("%s=%d", entity.PortVariable(name), port))

@@ -204,3 +204,23 @@ func code(body []byte) string {
 
 	return problem.Code
 }
+
+func (r *httpDashboard) Telemetry(
+	ctx context.Context,
+	token string,
+) (entity.TelemetryMode, error) {
+	response, err := r.client.GetCurrentRunnerWithResponse(ctx, bearer(token))
+	if err != nil {
+		return "", r.unreachable(err)
+	}
+
+	if response.JSON200 == nil {
+		return "", r.refusal(response.HTTPResponse, response.Body)
+	}
+
+	if response.JSON200.Telemetry == nil {
+		return entity.TelemetryFull, nil
+	}
+
+	return entity.TelemetryMode(*response.JSON200.Telemetry), nil
+}

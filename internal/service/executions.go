@@ -22,6 +22,7 @@ type Executions interface {
 	Greeting() channelv1.Hello
 	Pulse(ctx context.Context) channelv1.Pulse
 	Report(ctx context.Context) entity.SchedulerReport
+	Driver(ctx context.Context) entity.DriverHealth
 	List(ctx context.Context) ([]entity.Execution, error)
 	Timeline(ctx context.Context, executionID string) ([]entity.TimelineEntry, error)
 }

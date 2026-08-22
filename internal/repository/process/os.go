@@ -191,6 +191,10 @@ func dress(command *exec.Cmd, launch repository.Launch) {
 	command.Env = launch.Environment
 	command.Stdout = launch.Output
 	command.Stderr = launch.Output
+
+	if launch.Errors != nil {
+		command.Stderr = launch.Errors
+	}
 }
 
 type osChild struct {

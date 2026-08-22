@@ -44,4 +44,5 @@ type Dashboard interface {
 	) (ConnectedCodebase, error)
 	ConfirmCodebase(ctx context.Context, token string, id uuid.UUID) (ConnectedCodebase, error)
 	ListCodebases(ctx context.Context, token string) ([]ConnectedCodebase, error)
+	Telemetry(ctx context.Context, token string) (entity.TelemetryMode, error)
 }

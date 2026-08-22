@@ -21,6 +21,8 @@ type Run interface {
 	LoadTasks(ctx context.Context) ([]entity.Execution, error)
 	SaveSetup(ctx context.Context, name string, setup entity.RunSetup) error
 	LoadSetup(ctx context.Context, name string) (entity.RunSetup, error)
+	SaveDriver(ctx context.Context, name string, driver entity.RunDriver) error
+	LoadDriver(ctx context.Context, name string) (entity.RunDriver, error)
 	SaveServices(ctx context.Context, name string, services entity.RunServices) error
 	LoadServices(ctx context.Context, name string) (entity.RunServices, error)
 	Append(ctx context.Context, name string, entry entity.TimelineEntry) error

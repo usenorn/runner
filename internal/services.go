@@ -15,10 +15,9 @@ import (
 	"github.com/usenorn/runner/internal/entity"
 )
 
-const ExecutionVariable = "NORN_EXEC_ID"
-
 var errNoExecution = errors.New(
-	"this command runs inside one execution and nothing says which; set " + ExecutionVariable +
+	"this command runs inside one execution and nothing says which; set " +
+		entity.ExecutionVariable +
 		" or pass --exec, and 'norn runner executions' lists what this machine is holding",
 )
 
@@ -185,7 +184,7 @@ func (s *Services) run(executionID string) (string, error) {
 		return executionID, nil
 	}
 
-	if held := s.look(ExecutionVariable); held != "" {
+	if held := s.look(entity.ExecutionVariable); held != "" {
 		return held, nil
 	}
 

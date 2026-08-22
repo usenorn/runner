@@ -42,6 +42,12 @@ func (runStub) LoadSetup(context.Context, string) (entity.RunSetup, error) {
 	return entity.RunSetup{}, nil
 }
 
+func (runStub) SaveDriver(context.Context, string, entity.RunDriver) error { return nil }
+
+func (runStub) LoadDriver(context.Context, string) (entity.RunDriver, error) {
+	return entity.RunDriver{}, nil
+}
+
 func (runStub) SaveServices(context.Context, string, entity.RunServices) error { return nil }
 
 func (runStub) LoadServices(context.Context, string) (entity.RunServices, error) {
@@ -130,3 +136,42 @@ func (servicesStub) Step(context.Context, string, entity.Step) (entity.StepResul
 }
 
 func (servicesStub) Release(context.Context, string) error { return nil }
+
+type uploadStub struct{}
+
+func (uploadStub) Run(context.Context) {}
+
+func (uploadStub) Open(context.Context, string) (entity.TelemetryMode, error) {
+	return entity.TelemetryFull, nil
+}
+
+func (uploadStub) Event(context.Context, string, entity.DriverEvent) {}
+
+func (uploadStub) Line(context.Context, string, entity.LogLine) {}
+
+func (uploadStub) Flush(context.Context, string) error { return nil }
+
+func (uploadStub) Close(context.Context, string) {}
+
+type driverStub struct{}
+
+func (driverStub) Preflight(context.Context, entity.DriverKind) entity.DriverHealth {
+	return entity.DriverHealth{Kind: entity.DriverClaude, Installed: true, SignedIn: true}
+}
+
+func (driverStub) Start(
+	context.Context,
+	entity.ExecEnv,
+	entity.Task,
+) (repository.Session, error) {
+	return nil, entity.ErrDriverMissing
+}
+
+func (driverStub) Resume(
+	context.Context,
+	entity.ExecEnv,
+	entity.DriverSession,
+	string,
+) (repository.Session, error) {
+	return nil, entity.ErrDriverMissing
+}
