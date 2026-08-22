@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/usenorn/runner/internal/pkg/proc"
 )
 
 const Binary = "git"
@@ -31,7 +33,7 @@ func Command(ctx context.Context, dir string, args ...string) *exec.Cmd {
 	command := exec.CommandContext(ctx, Binary, args...)
 	command.Env = append(command.Environ(), environment...)
 
-	contain(command)
+	proc.Stoppable(command)
 
 	return command
 }

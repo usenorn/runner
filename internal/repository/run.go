@@ -17,9 +17,12 @@ type Run interface {
 	Remove(ctx context.Context, name string) error
 	Prune(ctx context.Context, name string) error
 	SaveTask(ctx context.Context, execution entity.Execution) error
+	LoadTask(ctx context.Context, name string) (entity.Execution, error)
 	LoadTasks(ctx context.Context) ([]entity.Execution, error)
 	SaveSetup(ctx context.Context, name string, setup entity.RunSetup) error
 	LoadSetup(ctx context.Context, name string) (entity.RunSetup, error)
+	SaveServices(ctx context.Context, name string, services entity.RunServices) error
+	LoadServices(ctx context.Context, name string) (entity.RunServices, error)
 	Append(ctx context.Context, name string, entry entity.TimelineEntry) error
 	Timeline(ctx context.Context, name string) ([]entity.TimelineEntry, error)
 }

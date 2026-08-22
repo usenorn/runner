@@ -256,6 +256,19 @@ func (r *fileRun) LoadTasks(_ context.Context) ([]entity.Execution, error) {
 	return executions, nil
 }
 
+func (r *fileRun) LoadTask(_ context.Context, name string) (entity.Execution, error) {
+	execution, err := r.readTask(name)
+	if err != nil {
+		return entity.Execution{}, err
+	}
+
+	if execution.ID == "" {
+		return entity.Execution{}, fmt.Errorf("%w: %s", entity.ErrExecutionUnknown, name)
+	}
+
+	return execution, nil
+}
+
 func (r *fileRun) readTask(name string) (entity.Execution, error) {
 	path := filepath.Join(r.dir.Run(name), entity.RunMetadataDir, entity.ExecutionTaskFile)
 
