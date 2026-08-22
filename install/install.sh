@@ -105,7 +105,7 @@ latest_version() {
 
 	case $resolved in
 	*/tag/*) printf '%s' "${resolved##*/tag/}" ;;
-	*) die "$RELEASES_URL/latest did not resolve to a release; has one been published?" ;;
+	*) die "$RELEASES_URL has no stable release yet. Prereleases are not installed by default; name one with --version" ;;
 	esac
 }
 
