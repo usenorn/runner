@@ -26,6 +26,7 @@ type Server struct {
 	codebases  service.Codebases
 	channels   service.Channels
 	executions service.Executions
+	services   service.Services
 	build      entity.Build
 	startedAt  time.Time
 	handler    http.Handler
@@ -42,6 +43,7 @@ func NewServer(
 	codebases service.Codebases,
 	channels service.Channels,
 	executions service.Executions,
+	services service.Services,
 	build entity.Build,
 ) *Server {
 	server := &Server{
@@ -55,6 +57,7 @@ func NewServer(
 		codebases:  codebases,
 		channels:   channels,
 		executions: executions,
+		services:   services,
 		build:      build,
 		startedAt:  time.Now().UTC(),
 	}
@@ -70,6 +73,12 @@ func NewServer(
 	mux.HandleFunc("POST "+ResumePath, server.resume)
 	mux.HandleFunc("GET "+ExecutionsPath, server.runs)
 	mux.HandleFunc("GET "+LogsPath, server.logs)
+	mux.HandleFunc("GET "+ServicesPath, server.runServices)
+	mux.HandleFunc("POST "+ServicesPath, server.startService)
+	mux.HandleFunc("DELETE "+ServicePath, server.stopService)
+	mux.HandleFunc("POST "+ServiceRestartPath, server.restartService)
+	mux.HandleFunc("GET "+ServiceLogsPath, server.serviceLogs)
+	mux.HandleFunc("POST "+StepsPath, server.step)
 
 	server.handler = recovering(mux)
 

@@ -47,6 +47,7 @@ const (
 
 	defaultMaxMessageBytes = 1 << 20
 	defaultMinFreeDisk     = 10 << 30
+	defaultRestartAttempts = 3
 	defaultSpoolMessages   = 10000
 	defaultSpoolBatch      = 32
 
@@ -215,6 +216,13 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("spool.batch", defaultSpoolBatch)
 
 	v.SetDefault("scheduler.min_free_disk", int64(defaultMinFreeDisk))
+
+	v.SetDefault("supervisor.health_interval", time.Second)
+	v.SetDefault("supervisor.health_timeout", time.Minute)
+	v.SetDefault("supervisor.stop_grace", 10*time.Second)
+	v.SetDefault("supervisor.restart_attempts", defaultRestartAttempts)
+	v.SetDefault("supervisor.restart_backoff", time.Second)
+	v.SetDefault("supervisor.step_timeout", 15*time.Minute)
 
 	v.SetDefault("update.check", true)
 	v.SetDefault("update.interval", 24*time.Hour)
@@ -422,6 +430,10 @@ func validate(cfg Config) error {
 		return err
 	}
 
+	if err := validateSupervisor(cfg.Supervisor); err != nil {
+		return err
+	}
+
 	return validateUpdate(cfg.Update)
 }
 
@@ -482,6 +494,40 @@ func validateScheduler(scheduler Scheduler) error {
 		return fmt.Errorf(
 			"scheduler.min_free_disk is %d and cannot be negative",
 			scheduler.MinFreeDisk,
+		)
+	}
+
+	return nil
+}
+
+func validateSupervisor(supervisor Supervisor) error {
+	if supervisor.HealthInterval <= 0 || supervisor.HealthTimeout < supervisor.HealthInterval {
+		return fmt.Errorf(
+			"supervisor.health_interval (%s) must be positive and supervisor.health_timeout (%s) "+
+				"must not be shorter; a service is given the whole timeout to answer",
+			supervisor.HealthInterval, supervisor.HealthTimeout,
+		)
+	}
+
+	if supervisor.StopGrace <= 0 {
+		return fmt.Errorf(
+			"supervisor.stop_grace (%s) must be positive; it is how long a service is given to "+
+				"stop on its own before it is killed",
+			supervisor.StopGrace,
+		)
+	}
+
+	if supervisor.RestartAttempts < 0 {
+		return fmt.Errorf(
+			"supervisor.restart_attempts is %d and cannot be negative",
+			supervisor.RestartAttempts,
+		)
+	}
+
+	if supervisor.RestartBackoff <= 0 || supervisor.StepTimeout <= 0 {
+		return fmt.Errorf(
+			"supervisor.restart_backoff (%s) and supervisor.step_timeout (%s) must both be positive",
+			supervisor.RestartBackoff, supervisor.StepTimeout,
 		)
 	}
 

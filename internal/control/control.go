@@ -18,6 +18,12 @@ const (
 	ResumePath     = "/v1/resume"
 	ExecutionsPath = "/v1/executions"
 	LogsPath       = "/v1/executions/{executionId}/logs"
+
+	ServicesPath       = "/v1/executions/{executionId}/services"
+	ServicePath        = "/v1/executions/{executionId}/services/{service}"
+	ServiceRestartPath = "/v1/executions/{executionId}/services/{service}/restart"
+	ServiceLogsPath    = "/v1/executions/{executionId}/services/{service}/logs"
+	StepsPath          = "/v1/executions/{executionId}/steps"
 )
 
 type Update struct {
@@ -91,6 +97,54 @@ type Execution struct {
 	AcceptedAt time.Time  `json:"acceptedAt"`
 	StartedAt  *time.Time `json:"startedAt,omitempty"`
 	Lease      *time.Time `json:"leaseExpiresAt,omitempty"`
+}
+
+type Health struct {
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Port    string `json:"port,omitempty"`
+	Pattern string `json:"pattern,omitempty"`
+}
+
+type ServiceRequest struct {
+	Name        string            `json:"name"`
+	Dir         string            `json:"dir,omitempty"`
+	Command     []string          `json:"command"`
+	Environment map[string]string `json:"environment,omitempty"`
+	Requires    []string          `json:"requires,omitempty"`
+	Health      Health            `json:"health"`
+}
+
+type Service struct {
+	Name      string     `json:"name"`
+	Command   []string   `json:"command"`
+	Dir       string     `json:"dir,omitempty"`
+	Port      int        `json:"port,omitempty"`
+	PID       int        `json:"pid,omitempty"`
+	State     string     `json:"state"`
+	Attempts  int        `json:"attempts,omitempty"`
+	Reason    string     `json:"reason,omitempty"`
+	StartedAt *time.Time `json:"startedAt,omitempty"`
+	ChangedAt *time.Time `json:"changedAt,omitempty"`
+}
+
+type StepRequest struct {
+	Name    string   `json:"name"`
+	Dir     string   `json:"dir,omitempty"`
+	Command []string `json:"command"`
+	Timeout string   `json:"timeout,omitempty"`
+}
+
+type StepResult struct {
+	Name     string `json:"name"`
+	ExitCode int    `json:"exitCode"`
+	Output   string `json:"output,omitempty"`
+	Took     string `json:"took"`
+	TimedOut bool   `json:"timedOut,omitempty"`
+}
+
+type ServiceLines struct {
+	Lines []string `json:"lines"`
 }
 
 type TimelineEntry struct {

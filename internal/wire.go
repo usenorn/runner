@@ -24,9 +24,12 @@ import (
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
+	portrepo "github.com/usenorn/runner/internal/repository/port"
+	processrepo "github.com/usenorn/runner/internal/repository/process"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
+	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
@@ -36,6 +39,7 @@ import (
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
+	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
 )
 
@@ -64,12 +68,16 @@ var baseSet = wire.NewSet(
 	spoolrepo.Set,
 	channelrepo.Set,
 	diskrepo.Set,
+	processrepo.Set,
+	portrepo.Set,
+	servicelogrepo.Set,
 
 	sessionsvc.Set,
 	enrolmentsvc.Set,
 	updatesvc.Set,
 	codebasesvc.Set,
 	snapshotsvc.Set,
+	supervisorsvc.Set,
 	executionsvc.Set,
 	channelsvc.Set,
 
@@ -84,6 +92,7 @@ var baseSet = wire.NewSet(
 	NewSnapshotting,
 	NewScheduling,
 	NewExecutions,
+	NewServices,
 	NewInstaller,
 )
 
@@ -130,6 +139,12 @@ func InitScheduling(cfgFile string, overrides config.Overrides) (*Scheduling, fu
 }
 
 func InitExecutions(cfgFile string, overrides config.Overrides) (*Executions, func(), error) {
+	wire.Build(baseSet)
+
+	return nil, nil, nil
+}
+
+func InitServices(cfgFile string, overrides config.Overrides) (*Services, func(), error) {
 	wire.Build(baseSet)
 
 	return nil, nil, nil

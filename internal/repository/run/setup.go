@@ -39,9 +39,24 @@ type storedDriver struct {
 }
 
 type storedServices struct {
-	Version int    `json:"version"`
-	Runtime string `json:"runtime"`
-	Chosen  string `json:"chosen"`
+	Version  int             `json:"version"`
+	Runtime  string          `json:"runtime"`
+	Chosen   string          `json:"chosen"`
+	Ports    map[string]int  `json:"ports,omitempty"`
+	Services []storedService `json:"services,omitempty"`
+}
+
+type storedService struct {
+	Name      string    `json:"name"`
+	Command   []string  `json:"command"`
+	Dir       string    `json:"dir,omitempty"`
+	Port      int       `json:"port,omitempty"`
+	PID       int       `json:"pid,omitempty"`
+	State     string    `json:"state"`
+	Attempts  int       `json:"attempts,omitempty"`
+	Reason    string    `json:"reason,omitempty"`
+	StartedAt time.Time `json:"startedAt,omitzero"`
+	ChangedAt time.Time `json:"changedAt,omitzero"`
 }
 
 type storedEntry struct {
@@ -77,11 +92,7 @@ func (r *fileRun) SaveSetup(_ context.Context, name string, setup entity.RunSetu
 			Model:     setup.Driver.Model,
 			Chosen:    setup.Driver.Chosen,
 		},
-		entity.RunServicesFile: storedServices{
-			Version: version,
-			Runtime: string(setup.Services.Runtime),
-			Chosen:  setup.Services.Chosen,
-		},
+		entity.RunServicesFile: servicesOf(setup.Services),
 	}
 
 	for file, body := range written {
@@ -135,11 +146,98 @@ func (r *fileRun) LoadSetup(_ context.Context, name string) (entity.RunSetup, er
 			Model:     driver.Model,
 			Chosen:    driver.Chosen,
 		},
-		Services: entity.RunServices{
-			Runtime: entity.Runtime(services.Runtime),
-			Chosen:  services.Chosen,
-		},
+		Services: runServicesOf(services),
 	}, nil
+}
+
+func servicesOf(services entity.RunServices) storedServices {
+	held := make([]storedService, 0, len(services.Services))
+
+	for _, service := range services.Services {
+		held = append(held, storedService{
+			Name:      service.Name,
+			Command:   service.Command,
+			Dir:       service.Dir,
+			Port:      service.Port,
+			PID:       service.PID,
+			State:     string(service.State),
+			Attempts:  service.Attempts,
+			Reason:    service.Reason,
+			StartedAt: service.StartedAt,
+			ChangedAt: service.ChangedAt,
+		})
+	}
+
+	return storedServices{
+		Version:  version,
+		Runtime:  string(services.Runtime),
+		Chosen:   services.Chosen,
+		Ports:    services.Ports,
+		Services: held,
+	}
+}
+
+func runServicesOf(stored storedServices) entity.RunServices {
+	held := make([]entity.ServiceRecord, 0, len(stored.Services))
+
+	for _, service := range stored.Services {
+		held = append(held, entity.ServiceRecord{
+			Name:      service.Name,
+			Command:   service.Command,
+			Dir:       service.Dir,
+			Port:      service.Port,
+			PID:       service.PID,
+			State:     entity.ServiceState(service.State),
+			Attempts:  service.Attempts,
+			Reason:    service.Reason,
+			StartedAt: service.StartedAt,
+			ChangedAt: service.ChangedAt,
+		})
+	}
+
+	return entity.RunServices{
+		Runtime:  entity.Runtime(stored.Runtime),
+		Chosen:   stored.Chosen,
+		Ports:    stored.Ports,
+		Services: held,
+	}
+}
+
+func (r *fileRun) SaveServices(
+	_ context.Context,
+	name string,
+	services entity.RunServices,
+) error {
+	dir := filepath.Join(r.dir.Run(name), entity.RunMetadataDir)
+
+	if err := os.MkdirAll(dir, dirMode); err != nil {
+		return fmt.Errorf("create %s: %w", dir, err)
+	}
+
+	raw, err := json.MarshalIndent(servicesOf(services), "", "  ")
+	if err != nil {
+		return fmt.Errorf("write %s for %s: %w", entity.RunServicesFile, name, err)
+	}
+
+	return statedir.WriteSecret(
+		filepath.Join(dir, entity.RunServicesFile), append(raw, '\n'),
+	)
+}
+
+func (r *fileRun) LoadServices(_ context.Context, name string) (entity.RunServices, error) {
+	path := filepath.Join(r.dir.Run(name), entity.RunMetadataDir, entity.RunServicesFile)
+
+	var held storedServices
+
+	if err := readInto(path, &held); err != nil {
+		if errors.Is(err, entity.ErrSnapshotMissing) {
+			return entity.RunServices{}, nil
+		}
+
+		return entity.RunServices{}, err
+	}
+
+	return runServicesOf(held), nil
 }
 
 func readInto(path string, into any) error {

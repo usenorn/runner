@@ -22,9 +22,12 @@ import (
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
+	portrepo "github.com/usenorn/runner/internal/repository/port"
+	processrepo "github.com/usenorn/runner/internal/repository/process"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
+	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
@@ -34,6 +37,7 @@ import (
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
+	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
 )
 
@@ -93,6 +97,17 @@ func snapshotSettings() config.Snapshot {
 		FetchTimeout:   time.Second,
 		GitTimeout:     time.Second,
 		MaxSharedBytes: 1 << 20,
+	}
+}
+
+func supervisorSettings() config.Supervisor {
+	return config.Supervisor{
+		HealthInterval:  20 * time.Millisecond,
+		HealthTimeout:   time.Second,
+		StopGrace:       time.Second,
+		RestartAttempts: 1,
+		RestartBackoff:  10 * time.Millisecond,
+		StepTimeout:     5 * time.Second,
 	}
 }
 
@@ -170,6 +185,15 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 	spool := spoolrepo.New(dir)
 	disks := diskrepo.New()
 
+	services := supervisorsvc.New(
+		processrepo.New(),
+		portrepo.New(config.Runner{PortRange: [2]int{45100, 45199}}),
+		servicelogrepo.New(dir),
+		runrepo.New(dir),
+		spool,
+		supervisorSettings(),
+	)
+
 	executions := executionsvc.New(
 		runrepo.New(dir),
 		spool,
@@ -184,6 +208,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			runrepo.New(dir),
 			snapshotSettings(),
 		),
+		services,
 		dir,
 		config.Runner{Capacity: 2},
 		config.App{Version: "test"},
@@ -216,6 +241,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			codebases,
 			channels,
 			executions,
+			services,
 			build,
 		)
 	}

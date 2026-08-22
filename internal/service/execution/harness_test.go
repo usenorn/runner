@@ -25,6 +25,7 @@ import (
 	"github.com/usenorn/runner/internal/service"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
+	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
 )
 
 const patience = 5 * time.Second
@@ -37,6 +38,7 @@ type harness struct {
 	settings    *settingsrepo.MockSettings
 	inventories *inventoryrepo.MockInventory
 	snapshots   *snapshotsvc.MockSnapshots
+	services    *supervisorsvc.MockServices
 	service     service.Executions
 
 	free      int64
@@ -81,6 +83,7 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		settings:    settingsrepo.NewMockSettings(controller),
 		inventories: inventoryrepo.NewMockInventory(controller),
 		snapshots:   snapshotsvc.NewMockSnapshots(controller),
+		services:    supervisorsvc.NewMockServices(controller),
 		free:        free,
 		connected:   []entity.Codebase{connected("/codebase")},
 	}
@@ -94,6 +97,7 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		h.settings,
 		h.inventories,
 		h.snapshots,
+		h.services,
 		dir,
 		config.Runner{Capacity: capacity},
 		config.App{Version: "1.4.0"},
@@ -140,6 +144,11 @@ func (h *harness) expect() {
 	h.snapshots.EXPECT().
 		Release(gomock.Any(), gomock.Any()).
 		DoAndReturn(h.release).
+		AnyTimes()
+
+	h.services.EXPECT().
+		Release(gomock.Any(), gomock.Any()).
+		Return(nil).
 		AnyTimes()
 }
 

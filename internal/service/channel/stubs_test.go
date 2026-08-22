@@ -30,12 +30,22 @@ func (runStub) Remove(context.Context, string) error { return nil }
 
 func (runStub) SaveTask(context.Context, entity.Execution) error { return nil }
 
+func (runStub) LoadTask(context.Context, string) (entity.Execution, error) {
+	return entity.Execution{}, entity.ErrExecutionUnknown
+}
+
 func (runStub) LoadTasks(context.Context) ([]entity.Execution, error) { return nil, nil }
 
 func (runStub) SaveSetup(context.Context, string, entity.RunSetup) error { return nil }
 
 func (runStub) LoadSetup(context.Context, string) (entity.RunSetup, error) {
 	return entity.RunSetup{}, nil
+}
+
+func (runStub) SaveServices(context.Context, string, entity.RunServices) error { return nil }
+
+func (runStub) LoadServices(context.Context, string) (entity.RunServices, error) {
+	return entity.RunServices{}, nil
 }
 
 func (runStub) Append(context.Context, string, entity.TimelineEntry) error { return nil }
@@ -86,3 +96,37 @@ func (snapshotStub) List(context.Context) ([]entity.Snapshot, error) { return ni
 func (snapshotStub) Release(context.Context, string) error { return nil }
 
 func (snapshotStub) Discard(context.Context, string) error { return nil }
+
+type servicesStub struct{}
+
+func (servicesStub) Run(context.Context) {}
+
+func (servicesStub) Start(
+	context.Context,
+	string,
+	entity.Service,
+) (entity.ServiceRecord, error) {
+	return entity.ServiceRecord{}, nil
+}
+
+func (servicesStub) Stop(context.Context, string, string) (entity.ServiceRecord, error) {
+	return entity.ServiceRecord{}, nil
+}
+
+func (servicesStub) Restart(context.Context, string, string) (entity.ServiceRecord, error) {
+	return entity.ServiceRecord{}, nil
+}
+
+func (servicesStub) List(context.Context, string) ([]entity.ServiceRecord, error) {
+	return nil, nil
+}
+
+func (servicesStub) Logs(context.Context, string, string, int) ([]string, error) {
+	return nil, nil
+}
+
+func (servicesStub) Step(context.Context, string, entity.Step) (entity.StepResult, error) {
+	return entity.StepResult{}, nil
+}
+
+func (servicesStub) Release(context.Context, string) error { return nil }

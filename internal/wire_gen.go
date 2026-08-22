@@ -25,9 +25,12 @@ import (
 	"github.com/usenorn/runner/internal/repository/identity"
 	"github.com/usenorn/runner/internal/repository/inventory"
 	"github.com/usenorn/runner/internal/repository/materialiser"
+	"github.com/usenorn/runner/internal/repository/port"
+	"github.com/usenorn/runner/internal/repository/process"
 	"github.com/usenorn/runner/internal/repository/release"
 	"github.com/usenorn/runner/internal/repository/run"
 	"github.com/usenorn/runner/internal/repository/scanner"
+	"github.com/usenorn/runner/internal/repository/servicelog"
 	"github.com/usenorn/runner/internal/repository/settings"
 	"github.com/usenorn/runner/internal/repository/spool"
 	"github.com/usenorn/runner/internal/repository/worktree"
@@ -37,6 +40,7 @@ import (
 	"github.com/usenorn/runner/internal/service/execution"
 	"github.com/usenorn/runner/internal/service/session"
 	"github.com/usenorn/runner/internal/service/snapshot"
+	"github.com/usenorn/runner/internal/service/supervisor"
 	"github.com/usenorn/runner/internal/service/update"
 	"net/http"
 )
@@ -89,11 +93,16 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	repositoryWorktree := worktree.New(configSnapshot)
 	repositoryMaterialiser := materialiser.New()
 	snapshots := snapshot.New(repositoryWorktree, repositoryMaterialiser, repositorySettings, repositoryInventory, repositoryRun, configSnapshot)
+	repositoryProcess := process.New()
+	repositoryPort := port.New(runner)
+	serviceLog := servicelog.New(dir)
+	configSupervisor := config.NewSupervisor(configConfig)
+	services := supervisor.New(repositoryProcess, repositoryPort, serviceLog, repositoryRun, repositorySpool, configSupervisor)
 	scheduler := config.NewScheduler(configConfig)
-	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositorySettings, repositoryInventory, snapshots, dir, runner, app, scheduler)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositorySettings, repositoryInventory, snapshots, services, dir, runner, app, scheduler)
 	configSpool := config.NewSpool(configConfig)
 	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, configChannel, configSpool, app)
-	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, executions, build)
+	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, executions, services, build)
 	listener, cleanup, err := socket.New(dir)
 	if err != nil {
 		return nil, nil, err
@@ -104,7 +113,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 		cleanup()
 		return nil, nil, err
 	}
-	daemon := NewDaemon(configControl, server, listener, sessions, updates, codebases, channels, executions, logger)
+	daemon := NewDaemon(configControl, server, listener, sessions, updates, codebases, channels, executions, services, logger)
 	return daemon, func() {
 		cleanup2()
 		cleanup()
@@ -240,6 +249,23 @@ func InitExecutions(cfgFile string, overrides config.Overrides) (*Executions, fu
 	}, nil
 }
 
+func InitServices(cfgFile string, overrides config.Overrides) (*Services, func(), error) {
+	configConfig, err := config.New(cfgFile, overrides)
+	if err != nil {
+		return nil, nil, err
+	}
+	configControl := config.NewControl(configConfig)
+	state := config.NewState(configConfig)
+	dir, err := statedir.New(state)
+	if err != nil {
+		return nil, nil, err
+	}
+	client := control.NewClient(configControl, dir)
+	services := NewServices(client)
+	return services, func() {
+	}, nil
+}
+
 func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func(), error) {
 	configConfig, err := config.New(cfgFile, overrides)
 	if err != nil {
@@ -258,7 +284,7 @@ func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, spool.Set, channel.Set, disk.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, execution.Set, channel2.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, spool.Set, channel.Set, disk.Set, process.Set, port.Set, servicelog.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, execution.Set, channel2.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,
@@ -266,5 +292,6 @@ var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, ser
 	NewSnapshotting,
 	NewScheduling,
 	NewExecutions,
+	NewServices,
 	NewInstaller,
 )

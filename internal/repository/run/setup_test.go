@@ -119,8 +119,12 @@ func TestWhatARunWasSetUpWithComesBackExactlyAsItWasWrittenDown(t *testing.T) {
 		t.Fatalf("read what the run is set up with: %v", err)
 	}
 
-	if got != want {
+	if got.Permissions != want.Permissions || got.Plan != want.Plan || got.Driver != want.Driver {
 		t.Fatalf("the run came back set up as %+v", got)
+	}
+
+	if got.Services.Runtime != want.Services.Runtime || got.Services.Chosen != want.Services.Chosen {
+		t.Fatalf("the run came back running services on %+v", got.Services)
 	}
 }
 

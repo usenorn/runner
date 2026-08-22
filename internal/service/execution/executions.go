@@ -20,7 +20,8 @@ import (
 )
 
 const parkedNote = "the workspace for this run is ready. Running a coding agent in it is not " +
-	"built into this release, so the run waits here until it is cancelled"
+	"built into this release, so the run waits here until it is cancelled. Services can be " +
+	"started in it with 'norn service start', scoped to this run with NORN_EXEC_ID"
 
 const interruptedNote = "this machine restarted while the run was under way, so the work it had " +
 	"started was left unfinished"
@@ -34,6 +35,7 @@ type executionsService struct {
 	settings    repository.Settings
 	inventories repository.Inventory
 	snapshots   service.Snapshots
+	services    service.Services
 	dir         *statedir.Dir
 	runner      config.Runner
 	app         config.App
@@ -57,6 +59,7 @@ func New(
 	settings repository.Settings,
 	inventories repository.Inventory,
 	snapshots service.Snapshots,
+	services service.Services,
 	dir *statedir.Dir,
 	runner config.Runner,
 	app config.App,
@@ -69,6 +72,7 @@ func New(
 		settings:    settings,
 		inventories: inventories,
 		snapshots:   snapshots,
+		services:    services,
 		dir:         dir,
 		runner:      runner,
 		app:         app,
@@ -488,6 +492,15 @@ func (s *executionsService) record(
 }
 
 func (s *executionsService) teardown(ctx context.Context, executionID string) error {
+	if err := s.services.Release(context.WithoutCancel(ctx), executionID); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not stop what a run had running",
+			slog.String("execution_id", executionID),
+			slog.String("error", err.Error()),
+		)
+	}
+
 	if err := s.snapshots.Release(context.WithoutCancel(ctx), executionID); err != nil {
 		logging.From(ctx).WarnContext(
 			ctx,

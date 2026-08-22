@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -76,9 +77,7 @@ func (c *Client) Executions(ctx context.Context) ([]Execution, error) {
 }
 
 func (c *Client) Logs(ctx context.Context, executionID string) ([]TimelineEntry, error) {
-	path := strings.Replace(LogsPath, "{executionId}", url.PathEscape(executionID), 1)
-
-	return ask[[]TimelineEntry](ctx, c, http.MethodGet, path, nil)
+	return ask[[]TimelineEntry](ctx, c, http.MethodGet, forRun(LogsPath, executionID), nil)
 }
 
 func (c *Client) Disconnect(ctx context.Context) (Disconnected, error) {
@@ -158,4 +157,67 @@ func refusal(response *http.Response) error {
 	}
 
 	return refused
+}
+
+func (c *Client) Services(ctx context.Context, executionID string) ([]Service, error) {
+	return ask[[]Service](ctx, c, http.MethodGet, forRun(ServicesPath, executionID), nil)
+}
+
+func (c *Client) StartService(
+	ctx context.Context,
+	executionID string,
+	request ServiceRequest,
+) (Service, error) {
+	return ask[Service](ctx, c, http.MethodPost, forRun(ServicesPath, executionID), request)
+}
+
+func (c *Client) StopService(
+	ctx context.Context,
+	executionID string,
+	name string,
+) (Service, error) {
+	path := forService(ServicePath, executionID, name)
+
+	return ask[Service](ctx, c, http.MethodDelete, path, nil)
+}
+
+func (c *Client) RestartService(
+	ctx context.Context,
+	executionID string,
+	name string,
+) (Service, error) {
+	path := forService(ServiceRestartPath, executionID, name)
+
+	return ask[Service](ctx, c, http.MethodPost, path, struct{}{})
+}
+
+func (c *Client) ServiceLogs(
+	ctx context.Context,
+	executionID string,
+	name string,
+	tail int,
+) (ServiceLines, error) {
+	path := forService(ServiceLogsPath, executionID, name)
+
+	if tail > 0 {
+		path += "?tail=" + strconv.Itoa(tail)
+	}
+
+	return ask[ServiceLines](ctx, c, http.MethodGet, path, nil)
+}
+
+func (c *Client) RunStep(
+	ctx context.Context,
+	executionID string,
+	request StepRequest,
+) (StepResult, error) {
+	return ask[StepResult](ctx, c, http.MethodPost, forRun(StepsPath, executionID), request)
+}
+
+func forRun(path string, executionID string) string {
+	return strings.Replace(path, "{executionId}", url.PathEscape(executionID), 1)
+}
+
+func forService(path string, executionID string, name string) string {
+	return strings.Replace(forRun(path, executionID), "{service}", url.PathEscape(name), 1)
 }

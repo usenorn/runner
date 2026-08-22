@@ -23,3 +23,5 @@ func NewChannel(cfg Config) Channel { return cfg.Channel }
 func NewSpool(cfg Config) Spool { return cfg.Spool }
 
 func NewScheduler(cfg Config) Scheduler { return cfg.Scheduler }
+
+func NewSupervisor(cfg Config) Supervisor { return cfg.Supervisor }

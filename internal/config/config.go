@@ -11,11 +11,12 @@ type Config struct {
 	Session Session `mapstructure:"session"`
 	Update  Update  `mapstructure:"update"`
 
-	Codebase  Codebase  `mapstructure:"codebase"`
-	Snapshot  Snapshot  `mapstructure:"snapshot"`
-	Channel   Channel   `mapstructure:"channel"`
-	Spool     Spool     `mapstructure:"spool"`
-	Scheduler Scheduler `mapstructure:"scheduler"`
+	Codebase   Codebase   `mapstructure:"codebase"`
+	Snapshot   Snapshot   `mapstructure:"snapshot"`
+	Channel    Channel    `mapstructure:"channel"`
+	Spool      Spool      `mapstructure:"spool"`
+	Scheduler  Scheduler  `mapstructure:"scheduler"`
+	Supervisor Supervisor `mapstructure:"supervisor"`
 }
 
 type Channel struct {
@@ -32,6 +33,15 @@ type Spool struct {
 	MaxMessages int           `mapstructure:"max_messages"`
 	MaxAge      time.Duration `mapstructure:"max_age"`
 	Batch       int           `mapstructure:"batch"`
+}
+
+type Supervisor struct {
+	HealthInterval  time.Duration `mapstructure:"health_interval"`
+	HealthTimeout   time.Duration `mapstructure:"health_timeout"`
+	StopGrace       time.Duration `mapstructure:"stop_grace"`
+	RestartAttempts int           `mapstructure:"restart_attempts"`
+	RestartBackoff  time.Duration `mapstructure:"restart_backoff"`
+	StepTimeout     time.Duration `mapstructure:"step_timeout"`
 }
 
 type Scheduler struct {

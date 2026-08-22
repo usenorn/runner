@@ -90,8 +90,20 @@ type RunDriver struct {
 }
 
 type RunServices struct {
-	Runtime Runtime
-	Chosen  string
+	Runtime  Runtime
+	Chosen   string
+	Ports    map[string]int
+	Services []ServiceRecord
+}
+
+func (r RunServices) Service(name string) (ServiceRecord, bool) {
+	for _, held := range r.Services {
+		if held.Name == name {
+			return held, true
+		}
+	}
+
+	return ServiceRecord{}, false
 }
 
 type RunSetup struct {
