@@ -33,6 +33,17 @@ const (
 
 	defaultScanDepth = 5
 	maxScanDepth     = 12
+
+	gitModeWorktree = "worktree"
+	gitModeClone    = "clone"
+
+	baseOriginDefault = "origin/default"
+	baseHead          = "head"
+
+	localChangesExclude = "exclude"
+	localChangesInclude = "include"
+
+	defaultMaxSharedBytes = 2 << 30
 )
 
 var defaultVersion = "dev"
@@ -175,6 +186,14 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("codebase.scan_depth", defaultScanDepth)
 	v.SetDefault("codebase.rescan_interval", 6*time.Hour)
 	v.SetDefault("codebase.probe_timeout", 10*time.Second)
+
+	v.SetDefault("snapshot.git_mode", gitModeWorktree)
+	v.SetDefault("snapshot.base", baseOriginDefault)
+	v.SetDefault("snapshot.local_changes", localChangesExclude)
+	v.SetDefault("snapshot.fetch", true)
+	v.SetDefault("snapshot.fetch_timeout", time.Minute)
+	v.SetDefault("snapshot.git_timeout", 2*time.Minute)
+	v.SetDefault("snapshot.max_shared_bytes", int64(defaultMaxSharedBytes))
 
 	v.SetDefault("update.check", true)
 	v.SetDefault("update.interval", 24*time.Hour)
@@ -366,7 +385,46 @@ func validate(cfg Config) error {
 		return err
 	}
 
+	if err := validateSnapshot(cfg.Snapshot); err != nil {
+		return err
+	}
+
 	return validateUpdate(cfg.Update)
+}
+
+func validateSnapshot(snapshot Snapshot) error {
+	if snapshot.GitMode != gitModeWorktree && snapshot.GitMode != gitModeClone {
+		return fmt.Errorf(
+			"snapshot.git_mode is %q and must be %q or %q. A worktree shares the original object "+
+				"store and is what norn uses unless worktrees misbehave on this machine",
+			snapshot.GitMode, gitModeWorktree, gitModeClone,
+		)
+	}
+
+	if snapshot.Base != baseOriginDefault && snapshot.Base != baseHead {
+		return fmt.Errorf(
+			"snapshot.base is %q and must be %q or %q. It decides which commit an execution starts "+
+				"from",
+			snapshot.Base, baseOriginDefault, baseHead,
+		)
+	}
+
+	if snapshot.LocalChanges != localChangesExclude && snapshot.LocalChanges != localChangesInclude {
+		return fmt.Errorf(
+			"snapshot.local_changes is %q and must be %q or %q. Uncommitted work is left behind "+
+				"unless a folder or a run asks for it",
+			snapshot.LocalChanges, localChangesExclude, localChangesInclude,
+		)
+	}
+
+	if snapshot.FetchTimeout <= 0 || snapshot.GitTimeout <= 0 || snapshot.MaxSharedBytes <= 0 {
+		return fmt.Errorf(
+			"snapshot.fetch_timeout, snapshot.git_timeout and snapshot.max_shared_bytes must all " +
+				"be positive",
+		)
+	}
+
+	return nil
 }
 
 func validateCodebase(codebase Codebase) error {

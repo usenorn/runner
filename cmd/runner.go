@@ -25,6 +25,7 @@ func newRunnerCommand() *cobra.Command {
 		newRunnerConnectCommand(),
 		newRunnerDisconnectCommand(),
 		newRunnerInspectCommand(),
+		newRunnerSnapshotCommand(),
 		newRunnerInstallCommand(),
 		newRunnerUninstallCommand(),
 	)
@@ -99,4 +100,21 @@ func withBinding(cmd *cobra.Command, run func(context.Context, *internal.Binding
 	defer cleanup()
 
 	return run(ctx, binding)
+}
+
+func withSnapshotting(
+	cmd *cobra.Command,
+	run func(context.Context, *internal.Snapshotting) error,
+) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	snapshotting, cleanup, err := internal.InitSnapshotting(cfgFile, config.Overrides{})
+	if err != nil {
+		return err
+	}
+
+	defer cleanup()
+
+	return run(ctx, snapshotting)
 }

@@ -21,11 +21,16 @@ import (
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
+	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
+	runrepo "github.com/usenorn/runner/internal/repository/run"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
+	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
+	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
+	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
 )
 
@@ -47,11 +52,16 @@ var baseSet = wire.NewSet(
 	scannerrepo.Set,
 	capabilityrepo.Set,
 	inventoryrepo.Set,
+	worktreerepo.Set,
+	materialiserrepo.Set,
+	settingsrepo.Set,
+	runrepo.Set,
 
 	sessionsvc.Set,
 	enrolmentsvc.Set,
 	updatesvc.Set,
 	codebasesvc.Set,
+	snapshotsvc.Set,
 
 	control.Set,
 	wire.Bind(new(http.Handler), new(*control.Server)),
@@ -61,6 +71,7 @@ var baseSet = wire.NewSet(
 	NewVersion,
 	NewBinding,
 	NewInspection,
+	NewSnapshotting,
 	NewInstaller,
 )
 
@@ -89,6 +100,12 @@ func InitBinding(cfgFile string, overrides config.Overrides) (*Binding, func(), 
 }
 
 func InitInspection(cfgFile string, overrides config.Overrides) (*Inspection, func(), error) {
+	wire.Build(baseSet)
+
+	return nil, nil, nil
+}
+
+func InitSnapshotting(cfgFile string, overrides config.Overrides) (*Snapshotting, func(), error) {
 	wire.Build(baseSet)
 
 	return nil, nil, nil
