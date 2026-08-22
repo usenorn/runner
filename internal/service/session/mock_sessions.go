@@ -107,3 +107,18 @@ func (mr *MockSessionsMockRecorder) Run(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockSessions)(nil).Run), ctx)
 }
+
+// Ticket mocks base method.
+func (m *MockSessions) Ticket(ctx context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Ticket", ctx)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Ticket indicates an expected call of Ticket.
+func (mr *MockSessionsMockRecorder) Ticket(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ticket", reflect.TypeOf((*MockSessions)(nil).Ticket), ctx)
+}

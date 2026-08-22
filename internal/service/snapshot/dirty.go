@@ -153,7 +153,7 @@ func (s *snapshotsService) recordPatch(
 	held entity.SnapshotRepository,
 	patch []byte,
 ) (string, error) {
-	dir := filepath.Join(snapshot.Run, entity.SnapshotMetadataDir, entity.SnapshotPatchDir)
+	dir := filepath.Join(snapshot.Run, entity.RunMetadataDir, entity.SnapshotPatchDir)
 
 	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return "", fmt.Errorf("create %s: %w", dir, err)

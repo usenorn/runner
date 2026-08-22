@@ -11,6 +11,7 @@ import (
 type Sessions interface {
 	Run(ctx context.Context)
 	Access(ctx context.Context) (string, error)
+	Ticket(ctx context.Context) (string, error)
 	Report() entity.SessionReport
 	Adopt(ctx context.Context, identity entity.Identity) entity.SessionReport
 	Forget()

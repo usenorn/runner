@@ -44,6 +44,13 @@ const (
 	localChangesInclude = "include"
 
 	defaultMaxSharedBytes = 2 << 30
+
+	defaultMaxMessageBytes = 1 << 20
+	defaultMinFreeDisk     = 10 << 30
+	defaultSpoolMessages   = 10000
+	defaultSpoolBatch      = 32
+
+	channelLeaseTTL = time.Minute
 )
 
 var defaultVersion = "dev"
@@ -194,6 +201,20 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("snapshot.fetch_timeout", time.Minute)
 	v.SetDefault("snapshot.git_timeout", 2*time.Minute)
 	v.SetDefault("snapshot.max_shared_bytes", int64(defaultMaxSharedBytes))
+
+	v.SetDefault("channel.enabled", true)
+	v.SetDefault("channel.handshake_timeout", 10*time.Second)
+	v.SetDefault("channel.heartbeat", 15*time.Second)
+	v.SetDefault("channel.write_timeout", 10*time.Second)
+	v.SetDefault("channel.retry_min", 2*time.Second)
+	v.SetDefault("channel.retry_max", 2*time.Minute)
+	v.SetDefault("channel.max_message_bytes", int64(defaultMaxMessageBytes))
+
+	v.SetDefault("spool.max_messages", defaultSpoolMessages)
+	v.SetDefault("spool.max_age", 24*time.Hour)
+	v.SetDefault("spool.batch", defaultSpoolBatch)
+
+	v.SetDefault("scheduler.min_free_disk", int64(defaultMinFreeDisk))
 
 	v.SetDefault("update.check", true)
 	v.SetDefault("update.interval", 24*time.Hour)
@@ -389,7 +410,82 @@ func validate(cfg Config) error {
 		return err
 	}
 
+	if err := validateChannel(cfg.Channel); err != nil {
+		return err
+	}
+
+	if err := validateSpool(cfg.Spool); err != nil {
+		return err
+	}
+
+	if err := validateScheduler(cfg.Scheduler); err != nil {
+		return err
+	}
+
 	return validateUpdate(cfg.Update)
+}
+
+func validateChannel(channel Channel) error {
+	if channel.HandshakeTimeout <= 0 || channel.WriteTimeout <= 0 {
+		return fmt.Errorf(
+			"channel.handshake_timeout and channel.write_timeout must both be positive",
+		)
+	}
+
+	if channel.Heartbeat <= 0 || channel.Heartbeat >= channelLeaseTTL {
+		return fmt.Errorf(
+			"channel.heartbeat (%s) must be positive and shorter than %s. Norn drops a machine "+
+				"whose heartbeat it has not heard for that long, and every lease it holds with it",
+			channel.Heartbeat, channelLeaseTTL,
+		)
+	}
+
+	if channel.RetryMin <= 0 || channel.RetryMax < channel.RetryMin {
+		return fmt.Errorf(
+			"channel.retry_min (%s) must be positive and channel.retry_max (%s) must not be shorter",
+			channel.RetryMin, channel.RetryMax,
+		)
+	}
+
+	if channel.MaxMessageBytes < defaultMaxMessageBytes {
+		return fmt.Errorf(
+			"channel.max_message_bytes is %d and must be at least %d. Norn will send a message that "+
+				"large, and a smaller ceiling would end the channel rather than read it",
+			channel.MaxMessageBytes, defaultMaxMessageBytes,
+		)
+	}
+
+	return nil
+}
+
+func validateSpool(spool Spool) error {
+	if spool.MaxMessages < 1 || spool.Batch < 1 {
+		return fmt.Errorf(
+			"spool.max_messages (%d) and spool.batch (%d) must both be at least 1",
+			spool.MaxMessages, spool.Batch,
+		)
+	}
+
+	if spool.MaxAge <= 0 {
+		return fmt.Errorf(
+			"spool.max_age (%s) must be positive; it is how long an event waits for norn before "+
+				"the runner gives up on delivering it",
+			spool.MaxAge,
+		)
+	}
+
+	return nil
+}
+
+func validateScheduler(scheduler Scheduler) error {
+	if scheduler.MinFreeDisk < 0 {
+		return fmt.Errorf(
+			"scheduler.min_free_disk is %d and cannot be negative",
+			scheduler.MinFreeDisk,
+		)
+	}
+
+	return nil
 }
 
 func validateSnapshot(snapshot Snapshot) error {

@@ -134,6 +134,32 @@ func adviceFor(err error) (int, string, string) {
 		return http.StatusUnprocessableEntity, ReasonRefused,
 			err.Error()
 
+	case errors.Is(err, entity.ErrRunnerOutdated):
+		return http.StatusUpgradeRequired, ReasonRefused,
+			err.Error()
+
+	case errors.Is(err, entity.ErrChannelOff):
+		return http.StatusNotFound, ReasonRefused,
+			"this Norn is not accepting runner channels. Ask whoever runs it to turn the runner " +
+				"channel on"
+
+	case errors.Is(err, entity.ErrChannelDisplaced):
+		return http.StatusConflict, ReasonRefused,
+			"another machine opened this runner's channel. Only one daemon may hold it, so stop " +
+				"the other one or connect this machine again under its own name"
+
+	case errors.Is(err, entity.ErrTicketMissing):
+		return http.StatusBadGateway, ReasonRefused,
+			err.Error()
+
+	case errors.Is(err, entity.ErrChannelUnsupported), errors.Is(err, entity.ErrChannelClosed):
+		return http.StatusBadGateway, ReasonRefused,
+			err.Error()
+
+	case errors.Is(err, entity.ErrExecutionUnknown), errors.Is(err, entity.ErrExecutionRefused):
+		return http.StatusConflict, ReasonRefused,
+			err.Error()
+
 	case errors.Is(err, entity.ErrServerUnreachable):
 		return http.StatusBadGateway, ReasonRefused,
 			err.Error()

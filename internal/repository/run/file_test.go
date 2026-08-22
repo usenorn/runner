@@ -31,7 +31,7 @@ func snapshot(name, run string) entity.Snapshot {
 	return entity.Snapshot{
 		Name:         name,
 		Run:          run,
-		Workspace:    filepath.Join(run, entity.SnapshotWorkspaceDir),
+		Workspace:    filepath.Join(run, entity.RunWorkspaceDir),
 		IssueKey:     "NORN-46",
 		Attempt:      1,
 		CodebaseID:   uuid.MustParse("2ac0ee31-8a71-4b57-9c22-2f4c8f0f8ad1"),
@@ -41,7 +41,7 @@ func snapshot(name, run string) entity.Snapshot {
 			RelPath: "runner",
 			Kind:    entity.RepositoryNormal,
 			Source:  "/w/runner",
-			Path:    filepath.Join(run, entity.SnapshotWorkspaceDir, "runner"),
+			Path:    filepath.Join(run, entity.RunWorkspaceDir, "runner"),
 			Mode:    entity.GitModeWorktree,
 			Base:    entity.BaseOriginDefault,
 			BaseSHA: "3a91c2f8b7d64e05aa1188b0c4e2f9d1a7c65e30",
@@ -135,7 +135,7 @@ func TestARunDirectoryHoldsAWorkspaceAndItsMetadataFromTheStart(t *testing.T) {
 		t.Fatalf("prepare a run: %v", err)
 	}
 
-	for _, child := range []string{entity.SnapshotWorkspaceDir, entity.SnapshotMetadataDir} {
+	for _, child := range []string{entity.RunWorkspaceDir, entity.RunMetadataDir} {
 		if _, err := os.Stat(filepath.Join(run, child)); err != nil {
 			t.Fatalf("%s is missing from a prepared run: %v", child, err)
 		}

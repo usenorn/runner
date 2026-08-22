@@ -3,7 +3,6 @@ package session
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"math/rand/v2"
 	"sync"
@@ -96,6 +95,34 @@ func (s *sessionsService) Access(ctx context.Context) (string, error) {
 	return s.session.AccessToken, nil
 }
 
+func (s *sessionsService) Ticket(ctx context.Context) (string, error) {
+	s.mu.Lock()
+	report := s.report
+	s.mu.Unlock()
+
+	if report.State.Settled() {
+		return "", failure(report)
+	}
+
+	identity, err := s.identities.Load(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if renewed := s.exchange(ctx, identity); renewed.State != entity.SessionLive {
+		return "", failure(renewed)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.session.TicketLive(s.now()) {
+		return "", entity.ErrTicketMissing
+	}
+
+	return s.session.Ticket, nil
+}
+
 func failure(report entity.SessionReport) error {
 	switch report.State {
 	case entity.SessionRevoked:
@@ -107,7 +134,7 @@ func failure(report entity.SessionReport) error {
 	case entity.SessionUnenrolled:
 		return entity.ErrNotEnrolled
 	default:
-		return fmt.Errorf("%w: %s", entity.ErrServerUnreachable, report.Detail)
+		return entity.UnreachableError{Detail: report.Detail}
 	}
 }
 

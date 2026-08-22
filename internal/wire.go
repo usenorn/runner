@@ -17,8 +17,10 @@ import (
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	capabilityrepo "github.com/usenorn/runner/internal/repository/capability"
+	channelrepo "github.com/usenorn/runner/internal/repository/channel"
 	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
+	diskrepo "github.com/usenorn/runner/internal/repository/disk"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
@@ -26,9 +28,12 @@ import (
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
+	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
+	channelsvc "github.com/usenorn/runner/internal/service/channel"
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
+	executionsvc "github.com/usenorn/runner/internal/service/execution"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
@@ -56,12 +61,17 @@ var baseSet = wire.NewSet(
 	materialiserrepo.Set,
 	settingsrepo.Set,
 	runrepo.Set,
+	spoolrepo.Set,
+	channelrepo.Set,
+	diskrepo.Set,
 
 	sessionsvc.Set,
 	enrolmentsvc.Set,
 	updatesvc.Set,
 	codebasesvc.Set,
 	snapshotsvc.Set,
+	executionsvc.Set,
+	channelsvc.Set,
 
 	control.Set,
 	wire.Bind(new(http.Handler), new(*control.Server)),
@@ -72,6 +82,7 @@ var baseSet = wire.NewSet(
 	NewBinding,
 	NewInspection,
 	NewSnapshotting,
+	NewScheduling,
 	NewInstaller,
 )
 
@@ -106,6 +117,12 @@ func InitInspection(cfgFile string, overrides config.Overrides) (*Inspection, fu
 }
 
 func InitSnapshotting(cfgFile string, overrides config.Overrides) (*Snapshotting, func(), error) {
+	wire.Build(baseSet)
+
+	return nil, nil, nil
+}
+
+func InitScheduling(cfgFile string, overrides config.Overrides) (*Scheduling, func(), error) {
 	wire.Build(baseSet)
 
 	return nil, nil, nil

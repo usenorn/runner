@@ -18,8 +18,10 @@ import (
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository/capability"
+	"github.com/usenorn/runner/internal/repository/channel"
 	"github.com/usenorn/runner/internal/repository/credential"
 	"github.com/usenorn/runner/internal/repository/dashboard"
+	"github.com/usenorn/runner/internal/repository/disk"
 	"github.com/usenorn/runner/internal/repository/identity"
 	"github.com/usenorn/runner/internal/repository/inventory"
 	"github.com/usenorn/runner/internal/repository/materialiser"
@@ -27,9 +29,12 @@ import (
 	"github.com/usenorn/runner/internal/repository/run"
 	"github.com/usenorn/runner/internal/repository/scanner"
 	"github.com/usenorn/runner/internal/repository/settings"
+	"github.com/usenorn/runner/internal/repository/spool"
 	"github.com/usenorn/runner/internal/repository/worktree"
+	channel2 "github.com/usenorn/runner/internal/service/channel"
 	"github.com/usenorn/runner/internal/service/codebase"
 	"github.com/usenorn/runner/internal/service/enrolment"
+	"github.com/usenorn/runner/internal/service/execution"
 	"github.com/usenorn/runner/internal/service/session"
 	"github.com/usenorn/runner/internal/service/snapshot"
 	"github.com/usenorn/runner/internal/service/update"
@@ -74,7 +79,16 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	repositoryCapability := capability.New(configCodebase)
 	repositoryInventory := inventory.New(dir)
 	codebases := codebase.New(repositoryScanner, repositoryCapability, repositoryInventory, repositoryDashboard, sessions, configCodebase)
-	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, build)
+	configChannel := config.NewChannel(configConfig)
+	repositoryChannel := channel.New(runner, app, configChannel)
+	repositorySpool := spool.New(dir)
+	repositoryRun := run.New(dir)
+	repositoryDisk := disk.New()
+	scheduler := config.NewScheduler(configConfig)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, dir, runner, app, scheduler)
+	configSpool := config.NewSpool(configConfig)
+	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, configChannel, configSpool, app)
+	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, executions, build)
 	listener, cleanup, err := socket.New(dir)
 	if err != nil {
 		return nil, nil, err
@@ -85,7 +99,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 		cleanup()
 		return nil, nil, err
 	}
-	daemon := NewDaemon(configControl, server, listener, sessions, updates, codebases, logger)
+	daemon := NewDaemon(configControl, server, listener, sessions, updates, codebases, channels, logger)
 	return daemon, func() {
 		cleanup2()
 		cleanup()
@@ -187,6 +201,23 @@ func InitSnapshotting(cfgFile string, overrides config.Overrides) (*Snapshotting
 	}, nil
 }
 
+func InitScheduling(cfgFile string, overrides config.Overrides) (*Scheduling, func(), error) {
+	configConfig, err := config.New(cfgFile, overrides)
+	if err != nil {
+		return nil, nil, err
+	}
+	configControl := config.NewControl(configConfig)
+	state := config.NewState(configConfig)
+	dir, err := statedir.New(state)
+	if err != nil {
+		return nil, nil, err
+	}
+	client := control.NewClient(configControl, dir)
+	scheduling := NewScheduling(client)
+	return scheduling, func() {
+	}, nil
+}
+
 func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func(), error) {
 	configConfig, err := config.New(cfgFile, overrides)
 	if err != nil {
@@ -205,11 +236,12 @@ func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, spool.Set, channel.Set, disk.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, execution.Set, channel2.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,
 	NewInspection,
 	NewSnapshotting,
+	NewScheduling,
 	NewInstaller,
 )

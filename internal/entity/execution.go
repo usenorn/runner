@@ -1,0 +1,107 @@
+package entity
+
+import (
+	"errors"
+	"path/filepath"
+	"time"
+
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
+)
+
+const ExecutionTaskFile = "task.json"
+
+var (
+	ErrExecutionUnknown = errors.New("this machine is not holding that execution")
+	ErrExecutionRefused = errors.New("an execution cannot move between those states")
+)
+
+type ExecutionState = channelv1.State
+
+type Execution struct {
+	ID          string
+	Reference   string
+	IssueKey    string
+	Attempt     int
+	WorkspaceID string
+	Title       string
+	Description string
+	Brief       string
+	Tool        string
+	Model       string
+	Runtime     string
+	Directory   string
+	State       ExecutionState
+	Lease       time.Time
+	AcceptedAt  time.Time
+	StartedAt   time.Time
+}
+
+func ExecutionOf(offer channelv1.Offer, root string, acceptedAt time.Time) Execution {
+	return Execution{
+		ID:          offer.ExecutionID,
+		Reference:   offer.Reference,
+		IssueKey:    offer.Issue.Reference,
+		Attempt:     max(offer.Attempt, 1),
+		WorkspaceID: offer.WorkspaceID,
+		Title:       offer.Issue.Title,
+		Description: offer.Issue.Description,
+		Brief:       offer.Issue.Brief,
+		Tool:        offer.Params.Tool,
+		Model:       offer.Params.Model,
+		Runtime:     offer.Params.Runtime,
+		Directory:   filepath.Join(root, offer.ExecutionID),
+		State:       channelv1.StateLeased,
+		AcceptedAt:  acceptedAt,
+	}
+}
+
+func (e Execution) Metadata() string {
+	return filepath.Join(e.Directory, RunMetadataDir)
+}
+
+func (e Execution) HoldsSlot() bool {
+	return e.State.HoldsSlot()
+}
+
+func (e Execution) Finished() bool {
+	return e.State.Terminal()
+}
+
+func (e Execution) CanReport(state ExecutionState) bool {
+	return state.RunnerDriven() && e.State.CanTransitionTo(state)
+}
+
+type Room struct {
+	Free      int64
+	Watermark int64
+	Known     bool
+}
+
+func (r Room) Pressed() bool {
+	return r.Known && r.Watermark > 0 && r.Free < r.Watermark
+}
+
+type SchedulerReport struct {
+	Capacity   int
+	Used       int
+	Paused     bool
+	Room       Room
+	Executions []Execution
+}
+
+func (r SchedulerReport) Full() bool {
+	return r.Used >= r.Capacity
+}
+
+func (r SchedulerReport) Decline() (DeclineReason, bool) {
+	switch {
+	case r.Paused:
+		return DeclinePaused, true
+	case r.Full():
+		return DeclineAtCapacity, true
+	case r.Room.Pressed():
+		return DeclineDiskPressure, true
+	default:
+		return "", false
+	}
+}

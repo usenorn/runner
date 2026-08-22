@@ -159,3 +159,69 @@ func TestStatusSaysWhichFoldersThisMachineHolds(t *testing.T) {
 		t.Fatalf("a machine with no connected folders reported %d", len(status.Codebases))
 	}
 }
+
+func TestStatusSaysWhetherThisMachineIsTalkingToNornAndHowFullItIs(t *testing.T) {
+	h := newHarness(t, nil)
+
+	status, err := h.client.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	if !entity.ChannelState(status.Channel.State).Valid() {
+		t.Fatalf("status reports the channel as %q", status.Channel.State)
+	}
+
+	if status.Scheduler.Capacity != 2 {
+		t.Fatalf("status says this machine holds %d executions", status.Scheduler.Capacity)
+	}
+
+	if status.Scheduler.Used != 0 || status.Scheduler.Paused {
+		t.Fatalf("a fresh machine reports %+v", status.Scheduler)
+	}
+
+	if status.Scheduler.FreeDisk == nil || *status.Scheduler.FreeDisk <= 0 {
+		t.Fatalf("status does not say how much room is left for a run")
+	}
+}
+
+func TestPausingAndResumingThisMachineTakesEffectWithoutARestart(t *testing.T) {
+	h := newHarness(t, nil)
+	ctx := context.Background()
+
+	paused, err := h.client.Pause(ctx)
+	if err != nil {
+		t.Fatalf("pause: %v", err)
+	}
+
+	if !paused.Paused {
+		t.Fatalf("pausing answered %+v", paused)
+	}
+
+	status, err := h.client.Status(ctx)
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	if !status.Scheduler.Paused {
+		t.Fatalf("status does not report the machine as paused")
+	}
+
+	resumed, err := h.client.Resume(ctx)
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+
+	if resumed.Paused {
+		t.Fatalf("resuming answered %+v", resumed)
+	}
+
+	status, err = h.client.Status(ctx)
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	if status.Scheduler.Paused {
+		t.Fatalf("status still reports the machine as paused")
+	}
+}

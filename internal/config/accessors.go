@@ -17,3 +17,9 @@ func NewUpdate(cfg Config) Update { return cfg.Update }
 func NewCodebase(cfg Config) Codebase { return cfg.Codebase }
 
 func NewSnapshot(cfg Config) Snapshot { return cfg.Snapshot }
+
+func NewChannel(cfg Config) Channel { return cfg.Channel }
+
+func NewSpool(cfg Config) Spool { return cfg.Spool }
+
+func NewScheduler(cfg Config) Scheduler { return cfg.Scheduler }

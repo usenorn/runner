@@ -3,12 +3,13 @@ module github.com/usenorn/runner
 go 1.26.6
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/goforj/wire v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/usenorn/norn v1.0.1-0.20260821211326-ffbe1c6c5117
+	github.com/usenorn/norn v1.0.1-0.20260822122257-b85ecd292b95
 	github.com/zalando/go-keyring v0.2.8
 	go.uber.org/mock v0.6.0
 	golang.org/x/mod v0.40.0
@@ -159,6 +160,7 @@ require (
 	github.com/nishanths/predeclared v0.2.2 // indirect
 	github.com/nunnatsa/ginkgolinter v0.23.0 // indirect
 	github.com/oapi-codegen/runtime v1.6.0 // indirect
+	github.com/oklog/ulid/v2 v2.1.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.12.1 // indirect

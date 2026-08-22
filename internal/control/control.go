@@ -14,6 +14,8 @@ const (
 	DisconnectPath = "/v1/disconnect"
 	InspectPath    = "/v1/inspect"
 	AcceptPath     = "/v1/inspect/accept"
+	PausePath      = "/v1/pause"
+	ResumePath     = "/v1/resume"
 )
 
 type Update struct {
@@ -53,7 +55,39 @@ type Status struct {
 	SessionDetail string           `json:"sessionDetail,omitempty"`
 	Expires       *time.Time       `json:"expires,omitempty"`
 	Codebases     []StatusCodebase `json:"codebases,omitempty"`
+	Channel       Channel          `json:"channel"`
+	Scheduler     Scheduler        `json:"scheduler"`
 	Update        Update           `json:"update"`
+}
+
+type Channel struct {
+	State       string     `json:"state"`
+	Detail      string     `json:"detail,omitempty"`
+	ConnectedAt *time.Time `json:"connectedAt,omitempty"`
+	LastHeard   *time.Time `json:"lastHeard,omitempty"`
+	Waiting     int        `json:"waiting"`
+}
+
+type Scheduler struct {
+	Capacity   int         `json:"capacity"`
+	Used       int         `json:"used"`
+	Paused     bool        `json:"paused"`
+	FreeDisk   *int64      `json:"freeDisk,omitempty"`
+	Watermark  int64       `json:"watermark"`
+	Executions []Execution `json:"executions,omitempty"`
+}
+
+type Execution struct {
+	ID         string     `json:"id"`
+	Reference  string     `json:"reference"`
+	State      string     `json:"state"`
+	Directory  string     `json:"directory"`
+	AcceptedAt time.Time  `json:"acceptedAt"`
+	Lease      *time.Time `json:"leaseExpiresAt,omitempty"`
+}
+
+type Paused struct {
+	Paused bool `json:"paused"`
 }
 
 type StatusCodebase struct {

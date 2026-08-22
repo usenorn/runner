@@ -11,8 +11,31 @@ type Config struct {
 	Session Session `mapstructure:"session"`
 	Update  Update  `mapstructure:"update"`
 
-	Codebase Codebase `mapstructure:"codebase"`
-	Snapshot Snapshot `mapstructure:"snapshot"`
+	Codebase  Codebase  `mapstructure:"codebase"`
+	Snapshot  Snapshot  `mapstructure:"snapshot"`
+	Channel   Channel   `mapstructure:"channel"`
+	Spool     Spool     `mapstructure:"spool"`
+	Scheduler Scheduler `mapstructure:"scheduler"`
+}
+
+type Channel struct {
+	Enabled          bool          `mapstructure:"enabled"`
+	HandshakeTimeout time.Duration `mapstructure:"handshake_timeout"`
+	Heartbeat        time.Duration `mapstructure:"heartbeat"`
+	WriteTimeout     time.Duration `mapstructure:"write_timeout"`
+	RetryMin         time.Duration `mapstructure:"retry_min"`
+	RetryMax         time.Duration `mapstructure:"retry_max"`
+	MaxMessageBytes  int64         `mapstructure:"max_message_bytes"`
+}
+
+type Spool struct {
+	MaxMessages int           `mapstructure:"max_messages"`
+	MaxAge      time.Duration `mapstructure:"max_age"`
+	Batch       int           `mapstructure:"batch"`
+}
+
+type Scheduler struct {
+	MinFreeDisk int64 `mapstructure:"min_free_disk"`
 }
 
 type Runner struct {

@@ -17,6 +17,7 @@ import (
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
+	channelsvc "github.com/usenorn/runner/internal/service/channel"
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
@@ -64,7 +65,12 @@ func newDaemon(t *testing.T, shutdown time.Duration, handler http.Handler) (*int
 	codebases := codebasesvc.NewMockCodebases(ctrl)
 	codebases.EXPECT().Run(gomock.Any()).AnyTimes()
 
-	return internal.NewDaemon(cfg, handler, listener, sessions, updates, codebases, logger), dir
+	channels := channelsvc.NewMockChannels(ctrl)
+	channels.EXPECT().Run(gomock.Any()).AnyTimes()
+
+	return internal.NewDaemon(
+		cfg, handler, listener, sessions, updates, codebases, channels, logger,
+	), dir
 }
 
 func TestCancellingTheContextDrainsAndReturnsNothing(t *testing.T) {
