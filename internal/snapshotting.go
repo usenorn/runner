@@ -213,23 +213,6 @@ func sharedLine(snapshot entity.Snapshot) string {
 
 	return fmt.Sprintf(
 		"%d files, %s — %d cloned, %d copied",
-		len(snapshot.Shared), size(snapshot.Bytes), cloned, len(snapshot.Shared)-cloned,
+		len(snapshot.Shared), entity.ByteSize(snapshot.Bytes), cloned, len(snapshot.Shared)-cloned,
 	)
-}
-
-func size(bytes int64) string {
-	const unit = 1024
-
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-
-	value, exponent := float64(bytes)/unit, 0
-
-	for value >= unit && exponent < 3 {
-		value /= unit
-		exponent++
-	}
-
-	return fmt.Sprintf("%.1f %s", value, [...]string{"KB", "MB", "GB", "TB"}[exponent])
 }

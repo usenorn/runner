@@ -24,6 +24,8 @@ type Server struct {
 	sessions   service.Sessions
 	updates    service.Updates
 	codebases  service.Codebases
+	channels   service.Channels
+	executions service.Executions
 	build      entity.Build
 	startedAt  time.Time
 	handler    http.Handler
@@ -38,6 +40,8 @@ func NewServer(
 	sessions service.Sessions,
 	updates service.Updates,
 	codebases service.Codebases,
+	channels service.Channels,
+	executions service.Executions,
 	build entity.Build,
 ) *Server {
 	server := &Server{
@@ -49,6 +53,8 @@ func NewServer(
 		sessions:   sessions,
 		updates:    updates,
 		codebases:  codebases,
+		channels:   channels,
+		executions: executions,
 		build:      build,
 		startedAt:  time.Now().UTC(),
 	}
@@ -60,6 +66,8 @@ func NewServer(
 	mux.HandleFunc("POST "+DisconnectPath, server.disconnect)
 	mux.HandleFunc("POST "+InspectPath, server.inspect)
 	mux.HandleFunc("POST "+AcceptPath, server.accept)
+	mux.HandleFunc("POST "+PausePath, server.pause)
+	mux.HandleFunc("POST "+ResumePath, server.resume)
 
 	server.handler = recovering(mux)
 
@@ -91,6 +99,8 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	status.Expires = optionalTime(report.ExpiresAt)
 
 	status.Codebases = s.heldCodebases(r)
+	status.Channel = channelOf(s.channels.Report(r.Context()))
+	status.Scheduler = schedulerOf(s.executions.Report(r.Context()))
 
 	identity, err := s.enrolments.Current(r.Context())
 	if err != nil {
@@ -110,6 +120,57 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	status.Store = string(identity.Store)
 
 	respond(w, r, http.StatusOK, status)
+}
+
+func (s *Server) pause(w http.ResponseWriter, r *http.Request) {
+	s.executions.Pause()
+
+	respond(w, r, http.StatusOK, Paused{Paused: true})
+}
+
+func (s *Server) resume(w http.ResponseWriter, r *http.Request) {
+	s.executions.Resume()
+	s.channels.Wake()
+
+	respond(w, r, http.StatusOK, Paused{Paused: false})
+}
+
+func channelOf(report entity.ChannelReport) Channel {
+	return Channel{
+		State:       string(report.State),
+		Detail:      report.Detail,
+		ConnectedAt: optionalTime(report.ConnectedAt),
+		LastHeard:   optionalTime(report.LastHeard),
+		Waiting:     report.Waiting,
+	}
+}
+
+func schedulerOf(report entity.SchedulerReport) Scheduler {
+	held := Scheduler{
+		Capacity:   report.Capacity,
+		Used:       report.Used,
+		Paused:     report.Paused,
+		Watermark:  report.Room.Watermark,
+		Executions: make([]Execution, 0, len(report.Executions)),
+	}
+
+	if report.Room.Known {
+		free := report.Room.Free
+		held.FreeDisk = &free
+	}
+
+	for _, execution := range report.Executions {
+		held.Executions = append(held.Executions, Execution{
+			ID:         execution.ID,
+			Reference:  execution.Reference,
+			State:      string(execution.State),
+			Directory:  execution.Directory,
+			AcceptedAt: execution.AcceptedAt,
+			Lease:      optionalTime(execution.Lease),
+		})
+	}
+
+	return held
 }
 
 func (s *Server) version(w http.ResponseWriter, r *http.Request) {

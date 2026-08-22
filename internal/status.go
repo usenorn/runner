@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/usenorn/runner/internal/control"
+	"github.com/usenorn/runner/internal/entity"
 )
 
 type Status struct {
@@ -72,6 +73,8 @@ func (s *Status) table(status control.Status) error {
 	}
 
 	rows = append(rows, [2]string{"session", s.session(status)})
+	rows = append(rows, [2]string{"channel", channelLine(status.Channel)})
+	rows = append(rows, schedulerRows(status.Scheduler)...)
 	rows = append(rows, codebaseRows(status.Codebases)...)
 	rows = append(rows, [2]string{"update", updateLine(status.Update)})
 
@@ -84,6 +87,52 @@ func (s *Status) table(status control.Status) error {
 	}
 
 	return writer.Flush()
+}
+
+func channelLine(channel control.Channel) string {
+	line := channel.State
+
+	if channel.Detail != "" {
+		line += " — " + channel.Detail
+	}
+
+	if channel.Waiting > 0 {
+		line += fmt.Sprintf(", %d waiting to reach norn", channel.Waiting)
+	}
+
+	return line
+}
+
+func schedulerRows(scheduler control.Scheduler) [][2]string {
+	slots := fmt.Sprintf("%d of %d in use", scheduler.Used, scheduler.Capacity)
+
+	if scheduler.Paused {
+		slots += ", paused — take work again with 'norn runner resume'"
+	}
+
+	rows := [][2]string{{"slots", slots}}
+
+	if scheduler.FreeDisk != nil {
+		room := fmt.Sprintf("%s free", entity.ByteSize(*scheduler.FreeDisk))
+
+		if scheduler.Watermark > 0 {
+			room += fmt.Sprintf(", keeping %s back", entity.ByteSize(scheduler.Watermark))
+		}
+
+		if *scheduler.FreeDisk < scheduler.Watermark {
+			room += " — too little room to take work"
+		}
+
+		rows = append(rows, [2]string{"disk", room})
+	}
+
+	for _, execution := range scheduler.Executions {
+		rows = append(rows, [2]string{
+			"run", fmt.Sprintf("%s %s, %s", execution.Reference, execution.State, execution.ID),
+		})
+	}
+
+	return rows
 }
 
 func codebaseRows(codebases []control.StatusCodebase) [][2]string {

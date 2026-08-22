@@ -61,6 +61,14 @@ func (c *Client) Accept(ctx context.Context, scan Scan) (Accepted, error) {
 	return ask[Accepted](ctx, c, http.MethodPost, AcceptPath, scan)
 }
 
+func (c *Client) Pause(ctx context.Context) (Paused, error) {
+	return ask[Paused](ctx, c, http.MethodPost, PausePath, struct{}{})
+}
+
+func (c *Client) Resume(ctx context.Context) (Paused, error) {
+	return ask[Paused](ctx, c, http.MethodPost, ResumePath, struct{}{})
+}
+
 func (c *Client) Disconnect(ctx context.Context) (Disconnected, error) {
 	return ask[Disconnected](ctx, c, http.MethodPost, DisconnectPath, struct{}{})
 }

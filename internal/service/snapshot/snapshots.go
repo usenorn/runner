@@ -103,7 +103,7 @@ func (s *snapshotsService) Take(
 	}
 
 	snapshot.Run = run
-	snapshot.Workspace = filepath.Join(run, entity.SnapshotWorkspaceDir)
+	snapshot.Workspace = filepath.Join(run, entity.RunWorkspaceDir)
 
 	taken, err := s.fill(ctx, snapshot, codebase, listed, policy)
 	if err != nil {

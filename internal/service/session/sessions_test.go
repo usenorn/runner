@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"testing"
 	"time"
 
@@ -338,5 +339,80 @@ func TestAnUnchangedNameIsNotRewrittenEveryTimeTheSessionRenews(t *testing.T) {
 
 	if report := h.service.Adopt(context.Background(), h.identity); report.State != entity.SessionLive {
 		t.Fatalf("adopting reported %q, want live", report.State)
+	}
+}
+
+func TestEveryChannelTicketIsAFreshOneBecauseNornSpendsItOnUse(t *testing.T) {
+	h := newHarness(t)
+	h.expectCredentials(t)
+
+	h.identities.EXPECT().Load(gomock.Any()).Return(h.identity, nil).AnyTimes()
+
+	tickets := []string{"nrt_first", "nrt_second"}
+	handed := 0
+
+	h.dashboard.EXPECT().
+		Exchange(gomock.Any(), "nrr_secret", gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			context.Context, string, entity.Assertion, string,
+		) (entity.Session, error) {
+			ticket := tickets[handed]
+			handed++
+
+			return entity.Session{
+				AccessToken:     "nrs_live",
+				AccessExpiresAt: time.Now().UTC().Add(15 * time.Minute),
+				Ticket:          ticket,
+				TicketExpiresAt: time.Now().UTC().Add(time.Minute),
+			}, nil
+		}).
+		Times(2)
+
+	for _, want := range tickets {
+		got, err := h.service.Ticket(context.Background())
+		if err != nil {
+			t.Fatalf("ticket: %v", err)
+		}
+
+		if got != want {
+			t.Fatalf("the machine was handed %q, want a fresh %q", got, want)
+		}
+	}
+}
+
+func TestASessionRenewedWithoutATicketSaysSoRatherThanHandingBackNothing(t *testing.T) {
+	h := newHarness(t)
+	h.expectCredentials(t)
+
+	h.identities.EXPECT().Load(gomock.Any()).Return(h.identity, nil).AnyTimes()
+
+	h.dashboard.EXPECT().
+		Exchange(gomock.Any(), "nrr_secret", gomock.Any(), gomock.Any()).
+		Return(entity.Session{
+			AccessToken:     "nrs_live",
+			AccessExpiresAt: time.Now().UTC().Add(15 * time.Minute),
+		}, nil)
+
+	if _, err := h.service.Ticket(context.Background()); !errors.Is(err, entity.ErrTicketMissing) {
+		t.Fatalf("a session with no ticket answered %v", err)
+	}
+}
+
+func TestARevokedMachineIsNotHandedAChannelTicket(t *testing.T) {
+	h := newHarness(t)
+	h.expectCredentials(t)
+
+	h.identities.EXPECT().Load(gomock.Any()).Return(h.identity, nil).AnyTimes()
+
+	h.dashboard.EXPECT().
+		Exchange(gomock.Any(), "nrr_secret", gomock.Any(), gomock.Any()).
+		Return(entity.Session{}, entity.ErrRunnerRevoked)
+
+	if _, err := h.service.Ticket(context.Background()); !errors.Is(err, entity.ErrRunnerRevoked) {
+		t.Fatalf("a revoked machine was answered %v", err)
+	}
+
+	if _, err := h.service.Ticket(context.Background()); !errors.Is(err, entity.ErrRunnerRevoked) {
+		t.Fatalf("a settled machine asked norn again and was answered %v", err)
 	}
 }

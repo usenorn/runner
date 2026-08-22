@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	SnapshotWorkspaceDir = "workspace"
-	SnapshotMetadataDir  = "metadata"
-	SnapshotPatchDir     = "local-changes"
+	RunWorkspaceDir  = "workspace"
+	RunMetadataDir   = "metadata"
+	SnapshotPatchDir = "local-changes"
 
 	BranchNamespace = "norn"
 	IgnoreFileName  = ".nornignore"

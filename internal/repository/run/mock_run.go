@@ -71,6 +71,21 @@ func (mr *MockRunMockRecorder) Load(ctx, name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockRun)(nil).Load), ctx, name)
 }
 
+// LoadTasks mocks base method.
+func (m *MockRun) LoadTasks(ctx context.Context) ([]entity.Execution, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadTasks", ctx)
+	ret0, _ := ret[0].([]entity.Execution)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadTasks indicates an expected call of LoadTasks.
+func (mr *MockRunMockRecorder) LoadTasks(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadTasks", reflect.TypeOf((*MockRun)(nil).LoadTasks), ctx)
+}
+
 // Prepare mocks base method.
 func (m *MockRun) Prepare(ctx context.Context, name string) (string, error) {
 	m.ctrl.T.Helper()
@@ -112,4 +127,18 @@ func (m *MockRun) Save(ctx context.Context, snapshot entity.Snapshot) error {
 func (mr *MockRunMockRecorder) Save(ctx, snapshot any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockRun)(nil).Save), ctx, snapshot)
+}
+
+// SaveTask mocks base method.
+func (m *MockRun) SaveTask(ctx context.Context, execution entity.Execution) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveTask", ctx, execution)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveTask indicates an expected call of SaveTask.
+func (mr *MockRunMockRecorder) SaveTask(ctx, execution any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveTask", reflect.TypeOf((*MockRun)(nil).SaveTask), ctx, execution)
 }

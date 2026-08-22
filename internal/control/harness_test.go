@@ -15,14 +15,20 @@ import (
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 	capabilityrepo "github.com/usenorn/runner/internal/repository/capability"
+	channelrepo "github.com/usenorn/runner/internal/repository/channel"
 	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
+	diskrepo "github.com/usenorn/runner/internal/repository/disk"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
+	runrepo "github.com/usenorn/runner/internal/repository/run"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
+	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
+	channelsvc "github.com/usenorn/runner/internal/service/channel"
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
+	executionsvc "github.com/usenorn/runner/internal/service/execution"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
 )
@@ -60,6 +66,22 @@ func updateSettings() config.Update {
 		Timeout:  time.Second,
 		Feed:     "https://releases.example/latest",
 	}
+}
+
+func channelSettings() config.Channel {
+	return config.Channel{
+		Enabled:          true,
+		HandshakeTimeout: time.Second,
+		Heartbeat:        15 * time.Second,
+		WriteTimeout:     time.Second,
+		RetryMin:         time.Second,
+		RetryMax:         time.Minute,
+		MaxMessageBytes:  1 << 20,
+	}
+}
+
+func spoolSettings() config.Spool {
+	return config.Spool{MaxMessages: 100, MaxAge: time.Hour, Batch: 8}
 }
 
 func settings() config.Control {
@@ -129,6 +151,33 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		codebaseSettings(),
 	)
 
+	spool := spoolrepo.New(dir)
+	disks := diskrepo.New()
+
+	executions := executionsvc.New(
+		runrepo.New(dir),
+		spool,
+		disks,
+		dir,
+		config.Runner{Capacity: 2},
+		config.App{Version: "test"},
+		config.Scheduler{},
+	)
+
+	channels := channelsvc.New(
+		channelrepo.New(
+			config.Runner{Server: "https://norn.example"},
+			config.App{Version: "test"},
+			channelSettings(),
+		),
+		spool,
+		sessions,
+		executions,
+		channelSettings(),
+		spoolSettings(),
+		config.App{Version: "test"},
+	)
+
 	if handler == nil {
 		handler = control.NewServer(
 			config.Runner{Server: "https://norn.example", Capacity: 4, Runtime: config.RuntimeAuto},
@@ -139,6 +188,8 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			sessions,
 			updates,
 			codebases,
+			channels,
+			executions,
 			build,
 		)
 	}

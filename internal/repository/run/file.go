@@ -24,6 +24,25 @@ const (
 	version    = 1
 )
 
+type storedTask struct {
+	Version     int       `json:"version"`
+	ID          string    `json:"id"`
+	Reference   string    `json:"reference"`
+	IssueKey    string    `json:"issueKey"`
+	Attempt     int       `json:"attempt"`
+	WorkspaceID string    `json:"workspaceId"`
+	Title       string    `json:"title"`
+	Description string    `json:"description,omitempty"`
+	Brief       string    `json:"brief,omitempty"`
+	Tool        string    `json:"tool,omitempty"`
+	Model       string    `json:"model,omitempty"`
+	Runtime     string    `json:"runtime,omitempty"`
+	State       string    `json:"state"`
+	Lease       time.Time `json:"leaseExpiresAt,omitzero"`
+	AcceptedAt  time.Time `json:"acceptedAt"`
+	StartedAt   time.Time `json:"startedAt,omitzero"`
+}
+
 type storedPatch struct {
 	BaseSHA   string `json:"baseSha"`
 	Commit    string `json:"commit"`
@@ -82,8 +101,8 @@ func (r *fileRun) Prepare(_ context.Context, name string) (string, error) {
 	}
 
 	for _, child := range []string{
-		filepath.Join(path, entity.SnapshotWorkspaceDir),
-		filepath.Join(path, entity.SnapshotMetadataDir),
+		filepath.Join(path, entity.RunWorkspaceDir),
+		filepath.Join(path, entity.RunMetadataDir),
 	} {
 		if err := os.MkdirAll(child, dirMode); err != nil {
 			return "", fmt.Errorf("create %s: %w", child, err)
@@ -94,7 +113,7 @@ func (r *fileRun) Prepare(_ context.Context, name string) (string, error) {
 }
 
 func (r *fileRun) Save(_ context.Context, snapshot entity.Snapshot) error {
-	dir := filepath.Join(r.dir.Run(snapshot.Name), entity.SnapshotMetadataDir)
+	dir := filepath.Join(r.dir.Run(snapshot.Name), entity.RunMetadataDir)
 
 	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return fmt.Errorf("create %s: %w", dir, err)
@@ -162,8 +181,120 @@ func (r *fileRun) Remove(_ context.Context, name string) error {
 	return nil
 }
 
+func (r *fileRun) SaveTask(_ context.Context, execution entity.Execution) error {
+	dir := filepath.Join(r.dir.Run(execution.ID), entity.RunMetadataDir)
+
+	if err := os.MkdirAll(dir, dirMode); err != nil {
+		return fmt.Errorf("create %s: %w", dir, err)
+	}
+
+	raw, err := json.MarshalIndent(storedTaskOf(execution), "", "  ")
+	if err != nil {
+		return fmt.Errorf("write what %s is for: %w", execution.ID, err)
+	}
+
+	return statedir.WriteSecret(
+		filepath.Join(dir, entity.ExecutionTaskFile), append(raw, '\n'),
+	)
+}
+
+func (r *fileRun) LoadTasks(_ context.Context) ([]entity.Execution, error) {
+	entries, err := os.ReadDir(r.dir.Runs())
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("read %s: %w", r.dir.Runs(), err)
+	}
+
+	executions := make([]entity.Execution, 0, len(entries))
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		execution, err := r.readTask(entry.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		if execution.ID == "" {
+			continue
+		}
+
+		executions = append(executions, execution)
+	}
+
+	sort.Slice(executions, func(i, j int) bool {
+		return executions[i].AcceptedAt.Before(executions[j].AcceptedAt)
+	})
+
+	return executions, nil
+}
+
+func (r *fileRun) readTask(name string) (entity.Execution, error) {
+	path := filepath.Join(r.dir.Run(name), entity.RunMetadataDir, entity.ExecutionTaskFile)
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return entity.Execution{}, nil
+		}
+
+		return entity.Execution{}, fmt.Errorf("read %s: %w", path, err)
+	}
+
+	var held storedTask
+
+	if err := json.Unmarshal(raw, &held); err != nil || held.Version != version {
+		return entity.Execution{}, nil
+	}
+
+	return entity.Execution{
+		ID:          held.ID,
+		Reference:   held.Reference,
+		IssueKey:    held.IssueKey,
+		Attempt:     held.Attempt,
+		WorkspaceID: held.WorkspaceID,
+		Title:       held.Title,
+		Description: held.Description,
+		Brief:       held.Brief,
+		Tool:        held.Tool,
+		Model:       held.Model,
+		Runtime:     held.Runtime,
+		Directory:   r.dir.Run(name),
+		State:       entity.ExecutionState(held.State),
+		Lease:       held.Lease,
+		AcceptedAt:  held.AcceptedAt,
+		StartedAt:   held.StartedAt,
+	}, nil
+}
+
+func storedTaskOf(execution entity.Execution) storedTask {
+	return storedTask{
+		Version:     version,
+		ID:          execution.ID,
+		Reference:   execution.Reference,
+		IssueKey:    execution.IssueKey,
+		Attempt:     execution.Attempt,
+		WorkspaceID: execution.WorkspaceID,
+		Title:       execution.Title,
+		Description: execution.Description,
+		Brief:       execution.Brief,
+		Tool:        execution.Tool,
+		Model:       execution.Model,
+		Runtime:     execution.Runtime,
+		State:       string(execution.State),
+		Lease:       execution.Lease,
+		AcceptedAt:  execution.AcceptedAt,
+		StartedAt:   execution.StartedAt,
+	}
+}
+
 func (r *fileRun) read(name string) (entity.Snapshot, error) {
-	path := filepath.Join(r.dir.Run(name), entity.SnapshotMetadataDir, recordFile)
+	path := filepath.Join(r.dir.Run(name), entity.RunMetadataDir, recordFile)
 
 	raw, err := os.ReadFile(path)
 	if err != nil {

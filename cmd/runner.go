@@ -26,6 +26,8 @@ func newRunnerCommand() *cobra.Command {
 		newRunnerDisconnectCommand(),
 		newRunnerInspectCommand(),
 		newRunnerSnapshotCommand(),
+		newRunnerPauseCommand(),
+		newRunnerResumeCommand(),
 		newRunnerInstallCommand(),
 		newRunnerUninstallCommand(),
 	)
@@ -44,6 +46,22 @@ func withStatus(cmd *cobra.Command, run func(context.Context, *internal.Status) 
 	defer cleanup()
 
 	return run(ctx, status)
+}
+
+func withScheduling(
+	cmd *cobra.Command,
+	run func(context.Context, *internal.Scheduling) error,
+) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	scheduling, cleanup, err := internal.InitScheduling(cfgFile, config.Overrides{})
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	return run(ctx, scheduling)
 }
 
 func withVersion(cmd *cobra.Command, run func(context.Context, *internal.Version) error) error {

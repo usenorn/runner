@@ -46,6 +46,7 @@ var (
 	ErrIdentityMalformed    = errors.New("the identity file cannot be read")
 	ErrEnrolmentInvalid     = errors.New("this machine cannot be described to norn")
 	ErrEnrolmentStranded    = errors.New("this machine enrolled but cannot keep its credential")
+	ErrTicketMissing        = errors.New("norn renewed this machine's session without a channel ticket")
 )
 
 type ClockSkewError struct {
@@ -66,6 +67,22 @@ func (e ClockSkewError) Error() string {
 
 func (e ClockSkewError) Unwrap() error {
 	return ErrClockSkew
+}
+
+type UnreachableError struct {
+	Detail string
+}
+
+func (e UnreachableError) Error() string {
+	if e.Detail == "" {
+		return ErrServerUnreachable.Error()
+	}
+
+	return e.Detail
+}
+
+func (e UnreachableError) Unwrap() error {
+	return ErrServerUnreachable
 }
 
 type Store string
@@ -204,6 +221,10 @@ type Session struct {
 
 func (s Session) Live(now time.Time) bool {
 	return s.AccessToken != "" && now.Before(s.AccessExpiresAt)
+}
+
+func (s Session) TicketLive(now time.Time) bool {
+	return s.Ticket != "" && now.Before(s.TicketExpiresAt)
 }
 
 func (s Session) RefreshIn(now time.Time, lead time.Duration) time.Duration {
