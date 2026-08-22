@@ -68,6 +68,8 @@ func NewServer(
 	mux.HandleFunc("POST "+AcceptPath, server.accept)
 	mux.HandleFunc("POST "+PausePath, server.pause)
 	mux.HandleFunc("POST "+ResumePath, server.resume)
+	mux.HandleFunc("GET "+ExecutionsPath, server.runs)
+	mux.HandleFunc("GET "+LogsPath, server.logs)
 
 	server.handler = recovering(mux)
 
@@ -160,17 +162,73 @@ func schedulerOf(report entity.SchedulerReport) Scheduler {
 	}
 
 	for _, execution := range report.Executions {
-		held.Executions = append(held.Executions, Execution{
-			ID:         execution.ID,
-			Reference:  execution.Reference,
-			State:      string(execution.State),
-			Directory:  execution.Directory,
-			AcceptedAt: execution.AcceptedAt,
-			Lease:      optionalTime(execution.Lease),
-		})
+		held.Executions = append(held.Executions, executionOf(execution, true))
 	}
 
 	return held
+}
+
+func executionOf(execution entity.Execution, held bool) Execution {
+	return Execution{
+		ID:         execution.ID,
+		Reference:  execution.Reference,
+		IssueKey:   execution.IssueKey,
+		Attempt:    execution.Attempt,
+		Title:      execution.Title,
+		State:      string(execution.State),
+		Directory:  execution.Directory,
+		Held:       held,
+		AcceptedAt: execution.AcceptedAt,
+		StartedAt:  optionalTime(execution.StartedAt),
+		Lease:      optionalTime(execution.Lease),
+	}
+}
+
+func (s *Server) runs(w http.ResponseWriter, r *http.Request) {
+	found, err := s.executions.List(r.Context())
+	if err != nil {
+		status, reason, message := adviceFor(err)
+		respond(w, r, status, Failure{Reason: reason, Message: message})
+
+		return
+	}
+
+	holding := make(map[string]bool, len(found))
+
+	for _, execution := range s.executions.Report(r.Context()).Executions {
+		holding[execution.ID] = true
+	}
+
+	executions := make([]Execution, 0, len(found))
+
+	for _, execution := range found {
+		executions = append(executions, executionOf(execution, holding[execution.ID]))
+	}
+
+	respond(w, r, http.StatusOK, executions)
+}
+
+func (s *Server) logs(w http.ResponseWriter, r *http.Request) {
+	timeline, err := s.executions.Timeline(r.Context(), r.PathValue("executionId"))
+	if err != nil {
+		status, reason, message := adviceFor(err)
+		respond(w, r, status, Failure{Reason: reason, Message: message})
+
+		return
+	}
+
+	entries := make([]TimelineEntry, 0, len(timeline))
+
+	for _, entry := range timeline {
+		entries = append(entries, TimelineEntry{
+			Kind:     string(entry.Kind),
+			State:    string(entry.State),
+			Reason:   entry.Reason,
+			Occurred: entry.Occurred,
+		})
+	}
+
+	respond(w, r, http.StatusOK, entries)
 }
 
 func (s *Server) version(w http.ResponseWriter, r *http.Request) {

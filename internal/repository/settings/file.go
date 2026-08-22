@@ -53,6 +53,20 @@ func (r *fileSettings) Load(
 	return settings, nil
 }
 
+func (r *fileSettings) Plan(_ context.Context, root string) (string, error) {
+	path := filepath.Join(root, entity.SettingsDir, entity.PlanFile)
+
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+
+	return path, nil
+}
+
 func (r *fileSettings) Ignores(_ context.Context, dir string) ([]entity.IgnoreRule, error) {
 	raw, err := os.ReadFile(filepath.Join(dir, entity.IgnoreFileName))
 	if err != nil {

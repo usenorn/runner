@@ -16,6 +16,8 @@ const (
 	AcceptPath     = "/v1/inspect/accept"
 	PausePath      = "/v1/pause"
 	ResumePath     = "/v1/resume"
+	ExecutionsPath = "/v1/executions"
+	LogsPath       = "/v1/executions/{executionId}/logs"
 )
 
 type Update struct {
@@ -80,10 +82,22 @@ type Scheduler struct {
 type Execution struct {
 	ID         string     `json:"id"`
 	Reference  string     `json:"reference"`
+	IssueKey   string     `json:"issueKey"`
+	Attempt    int        `json:"attempt"`
+	Title      string     `json:"title,omitempty"`
 	State      string     `json:"state"`
 	Directory  string     `json:"directory"`
+	Held       bool       `json:"held"`
 	AcceptedAt time.Time  `json:"acceptedAt"`
+	StartedAt  *time.Time `json:"startedAt,omitempty"`
 	Lease      *time.Time `json:"leaseExpiresAt,omitempty"`
+}
+
+type TimelineEntry struct {
+	Kind     string    `json:"kind"`
+	State    string    `json:"state,omitempty"`
+	Reason   string    `json:"reason,omitempty"`
+	Occurred time.Time `json:"ts"`
 }
 
 type Paused struct {

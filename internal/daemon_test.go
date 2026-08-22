@@ -19,6 +19,7 @@ import (
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	channelsvc "github.com/usenorn/runner/internal/service/channel"
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
+	executionsvc "github.com/usenorn/runner/internal/service/execution"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
 )
@@ -68,8 +69,11 @@ func newDaemon(t *testing.T, shutdown time.Duration, handler http.Handler) (*int
 	channels := channelsvc.NewMockChannels(ctrl)
 	channels.EXPECT().Run(gomock.Any()).AnyTimes()
 
+	runs := executionsvc.NewMockExecutions(ctrl)
+	runs.EXPECT().Run(gomock.Any()).AnyTimes()
+
 	return internal.NewDaemon(
-		cfg, handler, listener, sessions, updates, codebases, channels, logger,
+		cfg, handler, listener, sessions, updates, codebases, channels, runs, logger,
 	), dir
 }
 

@@ -71,6 +71,20 @@ func (mr *MockSnapshotsMockRecorder) List(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSnapshots)(nil).List), ctx)
 }
 
+// Release mocks base method.
+func (m *MockSnapshots) Release(ctx context.Context, name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Release", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Release indicates an expected call of Release.
+func (mr *MockSnapshotsMockRecorder) Release(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockSnapshots)(nil).Release), ctx, name)
+}
+
 // Take mocks base method.
 func (m *MockSnapshots) Take(ctx context.Context, request service.TakeRequest) (entity.Snapshot, error) {
 	m.ctrl.T.Helper()

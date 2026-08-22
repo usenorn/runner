@@ -71,3 +71,18 @@ func (mr *MockSettingsMockRecorder) Load(ctx, root any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockSettings)(nil).Load), ctx, root)
 }
+
+// Plan mocks base method.
+func (m *MockSettings) Plan(ctx context.Context, root string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Plan", ctx, root)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Plan indicates an expected call of Plan.
+func (mr *MockSettingsMockRecorder) Plan(ctx, root any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Plan", reflect.TypeOf((*MockSettings)(nil).Plan), ctx, root)
+}

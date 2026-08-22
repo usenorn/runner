@@ -82,6 +82,21 @@ func (mr *MockExecutionsMockRecorder) Greeting() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Greeting", reflect.TypeOf((*MockExecutions)(nil).Greeting))
 }
 
+// List mocks base method.
+func (m *MockExecutions) List(ctx context.Context) ([]entity.Execution, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", ctx)
+	ret0, _ := ret[0].([]entity.Execution)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockExecutionsMockRecorder) List(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockExecutions)(nil).List), ctx)
+}
+
 // Offer mocks base method.
 func (m *MockExecutions) Offer(ctx context.Context, offer channelv1.Offer) error {
 	m.ctrl.T.Helper()
@@ -136,20 +151,6 @@ func (mr *MockExecutionsMockRecorder) Reconcile(ctx, leased any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reconcile", reflect.TypeOf((*MockExecutions)(nil).Reconcile), ctx, leased)
 }
 
-// Recover mocks base method.
-func (m *MockExecutions) Recover(ctx context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Recover", ctx)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Recover indicates an expected call of Recover.
-func (mr *MockExecutionsMockRecorder) Recover(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recover", reflect.TypeOf((*MockExecutions)(nil).Recover), ctx)
-}
-
 // Report mocks base method.
 func (m *MockExecutions) Report(ctx context.Context) entity.SchedulerReport {
 	m.ctrl.T.Helper()
@@ -176,6 +177,18 @@ func (mr *MockExecutionsMockRecorder) Resume() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resume", reflect.TypeOf((*MockExecutions)(nil).Resume))
 }
 
+// Run mocks base method.
+func (m *MockExecutions) Run(ctx context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Run", ctx)
+}
+
+// Run indicates an expected call of Run.
+func (mr *MockExecutionsMockRecorder) Run(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockExecutions)(nil).Run), ctx)
+}
+
 // Start mocks base method.
 func (m *MockExecutions) Start(ctx context.Context, executionID string, start channelv1.Start) error {
 	m.ctrl.T.Helper()
@@ -188,4 +201,19 @@ func (m *MockExecutions) Start(ctx context.Context, executionID string, start ch
 func (mr *MockExecutionsMockRecorder) Start(ctx, executionID, start any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockExecutions)(nil).Start), ctx, executionID, start)
+}
+
+// Timeline mocks base method.
+func (m *MockExecutions) Timeline(ctx context.Context, executionID string) ([]entity.TimelineEntry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Timeline", ctx, executionID)
+	ret0, _ := ret[0].([]entity.TimelineEntry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Timeline indicates an expected call of Timeline.
+func (mr *MockExecutionsMockRecorder) Timeline(ctx, executionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Timeline", reflect.TypeOf((*MockExecutions)(nil).Timeline), ctx, executionID)
 }

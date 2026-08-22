@@ -17,5 +17,6 @@ type CodebaseSettings struct {
 
 type Settings interface {
 	Load(ctx context.Context, root string) (CodebaseSettings, error)
+	Plan(ctx context.Context, root string) (string, error)
 	Ignores(ctx context.Context, dir string) ([]entity.IgnoreRule, error)
 }

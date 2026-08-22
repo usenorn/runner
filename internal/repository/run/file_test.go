@@ -135,7 +135,9 @@ func TestARunDirectoryHoldsAWorkspaceAndItsMetadataFromTheStart(t *testing.T) {
 		t.Fatalf("prepare a run: %v", err)
 	}
 
-	for _, child := range []string{entity.RunWorkspaceDir, entity.RunMetadataDir} {
+	for _, child := range []string{
+		entity.RunWorkspaceDir, entity.RunMetadataDir, entity.RunLogsDir, entity.RunArtifactsDir,
+	} {
 		if _, err := os.Stat(filepath.Join(run, child)); err != nil {
 			t.Fatalf("%s is missing from a prepared run: %v", child, err)
 		}

@@ -13,6 +13,15 @@ const ExecutionTaskFile = "task.json"
 var (
 	ErrExecutionUnknown = errors.New("this machine is not holding that execution")
 	ErrExecutionRefused = errors.New("an execution cannot move between those states")
+
+	ErrExecutionNoCodebase = errors.New(
+		"this machine has no connected folder to run the work in; connect one with " +
+			"'norn runner inspect'",
+	)
+	ErrExecutionManyCodebases = errors.New(
+		"this machine has more than one connected folder and nothing says which one the work " +
+			"belongs to; this release runs one folder per machine",
+	)
 )
 
 type ExecutionState = channelv1.State

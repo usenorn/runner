@@ -21,15 +21,19 @@ import (
 	diskrepo "github.com/usenorn/runner/internal/repository/disk"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
+	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
+	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
+	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
 	channelsvc "github.com/usenorn/runner/internal/service/channel"
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
+	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
 )
 
@@ -77,6 +81,18 @@ func channelSettings() config.Channel {
 		RetryMin:         time.Second,
 		RetryMax:         time.Minute,
 		MaxMessageBytes:  1 << 20,
+	}
+}
+
+func snapshotSettings() config.Snapshot {
+	return config.Snapshot{
+		GitMode:        string(entity.GitModeWorktree),
+		Base:           string(entity.BaseOriginDefault),
+		LocalChanges:   string(entity.LocalChangesExclude),
+		Fetch:          false,
+		FetchTimeout:   time.Second,
+		GitTimeout:     time.Second,
+		MaxSharedBytes: 1 << 20,
 	}
 }
 
@@ -158,6 +174,16 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		runrepo.New(dir),
 		spool,
 		disks,
+		settingsrepo.New(),
+		inventoryrepo.New(dir),
+		snapshotsvc.New(
+			worktreerepo.New(snapshotSettings()),
+			materialiserrepo.New(),
+			settingsrepo.New(),
+			inventoryrepo.New(dir),
+			runrepo.New(dir),
+			snapshotSettings(),
+		),
 		dir,
 		config.Runner{Capacity: 2},
 		config.App{Version: "test"},

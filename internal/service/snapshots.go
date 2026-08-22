@@ -13,10 +13,13 @@ type TakeRequest struct {
 	IssueKey     string
 	Attempt      int
 	LocalChanges entity.LocalChanges
+	Run          string
+	Branches     map[string]string
 }
 
 type Snapshots interface {
 	Take(ctx context.Context, request TakeRequest) (entity.Snapshot, error)
 	List(ctx context.Context) ([]entity.Snapshot, error)
+	Release(ctx context.Context, name string) error
 	Discard(ctx context.Context, name string) error
 }
