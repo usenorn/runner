@@ -223,7 +223,7 @@ func newServiceStepCommand() *cobra.Command {
 }
 
 func withRun(command *cobra.Command, exec *string, asJSON *bool) {
-	command.Flags().StringVar(exec, "exec", "", "the execution to act on, over "+internal.ExecutionVariable)
+	command.Flags().StringVar(exec, "exec", "", "the execution to act on, over "+entity.ExecutionVariable)
 	command.Flags().BoolVar(asJSON, "json", false, "write the answer as json")
 }
 

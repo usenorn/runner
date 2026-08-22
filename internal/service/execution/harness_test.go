@@ -17,15 +17,19 @@ import (
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
+	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
 	diskrepo "github.com/usenorn/runner/internal/repository/disk"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
+	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	"github.com/usenorn/runner/internal/service"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
+	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
+	uploadsvc "github.com/usenorn/runner/internal/service/upload"
 )
 
 const patience = 5 * time.Second
@@ -39,18 +43,27 @@ type harness struct {
 	inventories *inventoryrepo.MockInventory
 	snapshots   *snapshotsvc.MockSnapshots
 	services    *supervisorsvc.MockServices
+	drivers     *driverStub
+	posts       *uploadrepo.MockUpload
+	dashboard   *dashboardrepo.MockDashboard
+	sessions    *sessionsvc.MockSessions
+	uploads     service.Uploads
 	service     service.Executions
 
 	free      int64
 	freeErr   error
 	connected []entity.Codebase
 	planFile  string
+	telemetry entity.TelemetryMode
+	profile   config.Profile
 
-	mu       sync.Mutex
-	takeErr  error
-	linger   time.Duration
-	taken    []service.TakeRequest
-	released []string
+	mu          sync.Mutex
+	takeErr     error
+	linger      time.Duration
+	taken       []service.TakeRequest
+	released    []string
+	transcripts []entity.TranscriptBatch
+	logs        []entity.LogBatch
 }
 
 func newHarness(t *testing.T, capacity int, watermark int64) *harness {
@@ -84,11 +97,25 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		inventories: inventoryrepo.NewMockInventory(controller),
 		snapshots:   snapshotsvc.NewMockSnapshots(controller),
 		services:    supervisorsvc.NewMockServices(controller),
+		drivers:     newDriverStub(),
+		posts:       uploadrepo.NewMockUpload(controller),
+		dashboard:   dashboardrepo.NewMockDashboard(controller),
+		sessions:    sessionsvc.NewMockSessions(controller),
 		free:        free,
 		connected:   []entity.Codebase{connected("/codebase")},
+		telemetry:   entity.TelemetryFull,
+		profile:     config.ProfileStandard,
 	}
 
 	h.expect()
+
+	h.uploads = uploadsvc.New(h.posts, h.dashboard, h.sessions, config.Upload{
+		Enabled:       true,
+		Batch:         2,
+		Flush:         10 * time.Millisecond,
+		MaxChunkBytes: 1 << 20,
+		MaxPending:    8,
+	})
 
 	h.service = executionsvc.New(
 		h.runs,
@@ -98,10 +125,19 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		h.inventories,
 		h.snapshots,
 		h.services,
+		h.uploads,
+		h.drivers,
 		dir,
 		config.Runner{Capacity: capacity},
 		config.App{Version: "1.4.0"},
 		config.Scheduler{MinFreeDisk: watermark},
+		config.Driver{
+			Profile:        h.profile,
+			ProbeTimeout:   time.Second,
+			SessionTimeout: time.Minute,
+			StopGrace:      10 * time.Millisecond,
+			ResumeAttempts: 1,
+		},
 	)
 
 	return h
@@ -150,6 +186,87 @@ func (h *harness) expect() {
 		Release(gomock.Any(), gomock.Any()).
 		Return(nil).
 		AnyTimes()
+
+	h.sessions.EXPECT().
+		Access(gomock.Any()).
+		Return("access-token", nil).
+		AnyTimes()
+
+	h.dashboard.EXPECT().
+		Telemetry(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string) (entity.TelemetryMode, error) {
+			return h.telemetry, nil
+		}).
+		AnyTimes()
+
+	h.posts.EXPECT().
+		Cursors(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		AnyTimes()
+
+	h.posts.EXPECT().
+		AppendTranscript(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(h.appendTranscript).
+		AnyTimes()
+
+	h.posts.EXPECT().
+		AppendLogs(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(h.appendLogs).
+		AnyTimes()
+}
+
+func (h *harness) appendTranscript(
+	_ context.Context,
+	_ string,
+	_ string,
+	batch entity.TranscriptBatch,
+) (entity.UploadReceipt, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.transcripts = append(h.transcripts, batch)
+
+	return entity.UploadReceipt{Stream: entity.StreamTranscript, Sequence: batch.Sequence}, nil
+}
+
+func (h *harness) appendLogs(
+	_ context.Context,
+	_ string,
+	_ string,
+	batch entity.LogBatch,
+) (entity.UploadReceipt, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.logs = append(h.logs, batch)
+
+	return entity.UploadReceipt{Stream: entity.StreamLogs, Sequence: batch.Sequence}, nil
+}
+
+func (h *harness) sent() []entity.DriverEvent {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	events := []entity.DriverEvent{}
+
+	for _, batch := range h.transcripts {
+		events = append(events, batch.Entries...)
+	}
+
+	return events
+}
+
+func (h *harness) logged() []entity.LogLine {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	lines := []entity.LogLine{}
+
+	for _, batch := range h.logs {
+		lines = append(lines, batch.Entries...)
+	}
+
+	return lines
 }
 
 func (h *harness) take(
@@ -222,6 +339,14 @@ func (h *harness) start(t *testing.T) func() {
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan struct{})
 
+	sending := make(chan struct{})
+
+	go func() {
+		defer close(sending)
+
+		h.uploads.Run(ctx)
+	}()
+
 	go func() {
 		defer close(done)
 
@@ -231,6 +356,7 @@ func (h *harness) start(t *testing.T) func() {
 	return func() {
 		stop()
 		<-done
+		<-sending
 	}
 }
 

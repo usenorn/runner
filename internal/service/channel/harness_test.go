@@ -207,10 +207,18 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		inventoryStub{},
 		snapshotStub{},
 		servicesStub{},
+		uploadStub{},
+		driverStub{},
 		dir,
 		config.Runner{Capacity: 2},
 		config.App{Version: "1.4.0"},
 		config.Scheduler{},
+		config.Driver{
+			Profile:        config.ProfileStandard,
+			ProbeTimeout:   time.Second,
+			SessionTimeout: time.Minute,
+			StopGrace:      time.Second,
+		},
 	)
 
 	h.dials.EXPECT().

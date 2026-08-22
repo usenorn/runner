@@ -30,12 +30,22 @@ type storedPlan struct {
 }
 
 type storedDriver struct {
-	Version   int    `json:"version"`
-	Kind      string `json:"kind"`
-	Release   string `json:"release,omitempty"`
-	Installed bool   `json:"installed"`
-	Model     string `json:"model,omitempty"`
-	Chosen    string `json:"chosen"`
+	Version   int             `json:"version"`
+	Kind      string          `json:"kind"`
+	Release   string          `json:"release,omitempty"`
+	Installed bool            `json:"installed"`
+	Model     string          `json:"model,omitempty"`
+	Chosen    string          `json:"chosen"`
+	Resumes   int             `json:"resumes,omitempty"`
+	Sessions  []storedSession `json:"sessions,omitempty"`
+}
+
+type storedSession struct {
+	ID        string    `json:"id"`
+	StartedAt time.Time `json:"startedAt"`
+	EndedAt   time.Time `json:"endedAt,omitzero"`
+	Outcome   string    `json:"outcome,omitempty"`
+	Reason    string    `json:"reason,omitempty"`
 }
 
 type storedServices struct {
@@ -84,14 +94,7 @@ func (r *fileRun) SaveSetup(_ context.Context, name string, setup entity.RunSetu
 			Source:  string(setup.Plan.Source),
 			Path:    setup.Plan.Path,
 		},
-		entity.RunDriverFile: storedDriver{
-			Version:   version,
-			Kind:      string(setup.Driver.Kind),
-			Release:   setup.Driver.Version,
-			Installed: setup.Driver.Installed,
-			Model:     setup.Driver.Model,
-			Chosen:    setup.Driver.Chosen,
-		},
+		entity.RunDriverFile:   driverOf(setup.Driver),
 		entity.RunServicesFile: servicesOf(setup.Services),
 	}
 
@@ -139,15 +142,58 @@ func (r *fileRun) LoadSetup(_ context.Context, name string) (entity.RunSetup, er
 			Source: entity.PlanSource(plan.Source),
 			Path:   plan.Path,
 		},
-		Driver: entity.RunDriver{
-			Kind:      entity.DriverKind(driver.Kind),
-			Version:   driver.Release,
-			Installed: driver.Installed,
-			Model:     driver.Model,
-			Chosen:    driver.Chosen,
-		},
+		Driver:   runDriverOf(driver),
 		Services: runServicesOf(services),
 	}, nil
+}
+
+func driverOf(driver entity.RunDriver) storedDriver {
+	var sessions []storedSession
+
+	for _, held := range driver.Sessions {
+		sessions = append(sessions, storedSession{
+			ID:        held.ID,
+			StartedAt: held.StartedAt,
+			EndedAt:   held.EndedAt,
+			Outcome:   string(held.Outcome),
+			Reason:    held.Reason,
+		})
+	}
+
+	return storedDriver{
+		Version:   version,
+		Kind:      string(driver.Kind),
+		Release:   driver.Version,
+		Installed: driver.Installed,
+		Model:     driver.Model,
+		Chosen:    driver.Chosen,
+		Resumes:   driver.Resumes,
+		Sessions:  sessions,
+	}
+}
+
+func runDriverOf(stored storedDriver) entity.RunDriver {
+	var sessions []entity.DriverSession
+
+	for _, held := range stored.Sessions {
+		sessions = append(sessions, entity.DriverSession{
+			ID:        held.ID,
+			StartedAt: held.StartedAt,
+			EndedAt:   held.EndedAt,
+			Outcome:   entity.DriverOutcome(held.Outcome),
+			Reason:    held.Reason,
+		})
+	}
+
+	return entity.RunDriver{
+		Kind:      entity.DriverKind(stored.Kind),
+		Version:   stored.Release,
+		Installed: stored.Installed,
+		Model:     stored.Model,
+		Chosen:    stored.Chosen,
+		Resumes:   stored.Resumes,
+		Sessions:  sessions,
+	}
 }
 
 func servicesOf(services entity.RunServices) storedServices {
@@ -201,6 +247,35 @@ func runServicesOf(stored storedServices) entity.RunServices {
 		Ports:    stored.Ports,
 		Services: held,
 	}
+}
+
+func (r *fileRun) SaveDriver(_ context.Context, name string, driver entity.RunDriver) error {
+	dir := filepath.Join(r.dir.Run(name), entity.RunMetadataDir)
+
+	if err := os.MkdirAll(dir, dirMode); err != nil {
+		return fmt.Errorf("create %s: %w", dir, err)
+	}
+
+	raw, err := json.MarshalIndent(driverOf(driver), "", "  ")
+	if err != nil {
+		return fmt.Errorf("write %s for %s: %w", entity.RunDriverFile, name, err)
+	}
+
+	return statedir.WriteSecret(
+		filepath.Join(dir, entity.RunDriverFile), append(raw, '\n'),
+	)
+}
+
+func (r *fileRun) LoadDriver(_ context.Context, name string) (entity.RunDriver, error) {
+	path := filepath.Join(r.dir.Run(name), entity.RunMetadataDir, entity.RunDriverFile)
+
+	var held storedDriver
+
+	if err := readInto(path, &held); err != nil {
+		return entity.RunDriver{}, err
+	}
+
+	return runDriverOf(held), nil
 }
 
 func (r *fileRun) SaveServices(

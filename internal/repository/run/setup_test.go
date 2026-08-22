@@ -3,6 +3,7 @@ package run_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -119,8 +120,12 @@ func TestWhatARunWasSetUpWithComesBackExactlyAsItWasWrittenDown(t *testing.T) {
 		t.Fatalf("read what the run is set up with: %v", err)
 	}
 
-	if got.Permissions != want.Permissions || got.Plan != want.Plan || got.Driver != want.Driver {
+	if got.Permissions != want.Permissions || got.Plan != want.Plan {
 		t.Fatalf("the run came back set up as %+v", got)
+	}
+
+	if !reflect.DeepEqual(got.Driver, want.Driver) {
+		t.Fatalf("the run came back set up for %+v", got.Driver)
 	}
 
 	if got.Services.Runtime != want.Services.Runtime || got.Services.Chosen != want.Services.Chosen {
@@ -174,5 +179,59 @@ func TestAskingForTheTimelineOfARunThisMachineNeverHadSaysSo(t *testing.T) {
 
 	if _, err := runrepo.New(dir).Timeline(ctx, "exec-01GONE"); err == nil {
 		t.Fatalf("a run this machine never had answered with a timeline")
+	}
+}
+
+func TestTheSessionsARunHasDrivenAreWrittenDownAndComeBackInOrder(t *testing.T) {
+	dir, ctx := store(t)
+	runs := runrepo.New(dir)
+
+	if _, err := runs.Open(ctx, "exec-01ABC"); err != nil {
+		t.Fatalf("open a run: %v", err)
+	}
+
+	began := time.Date(2026, 8, 22, 19, 0, 0, 0, time.UTC)
+
+	want := entity.RunDriver{
+		Kind:      entity.DriverClaude,
+		Version:   "2.1.239",
+		Installed: true,
+		Model:     "opus",
+		Chosen:    "the delegation asked for it",
+		Resumes:   1,
+		Sessions: []entity.DriverSession{
+			{
+				ID:        "session-01",
+				StartedAt: began,
+				EndedAt:   began.Add(time.Minute),
+				Outcome:   entity.OutcomeCrashed,
+			},
+			{
+				ID:        "session-01",
+				StartedAt: began.Add(2 * time.Minute),
+				EndedAt:   began.Add(5 * time.Minute),
+				Outcome:   entity.OutcomeDone,
+				Reason:    "the work is committed",
+			},
+		},
+	}
+
+	if err := runs.SaveDriver(ctx, "exec-01ABC", want); err != nil {
+		t.Fatalf("write down what the run was driven with: %v", err)
+	}
+
+	got, err := runs.LoadDriver(ctx, "exec-01ABC")
+	if err != nil {
+		t.Fatalf("read what the run was driven with: %v", err)
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("the run came back driven by %+v", got)
+	}
+
+	held, found := got.Latest()
+
+	if !found || held.Outcome != entity.OutcomeDone {
+		t.Fatalf("the run carries on from %+v", held)
 	}
 }

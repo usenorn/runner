@@ -51,6 +51,13 @@ const (
 	defaultSpoolMessages   = 10000
 	defaultSpoolBatch      = 32
 
+	defaultResumeAttempts = 1
+	defaultUploadBatch    = 200
+	defaultMaxChunkBytes  = 1 << 20
+	defaultMaxPending     = 64
+	serverMaxChunkBytes   = 1 << 20
+	serverMaxChunkEntries = 5000
+
 	channelLeaseTTL = time.Minute
 )
 
@@ -223,6 +230,18 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("supervisor.restart_attempts", defaultRestartAttempts)
 	v.SetDefault("supervisor.restart_backoff", time.Second)
 	v.SetDefault("supervisor.step_timeout", 15*time.Minute)
+
+	v.SetDefault("driver.profile", string(ProfileStandard))
+	v.SetDefault("driver.probe_timeout", 15*time.Second)
+	v.SetDefault("driver.session_timeout", 4*time.Hour)
+	v.SetDefault("driver.stop_grace", 15*time.Second)
+	v.SetDefault("driver.resume_attempts", defaultResumeAttempts)
+
+	v.SetDefault("upload.enabled", true)
+	v.SetDefault("upload.batch", defaultUploadBatch)
+	v.SetDefault("upload.flush", 5*time.Second)
+	v.SetDefault("upload.max_chunk_bytes", int64(defaultMaxChunkBytes))
+	v.SetDefault("upload.max_pending", defaultMaxPending)
 
 	v.SetDefault("update.check", true)
 	v.SetDefault("update.interval", 24*time.Hour)
@@ -434,7 +453,63 @@ func validate(cfg Config) error {
 		return err
 	}
 
+	if err := validateDriver(cfg.Driver); err != nil {
+		return err
+	}
+
+	if err := validateUpload(cfg.Upload); err != nil {
+		return err
+	}
+
 	return validateUpdate(cfg.Update)
+}
+
+func validateDriver(driver Driver) error {
+	if !slices.Contains(Profiles(), driver.Profile) {
+		return fmt.Errorf(
+			"driver.profile must be one of strict, standard or unrestricted, and it is %q",
+			driver.Profile,
+		)
+	}
+
+	if driver.ProbeTimeout <= 0 || driver.SessionTimeout <= 0 || driver.StopGrace <= 0 {
+		return fmt.Errorf(
+			"driver.probe_timeout, driver.session_timeout and driver.stop_grace must all be positive",
+		)
+	}
+
+	if driver.ResumeAttempts < 0 {
+		return fmt.Errorf("driver.resume_attempts cannot be negative")
+	}
+
+	return nil
+}
+
+func validateUpload(upload Upload) error {
+	if upload.Batch <= 0 || upload.Batch > serverMaxChunkEntries {
+		return fmt.Errorf(
+			"upload.batch must be between 1 and %d, which is the most norn takes in one batch",
+			serverMaxChunkEntries,
+		)
+	}
+
+	if upload.Flush <= 0 {
+		return fmt.Errorf("upload.flush must be positive")
+	}
+
+	if upload.MaxChunkBytes <= 0 || upload.MaxChunkBytes > serverMaxChunkBytes {
+		return fmt.Errorf(
+			"upload.max_chunk_bytes must be between 1 and %d bytes, which is the most norn stores "+
+				"in one batch; a larger figure here would only have norn refuse the batch",
+			serverMaxChunkBytes,
+		)
+	}
+
+	if upload.MaxPending <= 0 {
+		return fmt.Errorf("upload.max_pending must be positive")
+	}
+
+	return nil
 }
 
 func validateChannel(channel Channel) error {

@@ -25,3 +25,7 @@ func NewSpool(cfg Config) Spool { return cfg.Spool }
 func NewScheduler(cfg Config) Scheduler { return cfg.Scheduler }
 
 func NewSupervisor(cfg Config) Supervisor { return cfg.Supervisor }
+
+func NewDriver(cfg Config) Driver { return cfg.Driver }
+
+func NewUpload(cfg Config) Upload { return cfg.Upload }

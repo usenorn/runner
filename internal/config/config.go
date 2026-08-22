@@ -17,6 +17,24 @@ type Config struct {
 	Spool      Spool      `mapstructure:"spool"`
 	Scheduler  Scheduler  `mapstructure:"scheduler"`
 	Supervisor Supervisor `mapstructure:"supervisor"`
+	Driver     Driver     `mapstructure:"driver"`
+	Upload     Upload     `mapstructure:"upload"`
+}
+
+type Driver struct {
+	Profile        Profile       `mapstructure:"profile"`
+	ProbeTimeout   time.Duration `mapstructure:"probe_timeout"`
+	SessionTimeout time.Duration `mapstructure:"session_timeout"`
+	StopGrace      time.Duration `mapstructure:"stop_grace"`
+	ResumeAttempts int           `mapstructure:"resume_attempts"`
+}
+
+type Upload struct {
+	Enabled       bool          `mapstructure:"enabled"`
+	Batch         int           `mapstructure:"batch"`
+	Flush         time.Duration `mapstructure:"flush"`
+	MaxChunkBytes int64         `mapstructure:"max_chunk_bytes"`
+	MaxPending    int           `mapstructure:"max_pending"`
 }
 
 type Channel struct {
@@ -119,6 +137,18 @@ const (
 
 func Runtimes() []Runtime {
 	return []Runtime{RuntimeAuto, RuntimeProcess, RuntimeDocker}
+}
+
+type Profile string
+
+const (
+	ProfileStrict       Profile = "strict"
+	ProfileStandard     Profile = "standard"
+	ProfileUnrestricted Profile = "unrestricted"
+)
+
+func Profiles() []Profile {
+	return []Profile{ProfileStrict, ProfileStandard, ProfileUnrestricted}
 }
 
 type Telemetry string

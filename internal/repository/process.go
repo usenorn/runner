@@ -13,6 +13,7 @@ type Launch struct {
 	Command     []string
 	Environment []string
 	Output      io.Writer
+	Errors      io.Writer
 }
 
 type Child interface {

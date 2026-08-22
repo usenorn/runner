@@ -74,6 +74,7 @@ func (s *Status) table(status control.Status) error {
 
 	rows = append(rows, [2]string{"session", s.session(status)})
 	rows = append(rows, [2]string{"channel", channelLine(status.Channel)})
+	rows = append(rows, [2]string{"coding agent", driverLine(status.Driver)})
 	rows = append(rows, schedulerRows(status.Scheduler)...)
 	rows = append(rows, codebaseRows(status.Codebases)...)
 	rows = append(rows, [2]string{"update", updateLine(status.Update)})
@@ -101,6 +102,24 @@ func channelLine(channel control.Channel) string {
 	}
 
 	return line
+}
+
+func driverLine(driver control.Driver) string {
+	if driver.Problem != "" {
+		return driver.Problem
+	}
+
+	line := driver.Kind
+
+	if driver.Version != "" {
+		line += " " + driver.Version
+	}
+
+	if driver.Account != "" {
+		return line + ", signed in as " + driver.Account
+	}
+
+	return line + ", signed in"
 }
 
 func schedulerRows(scheduler control.Scheduler) [][2]string {

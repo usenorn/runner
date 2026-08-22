@@ -65,6 +65,7 @@ type Status struct {
 	Codebases     []StatusCodebase `json:"codebases,omitempty"`
 	Channel       Channel          `json:"channel"`
 	Scheduler     Scheduler        `json:"scheduler"`
+	Driver        Driver           `json:"driver"`
 	Update        Update           `json:"update"`
 }
 
@@ -83,6 +84,15 @@ type Scheduler struct {
 	FreeDisk   *int64      `json:"freeDisk,omitempty"`
 	Watermark  int64       `json:"watermark"`
 	Executions []Execution `json:"executions,omitempty"`
+}
+
+type Driver struct {
+	Kind      string `json:"kind"`
+	Installed bool   `json:"installed"`
+	Version   string `json:"version,omitempty"`
+	SignedIn  bool   `json:"signedIn"`
+	Account   string `json:"account,omitempty"`
+	Problem   string `json:"problem,omitempty"`
 }
 
 type Execution struct {
