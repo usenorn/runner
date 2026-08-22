@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	uuid "github.com/google/uuid"
 	entity "github.com/usenorn/runner/internal/entity"
 	repository "github.com/usenorn/runner/internal/repository"
 	gomock "go.uber.org/mock/gomock"
@@ -40,6 +41,36 @@ func NewMockDashboard(ctrl *gomock.Controller) *MockDashboard {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDashboard) EXPECT() *MockDashboardMockRecorder {
 	return m.recorder
+}
+
+// ConfirmCodebase mocks base method.
+func (m *MockDashboard) ConfirmCodebase(ctx context.Context, token string, id uuid.UUID) (repository.ConnectedCodebase, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfirmCodebase", ctx, token, id)
+	ret0, _ := ret[0].(repository.ConnectedCodebase)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConfirmCodebase indicates an expected call of ConfirmCodebase.
+func (mr *MockDashboardMockRecorder) ConfirmCodebase(ctx, token, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfirmCodebase", reflect.TypeOf((*MockDashboard)(nil).ConfirmCodebase), ctx, token, id)
+}
+
+// ConnectCodebase mocks base method.
+func (m *MockDashboard) ConnectCodebase(ctx context.Context, token string, inventory entity.Inventory) (repository.ConnectedCodebase, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConnectCodebase", ctx, token, inventory)
+	ret0, _ := ret[0].(repository.ConnectedCodebase)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConnectCodebase indicates an expected call of ConnectCodebase.
+func (mr *MockDashboardMockRecorder) ConnectCodebase(ctx, token, inventory any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectCodebase", reflect.TypeOf((*MockDashboard)(nil).ConnectCodebase), ctx, token, inventory)
 }
 
 // Enrol mocks base method.
@@ -70,4 +101,19 @@ func (m *MockDashboard) Exchange(ctx context.Context, refreshToken string, asser
 func (mr *MockDashboardMockRecorder) Exchange(ctx, refreshToken, assertion, signature any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exchange", reflect.TypeOf((*MockDashboard)(nil).Exchange), ctx, refreshToken, assertion, signature)
+}
+
+// ListCodebases mocks base method.
+func (m *MockDashboard) ListCodebases(ctx context.Context, token string) ([]repository.ConnectedCodebase, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCodebases", ctx, token)
+	ret0, _ := ret[0].([]repository.ConnectedCodebase)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCodebases indicates an expected call of ListCodebases.
+func (mr *MockDashboardMockRecorder) ListCodebases(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCodebases", reflect.TypeOf((*MockDashboard)(nil).ListCodebases), ctx, token)
 }

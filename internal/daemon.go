@@ -16,12 +16,13 @@ import (
 )
 
 type Daemon struct {
-	cfg      config.Control
-	handler  http.Handler
-	listener *socket.Listener
-	sessions service.Sessions
-	updates  service.Updates
-	logger   *slog.Logger
+	cfg       config.Control
+	handler   http.Handler
+	listener  *socket.Listener
+	sessions  service.Sessions
+	updates   service.Updates
+	codebases service.Codebases
+	logger    *slog.Logger
 }
 
 func NewDaemon(
@@ -30,15 +31,17 @@ func NewDaemon(
 	listener *socket.Listener,
 	sessions service.Sessions,
 	updates service.Updates,
+	codebases service.Codebases,
 	logger *slog.Logger,
 ) *Daemon {
 	return &Daemon{
-		cfg:      cfg,
-		handler:  handler,
-		listener: listener,
-		sessions: sessions,
-		updates:  updates,
-		logger:   logger,
+		cfg:       cfg,
+		handler:   handler,
+		listener:  listener,
+		sessions:  sessions,
+		updates:   updates,
+		codebases: codebases,
+		logger:    logger,
 	}
 }
 
@@ -65,6 +68,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 		defer close(watching)
 
 		d.updates.Run(ctx)
+	}()
+
+	rescanning := make(chan struct{})
+
+	go func() {
+		defer close(rescanning)
+
+		d.codebases.Run(ctx)
 	}()
 
 	serving := make(chan error, 1)
@@ -113,6 +124,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	<-renewing
 	<-watching
+	<-rescanning
 
 	logging.From(ctx).InfoContext(ctx, "runner stopped")
 

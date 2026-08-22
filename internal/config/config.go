@@ -10,6 +10,8 @@ type Config struct {
 	Control Control `mapstructure:"control"`
 	Session Session `mapstructure:"session"`
 	Update  Update  `mapstructure:"update"`
+
+	Codebase Codebase `mapstructure:"codebase"`
 }
 
 type Runner struct {
@@ -58,6 +60,12 @@ type Session struct {
 	RefreshLead    time.Duration `mapstructure:"refresh_lead"`
 	RetryMin       time.Duration `mapstructure:"retry_min"`
 	RetryMax       time.Duration `mapstructure:"retry_max"`
+}
+
+type Codebase struct {
+	ScanDepth      int           `mapstructure:"scan_depth"`
+	RescanInterval time.Duration `mapstructure:"rescan_interval"`
+	ProbeTimeout   time.Duration `mapstructure:"probe_timeout"`
 }
 
 type Update struct {

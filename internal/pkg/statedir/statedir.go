@@ -19,11 +19,11 @@ const (
 	lockFile     = "runner.lock"
 	logFile      = "runner.log"
 
-	workspacesDir = "workspaces"
-	runsDir       = "runs"
-	cacheDir      = "cache"
-	spoolDir      = "spool"
-	logsDir       = "logs"
+	codebasesDir = "codebases"
+	runsDir      = "runs"
+	cacheDir     = "cache"
+	spoolDir     = "spool"
+	logsDir      = "logs"
 )
 
 type Dir struct {
@@ -46,7 +46,7 @@ func New(cfg config.State) (*Dir, error) {
 		return nil, fmt.Errorf("restrict state directory %q: %w", root, err)
 	}
 
-	for _, child := range []string{dir.Workspaces(), dir.Runs(), dir.Cache(), dir.Spool(), dir.Logs()} {
+	for _, child := range []string{dir.Codebases(), dir.Runs(), dir.Cache(), dir.Spool(), dir.Logs()} {
 		if err := os.MkdirAll(child, dirMode); err != nil {
 			return nil, fmt.Errorf("create state directory %q: %w", child, err)
 		}
@@ -67,7 +67,9 @@ func (d *Dir) Socket() string { return filepath.Join(d.root, socketFile) }
 
 func (d *Dir) Lock() string { return filepath.Join(d.root, lockFile) }
 
-func (d *Dir) Workspaces() string { return filepath.Join(d.root, workspacesDir) }
+func (d *Dir) Codebases() string { return filepath.Join(d.root, codebasesDir) }
+
+func (d *Dir) Codebase(id string) string { return filepath.Join(d.Codebases(), id) }
 
 func (d *Dir) Runs() string { return filepath.Join(d.root, runsDir) }
 

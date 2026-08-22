@@ -71,10 +71,9 @@ func (s *Status) table(status control.Status) error {
 		)
 	}
 
-	rows = append(rows,
-		[2]string{"session", s.session(status)},
-		[2]string{"update", updateLine(status.Update)},
-	)
+	rows = append(rows, [2]string{"session", s.session(status)})
+	rows = append(rows, codebaseRows(status.Codebases)...)
+	rows = append(rows, [2]string{"update", updateLine(status.Update)})
 
 	writer := tabwriter.NewWriter(s.out, 0, 0, 3, ' ', 0)
 
@@ -85,6 +84,26 @@ func (s *Status) table(status control.Status) error {
 	}
 
 	return writer.Flush()
+}
+
+func codebaseRows(codebases []control.StatusCodebase) [][2]string {
+	if len(codebases) == 0 {
+		return [][2]string{{"folders", "none, connect one with 'norn runner inspect'"}}
+	}
+
+	rows := make([][2]string, 0, len(codebases))
+
+	for _, codebase := range codebases {
+		line := fmt.Sprintf("%s, %d repositories", codebase.RootPath, codebase.Repositories)
+
+		if codebase.Drifted {
+			line += " — drifted, confirm it with 'norn runner inspect --confirm'"
+		}
+
+		rows = append(rows, [2]string{"folder", line})
+	}
+
+	return rows
 }
 
 func (s *Status) session(status control.Status) string {

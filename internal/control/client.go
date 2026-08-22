@@ -53,6 +53,14 @@ func (c *Client) Connect(ctx context.Context, request ConnectRequest) (Connected
 	return ask[Connected](ctx, c, http.MethodPost, ConnectPath, request)
 }
 
+func (c *Client) Inspect(ctx context.Context, root string) (Scan, error) {
+	return ask[Scan](ctx, c, http.MethodPost, InspectPath, InspectRequest{Root: root})
+}
+
+func (c *Client) Accept(ctx context.Context, scan Scan) (Accepted, error) {
+	return ask[Accepted](ctx, c, http.MethodPost, AcceptPath, scan)
+}
+
 func (c *Client) Disconnect(ctx context.Context) (Disconnected, error) {
 	return ask[Disconnected](ctx, c, http.MethodPost, DisconnectPath, struct{}{})
 }

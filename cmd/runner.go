@@ -24,6 +24,7 @@ func newRunnerCommand() *cobra.Command {
 		newRunnerVersionCommand(),
 		newRunnerConnectCommand(),
 		newRunnerDisconnectCommand(),
+		newRunnerInspectCommand(),
 		newRunnerInstallCommand(),
 		newRunnerUninstallCommand(),
 	)
@@ -68,6 +69,23 @@ func withInstaller(cmd *cobra.Command, run func(context.Context, *internal.Insta
 	defer cleanup()
 
 	return run(ctx, installer)
+}
+
+func withInspection(
+	cmd *cobra.Command,
+	run func(context.Context, *internal.Inspection) error,
+) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	inspection, cleanup, err := internal.InitInspection(cfgFile, config.Overrides{})
+	if err != nil {
+		return err
+	}
+
+	defer cleanup()
+
+	return run(ctx, inspection)
 }
 
 func withBinding(cmd *cobra.Command, run func(context.Context, *internal.Binding) error) error {

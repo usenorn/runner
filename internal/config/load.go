@@ -28,7 +28,12 @@ const (
 	highestPort            = 65535
 )
 
-const defaultUpdateFeed = "https://api.github.com/repos/usenorn/runner/releases/latest"
+const (
+	defaultUpdateFeed = "https://api.github.com/repos/usenorn/runner/releases/latest"
+
+	defaultScanDepth = 5
+	maxScanDepth     = 12
+)
 
 var defaultVersion = "dev"
 
@@ -166,6 +171,10 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("session.refresh_lead", 2*time.Minute)
 	v.SetDefault("session.retry_min", 5*time.Second)
 	v.SetDefault("session.retry_max", 5*time.Minute)
+
+	v.SetDefault("codebase.scan_depth", defaultScanDepth)
+	v.SetDefault("codebase.rescan_interval", 6*time.Hour)
+	v.SetDefault("codebase.probe_timeout", 10*time.Second)
 
 	v.SetDefault("update.check", true)
 	v.SetDefault("update.interval", 24*time.Hour)
@@ -353,7 +362,29 @@ func validate(cfg Config) error {
 		return err
 	}
 
+	if err := validateCodebase(cfg.Codebase); err != nil {
+		return err
+	}
+
 	return validateUpdate(cfg.Update)
+}
+
+func validateCodebase(codebase Codebase) error {
+	if codebase.ScanDepth < 1 || codebase.ScanDepth > maxScanDepth {
+		return fmt.Errorf(
+			"codebase.scan_depth is %d and must be between 1 and %d. A folder is scanned from its "+
+				"root downwards, and walking deeper than that costs more than it finds",
+			codebase.ScanDepth, maxScanDepth,
+		)
+	}
+
+	if codebase.RescanInterval <= 0 || codebase.ProbeTimeout <= 0 {
+		return fmt.Errorf(
+			"codebase.rescan_interval and codebase.probe_timeout must both be positive",
+		)
+	}
+
+	return nil
 }
 
 func validateUpdate(update Update) error {

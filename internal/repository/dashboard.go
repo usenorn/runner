@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ed25519"
 
+	"github.com/google/uuid"
+
 	"github.com/usenorn/runner/internal/entity"
 )
 
@@ -20,6 +22,13 @@ type Enrolled struct {
 	RefreshToken string
 }
 
+type ConnectedCodebase struct {
+	ID       uuid.UUID
+	Name     string
+	RootPath string
+	Drifted  bool
+}
+
 type Dashboard interface {
 	Enrol(ctx context.Context, token string, enrolment Enrolment) (Enrolled, error)
 	Exchange(
@@ -28,4 +37,11 @@ type Dashboard interface {
 		assertion entity.Assertion,
 		signature string,
 	) (entity.Session, error)
+	ConnectCodebase(
+		ctx context.Context,
+		token string,
+		inventory entity.Inventory,
+	) (ConnectedCodebase, error)
+	ConfirmCodebase(ctx context.Context, token string, id uuid.UUID) (ConnectedCodebase, error)
+	ListCodebases(ctx context.Context, token string) ([]ConnectedCodebase, error)
 }

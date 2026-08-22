@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,5 +131,31 @@ func TestStatusCarriesTheUpdateAnswerSoNobodyHasToAskTwice(t *testing.T) {
 
 	if !entity.UpdateState(status.Update.State).Valid() {
 		t.Fatalf("status reported update state %q, which is not one this runner defines", status.Update.State)
+	}
+}
+
+func TestInspectingAFolderThatIsNotThereSaysSoRatherThanFailing(t *testing.T) {
+	h := newHarness(t, nil)
+
+	_, err := h.client.Inspect(context.Background(), filepath.Join(h.dir.Root(), "nowhere"))
+	if err == nil {
+		t.Fatalf("inspecting a folder that does not exist succeeded")
+	}
+
+	if !strings.Contains(err.Error(), "no folder") {
+		t.Fatalf("inspecting a missing folder answered %q, which does not say what is wrong", err)
+	}
+}
+
+func TestStatusSaysWhichFoldersThisMachineHolds(t *testing.T) {
+	h := newHarness(t, nil)
+
+	status, err := h.client.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	if len(status.Codebases) != 0 {
+		t.Fatalf("a machine with no connected folders reported %d", len(status.Codebases))
 	}
 }

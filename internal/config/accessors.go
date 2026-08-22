@@ -13,3 +13,5 @@ func NewControl(cfg Config) Control { return cfg.Control }
 func NewSession(cfg Config) Session { return cfg.Session }
 
 func NewUpdate(cfg Config) Update { return cfg.Update }
+
+func NewCodebase(cfg Config) Codebase { return cfg.Codebase }

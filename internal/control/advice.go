@@ -90,6 +90,50 @@ func adviceFor(err error) (int, string, string) {
 		return http.StatusUnprocessableEntity, ReasonRefused,
 			err.Error()
 
+	case errors.Is(err, entity.ErrCodebaseRootMissing), errors.Is(err, entity.ErrCodebaseNotAFolder):
+		return http.StatusNotFound, ReasonRefused,
+			"there is no folder there to read"
+
+	case errors.Is(err, entity.ErrGitMissing):
+		return http.StatusFailedDependency, ReasonRefused,
+			"git is not installed on this machine, and a folder is read by asking git what is in " +
+				"it. Install git and run this again"
+
+	case errors.Is(err, entity.ErrCodebaseEmpty):
+		return http.StatusUnprocessableEntity, ReasonRefused,
+			"this folder holds no git repositories, so there would be nothing for an agent to " +
+				"work on. Connect the folder your repositories sit in"
+
+	case errors.Is(err, entity.ErrCodebaseTooLarge):
+		return http.StatusUnprocessableEntity, ReasonRefused,
+			"this folder holds more repositories than Norn accepts. Connect a folder further down"
+
+	case errors.Is(err, entity.ErrCodebaseOverlaps):
+		return http.StatusConflict, ReasonRefused,
+			"this folder sits inside one that is already connected, or holds one. Run " +
+				"'norn runner status' to see what this machine already holds"
+
+	case errors.Is(err, entity.ErrCodebaseAlreadyConnected):
+		return http.StatusConflict, ReasonRefused,
+			"Norn already has a folder connected at that path for this machine"
+
+	case errors.Is(err, entity.ErrCodebaseNotConnected):
+		return http.StatusConflict, ReasonRefused,
+			"this folder is not connected to Norn. Run 'norn runner inspect' in it to connect it"
+
+	case errors.Is(err, entity.ErrCodebaseNotDrifted):
+		return http.StatusConflict, ReasonRefused,
+			"this folder holds what was confirmed, so there is nothing to confirm"
+
+	case errors.Is(err, entity.ErrCodebaseNotRunner):
+		return http.StatusForbidden, ReasonRefused,
+			"Norn does not recognise this machine as a runner. Run 'norn runner disconnect' and " +
+				"connect again"
+
+	case errors.Is(err, entity.ErrCodebaseRefused):
+		return http.StatusUnprocessableEntity, ReasonRefused,
+			err.Error()
+
 	case errors.Is(err, entity.ErrServerUnreachable):
 		return http.StatusBadGateway, ReasonRefused,
 			err.Error()
