@@ -309,7 +309,11 @@ func TestAFolderOfRepositoriesIsSnapshottedInSecondsAndLeavesTheOriginalsAlone(t
 		t.Fatalf("a bare repository was copied into the snapshot as loose files")
 	}
 
-	after := fingerprint(t, e.root)
+	untouched(t, before, fingerprint(t, e.root))
+}
+
+func untouched(t *testing.T, before, after map[string]string) {
+	t.Helper()
 
 	for path, want := range before {
 		got, present := after[path]
@@ -628,5 +632,127 @@ func TestARunHandedToTheEngineKeepsWhatExplainsItWhenTheCopyFails(t *testing.T) 
 		if _, err := os.Stat(filepath.Join(e.dir.Run("exec-01ABC"), child)); err != nil {
 			t.Fatalf("%s went with the failed copy, so nothing explains it any more: %v", child, err)
 		}
+	}
+}
+
+func lone(t *testing.T) string {
+	t.Helper()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed, so a real folder cannot be built to snapshot")
+	}
+
+	root := filepath.Join(t.TempDir(), "greeter")
+
+	started(t, root, "")
+	writeFile(t, filepath.Join(root, "main.go"), "package main\n")
+	writeFile(t, filepath.Join(root, "docs", "guide.md"), "read me\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-q", "-m", "second")
+
+	return root
+}
+
+func newLoneEngine(t *testing.T) *engine {
+	t.Helper()
+
+	root := lone(t)
+
+	dir, err := statedir.New(config.State{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("create the state directory: %v", err)
+	}
+
+	inventories := inventoryrepo.New(dir)
+
+	if err := inventories.Save(context.Background(), scanned(t, root)); err != nil {
+		t.Fatalf("record the codebase: %v", err)
+	}
+
+	return &engine{
+		t:    t,
+		root: root,
+		dir:  dir,
+		service: snapshotsvc.New(
+			worktreerepo.New(defaults()),
+			materialiserrepo.New(),
+			settingsrepo.New(),
+			inventories,
+			runrepo.New(dir),
+			defaults(),
+		),
+	}
+}
+
+func TestAFolderThatIsItselfOneRepositoryIsSnapshottedIntoAWorkspaceOfItsOwn(t *testing.T) {
+	e := newLoneEngine(t)
+	before := fingerprint(t, e.root)
+
+	taken := e.take("NORN-69", 1, false)
+
+	if len(taken.Repositories) != 1 {
+		t.Fatalf("a folder that is one repository was snapshotted as %+v", taken.Repositories)
+	}
+
+	held := taken.Repositories[0]
+
+	if held.RelPath != "." {
+		t.Fatalf("the repository at the root of the folder came back at %q", held.RelPath)
+	}
+
+	if held.Branch != "norn/NORN-69/greeter" {
+		t.Fatalf("the repository is on %q", held.Branch)
+	}
+
+	for _, name := range []string{"main.go", "README.md", filepath.Join("docs", "guide.md")} {
+		if _, err := os.Stat(filepath.Join(taken.Workspace, name)); err != nil {
+			t.Fatalf("%s is not in the workspace: %v", name, err)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(taken.Workspace, ".git")); err != nil {
+		t.Fatalf("the workspace has no git of its own: %v", err)
+	}
+
+	if len(taken.Shared) != 0 {
+		t.Fatalf(
+			"a folder with nothing outside its repository carried %+v across as shared files",
+			taken.Shared,
+		)
+	}
+
+	untouched(t, before, fingerprint(t, e.root))
+}
+
+func TestUncommittedWorkInAFolderThatIsItselfOneRepositoryIsCarriedAcrossAndNamed(t *testing.T) {
+	e := newLoneEngine(t)
+
+	writeFile(t, filepath.Join(e.root, "README.md"), "hello, and more\n")
+	writeFile(t, filepath.Join(e.root, "notes.md"), "not committed yet\n")
+
+	taken := e.take("NORN-69", 1, true)
+
+	held := taken.Repositories[0]
+
+	if held.Local == nil || held.Local.PatchFile == "" {
+		t.Fatalf("the uncommitted work in the folder was not carried across: %+v", held.Local)
+	}
+
+	name := filepath.Base(held.Local.PatchFile)
+
+	if strings.HasPrefix(name, ".") {
+		t.Fatalf("the patch for the folder's own repository was filed as %q, which is hidden", name)
+	}
+
+	if _, err := os.Stat(filepath.Join(taken.Run, entity.RunMetadataDir, held.Local.PatchFile)); err != nil {
+		t.Fatalf("the patch is not where the snapshot says it is: %v", err)
+	}
+
+	if status := run(t, held.Path, "status", "--porcelain"); status != "" {
+		t.Fatalf("the snapshot is dirty after carrying local work across:\n%s", status)
+	}
+
+	if _, err := os.Stat(filepath.Join(held.Path, "notes.md")); err != nil {
+		t.Fatalf("the untracked file did not arrive: %v", err)
 	}
 }
