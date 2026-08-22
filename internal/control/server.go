@@ -23,6 +23,7 @@ type Server struct {
 	enrolments service.Enrolments
 	sessions   service.Sessions
 	updates    service.Updates
+	codebases  service.Codebases
 	build      entity.Build
 	startedAt  time.Time
 	handler    http.Handler
@@ -36,6 +37,7 @@ func NewServer(
 	enrolments service.Enrolments,
 	sessions service.Sessions,
 	updates service.Updates,
+	codebases service.Codebases,
 	build entity.Build,
 ) *Server {
 	server := &Server{
@@ -46,6 +48,7 @@ func NewServer(
 		enrolments: enrolments,
 		sessions:   sessions,
 		updates:    updates,
+		codebases:  codebases,
 		build:      build,
 		startedAt:  time.Now().UTC(),
 	}
@@ -55,6 +58,8 @@ func NewServer(
 	mux.HandleFunc("GET "+VersionPath, server.version)
 	mux.HandleFunc("POST "+ConnectPath, server.connect)
 	mux.HandleFunc("POST "+DisconnectPath, server.disconnect)
+	mux.HandleFunc("POST "+InspectPath, server.inspect)
+	mux.HandleFunc("POST "+AcceptPath, server.accept)
 
 	server.handler = recovering(mux)
 
@@ -84,6 +89,8 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	status.Session = string(report.State)
 	status.SessionDetail = report.Detail
 	status.Expires = optionalTime(report.ExpiresAt)
+
+	status.Codebases = s.heldCodebases(r)
 
 	identity, err := s.enrolments.Current(r.Context())
 	if err != nil {

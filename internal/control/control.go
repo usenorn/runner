@@ -12,6 +12,8 @@ const (
 	VersionPath    = "/v1/version"
 	ConnectPath    = "/v1/connect"
 	DisconnectPath = "/v1/disconnect"
+	InspectPath    = "/v1/inspect"
+	AcceptPath     = "/v1/inspect/accept"
 )
 
 type Update struct {
@@ -33,24 +35,95 @@ type Build struct {
 }
 
 type Status struct {
-	Version       string     `json:"version"`
-	PID           int        `json:"pid"`
-	StartedAt     time.Time  `json:"startedAt"`
-	StateDir      string     `json:"stateDir"`
-	ConfigFile    string     `json:"configFile"`
-	Socket        string     `json:"socket"`
-	Server        string     `json:"server"`
-	Capacity      int        `json:"capacity"`
-	Runtime       string     `json:"runtime"`
-	Enrolled      bool       `json:"enrolled"`
-	Agent         string     `json:"agent,omitempty"`
-	Machine       string     `json:"machine,omitempty"`
-	RunnerID      string     `json:"runnerId,omitempty"`
-	Store         string     `json:"store,omitempty"`
-	Session       string     `json:"session"`
-	SessionDetail string     `json:"sessionDetail,omitempty"`
-	Expires       *time.Time `json:"expires,omitempty"`
-	Update        Update     `json:"update"`
+	Version       string           `json:"version"`
+	PID           int              `json:"pid"`
+	StartedAt     time.Time        `json:"startedAt"`
+	StateDir      string           `json:"stateDir"`
+	ConfigFile    string           `json:"configFile"`
+	Socket        string           `json:"socket"`
+	Server        string           `json:"server"`
+	Capacity      int              `json:"capacity"`
+	Runtime       string           `json:"runtime"`
+	Enrolled      bool             `json:"enrolled"`
+	Agent         string           `json:"agent,omitempty"`
+	Machine       string           `json:"machine,omitempty"`
+	RunnerID      string           `json:"runnerId,omitempty"`
+	Store         string           `json:"store,omitempty"`
+	Session       string           `json:"session"`
+	SessionDetail string           `json:"sessionDetail,omitempty"`
+	Expires       *time.Time       `json:"expires,omitempty"`
+	Codebases     []StatusCodebase `json:"codebases,omitempty"`
+	Update        Update           `json:"update"`
+}
+
+type StatusCodebase struct {
+	CodebaseID   string `json:"codebaseId"`
+	Name         string `json:"name"`
+	RootPath     string `json:"rootPath"`
+	Repositories int    `json:"repositories"`
+	Drifted      bool   `json:"drifted"`
+}
+
+type Remote struct {
+	Hash     string `json:"hash,omitempty"`
+	Host     string `json:"host,omitempty"`
+	PathTail string `json:"pathTail,omitempty"`
+}
+
+type Repository struct {
+	Name          string `json:"name"`
+	RelPath       string `json:"relPath"`
+	Kind          string `json:"kind"`
+	DefaultBranch string `json:"defaultBranch,omitempty"`
+	Remote        Remote `json:"remote"`
+	CommonDir     string `json:"commonDir,omitempty"`
+	Parent        string `json:"parent,omitempty"`
+}
+
+type Tool struct {
+	Name    string `json:"name"`
+	Version string `json:"version,omitempty"`
+}
+
+type Inventory struct {
+	Name         string       `json:"name"`
+	RootPath     string       `json:"rootPath"`
+	Repositories []Repository `json:"repositories"`
+	SharedFiles  []string     `json:"sharedFiles"`
+	Runtimes     []string     `json:"runtimes"`
+	Tools        []Tool       `json:"tools"`
+	ScannedAt    time.Time    `json:"scannedAt"`
+}
+
+type Drift struct {
+	Added   []string `json:"added,omitempty"`
+	Removed []string `json:"removed,omitempty"`
+	Changed []string `json:"changed,omitempty"`
+}
+
+func (d Drift) Any() bool {
+	return len(d.Added) > 0 || len(d.Removed) > 0 || len(d.Changed) > 0
+}
+
+type Scan struct {
+	Inventory  Inventory `json:"inventory"`
+	Warnings   []string  `json:"warnings,omitempty"`
+	Connected  bool      `json:"connected"`
+	Reconcile  bool      `json:"reconcile"`
+	CodebaseID string    `json:"codebaseId,omitempty"`
+	Drift      Drift     `json:"drift"`
+}
+
+type InspectRequest struct {
+	Root string `json:"root"`
+}
+
+type Accepted struct {
+	CodebaseID   string `json:"codebaseId"`
+	Name         string `json:"name"`
+	RootPath     string `json:"rootPath"`
+	Repositories int    `json:"repositories"`
+	Server       string `json:"server"`
 }
 
 type ConnectRequest struct {

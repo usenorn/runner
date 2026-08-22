@@ -14,10 +14,14 @@ import (
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
+	capabilityrepo "github.com/usenorn/runner/internal/repository/capability"
 	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
+	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
+	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
+	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
@@ -30,6 +34,14 @@ type harness struct {
 	dashboard   *dashboardrepo.MockDashboard
 	credentials *credentialrepo.MockCredential
 	identities  repository.Identity
+}
+
+func codebaseSettings() config.Codebase {
+	return config.Codebase{
+		ScanDepth:      entity.ScanDepthDefault,
+		RescanInterval: time.Hour,
+		ProbeTimeout:   5 * time.Second,
+	}
 }
 
 func sessionSettings() config.Session {
@@ -108,6 +120,15 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		entity.Host{Hostname: "test-box", OS: "darwin", Arch: "arm64", Version: "test"},
 	)
 
+	codebases := codebasesvc.New(
+		scannerrepo.New(codebaseSettings()),
+		capabilityrepo.New(codebaseSettings()),
+		inventoryrepo.New(dir),
+		dashboard,
+		sessions,
+		codebaseSettings(),
+	)
+
 	if handler == nil {
 		handler = control.NewServer(
 			config.Runner{Server: "https://norn.example", Capacity: 4, Runtime: config.RuntimeAuto},
@@ -117,6 +138,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			enrolments,
 			sessions,
 			updates,
+			codebases,
 			build,
 		)
 	}

@@ -41,6 +41,21 @@ func (m *MockSessions) EXPECT() *MockSessionsMockRecorder {
 	return m.recorder
 }
 
+// Access mocks base method.
+func (m *MockSessions) Access(ctx context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Access", ctx)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Access indicates an expected call of Access.
+func (mr *MockSessionsMockRecorder) Access(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Access", reflect.TypeOf((*MockSessions)(nil).Access), ctx)
+}
+
 // Adopt mocks base method.
 func (m *MockSessions) Adopt(ctx context.Context, identity entity.Identity) entity.SessionReport {
 	m.ctrl.T.Helper()

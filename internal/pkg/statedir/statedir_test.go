@@ -18,7 +18,7 @@ func TestTheStateDirectoryAndAllItsChildrenAreCreated(t *testing.T) {
 		t.Fatalf("create state directory: %v", err)
 	}
 
-	for _, path := range []string{dir.Workspaces(), dir.Runs(), dir.Cache(), dir.Spool(), dir.Logs()} {
+	for _, path := range []string{dir.Codebases(), dir.Runs(), dir.Cache(), dir.Spool(), dir.Logs()} {
 		info, err := os.Stat(path)
 		if err != nil {
 			t.Fatalf("stat %s: %v", path, err)
@@ -94,7 +94,7 @@ func TestEveryNamedPathSitsInsideTheStateDirectory(t *testing.T) {
 
 	paths := []string{
 		dir.Config(), dir.Identity(), dir.Socket(), dir.Lock(),
-		dir.Workspaces(), dir.Runs(), dir.Cache(), dir.Spool(), dir.Logs(), dir.LogFile(),
+		dir.Codebases(), dir.Runs(), dir.Cache(), dir.Spool(), dir.Logs(), dir.LogFile(),
 	}
 
 	for _, path := range paths {
