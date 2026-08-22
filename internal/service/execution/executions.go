@@ -19,20 +19,33 @@ import (
 	"github.com/usenorn/runner/internal/service"
 )
 
-const parkedNote = "this machine has taken the run and made its directory. Running a coding " +
-	"agent is not built into this release, so the run stays here until it is cancelled"
+const parkedNote = "the workspace for this run is ready. Running a coding agent in it is not " +
+	"built into this release, so the run waits here until it is cancelled"
+
+const interruptedNote = "this machine restarted while the run was under way, so the work it had " +
+	"started was left unfinished"
+
+const waitingToPrepare = 64
 
 type executionsService struct {
-	runs      repository.Run
-	spool     repository.Spool
-	disks     repository.Disk
-	dir       *statedir.Dir
-	app       config.App
-	scheduler config.Scheduler
-	now       func() time.Time
+	runs        repository.Run
+	spool       repository.Spool
+	disks       repository.Disk
+	settings    repository.Settings
+	inventories repository.Inventory
+	snapshots   service.Snapshots
+	dir         *statedir.Dir
+	runner      config.Runner
+	app         config.App
+	scheduler   config.Scheduler
+	now         func() time.Time
+
+	preparing chan string
 
 	mu       sync.Mutex
 	held     map[string]entity.Execution
+	work     map[string]context.CancelFunc
+	owed     map[string]bool
 	capacity int
 	paused   bool
 }
@@ -41,42 +54,32 @@ func New(
 	runs repository.Run,
 	spool repository.Spool,
 	disks repository.Disk,
+	settings repository.Settings,
+	inventories repository.Inventory,
+	snapshots service.Snapshots,
 	dir *statedir.Dir,
 	runner config.Runner,
 	app config.App,
 	scheduler config.Scheduler,
 ) service.Executions {
 	return &executionsService{
-		runs:      runs,
-		spool:     spool,
-		disks:     disks,
-		dir:       dir,
-		app:       app,
-		scheduler: scheduler,
-		now:       func() time.Time { return time.Now().UTC() },
-		held:      map[string]entity.Execution{},
-		capacity:  runner.Capacity,
+		runs:        runs,
+		spool:       spool,
+		disks:       disks,
+		settings:    settings,
+		inventories: inventories,
+		snapshots:   snapshots,
+		dir:         dir,
+		runner:      runner,
+		app:         app,
+		scheduler:   scheduler,
+		now:         func() time.Time { return time.Now().UTC() },
+		preparing:   make(chan string, waitingToPrepare),
+		held:        map[string]entity.Execution{},
+		work:        map[string]context.CancelFunc{},
+		owed:        map[string]bool{},
+		capacity:    runner.Capacity,
 	}
-}
-
-func (s *executionsService) Recover(ctx context.Context) error {
-	found, err := s.runs.LoadTasks(ctx)
-	if err != nil {
-		return err
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for _, execution := range found {
-		if execution.Finished() {
-			continue
-		}
-
-		s.held[execution.ID] = execution
-	}
-
-	return nil
 }
 
 func (s *executionsService) Offer(ctx context.Context, offer channelv1.Offer) error {
@@ -144,8 +147,8 @@ func (s *executionsService) Start(
 		return nil
 	}
 
-	if _, err := s.runs.Prepare(ctx, execution.ID); err != nil {
-		return s.fail(ctx, execution, err.Error())
+	if _, err := s.runs.Open(ctx, execution.ID); err != nil {
+		return s.fail(ctx, execution, entity.Failure(entity.StepRecord, err))
 	}
 
 	if start.LeaseExpiresAt != nil {
@@ -158,13 +161,20 @@ func (s *executionsService) Start(
 		return err
 	}
 
-	return s.note(ctx, execution.ID, channelv1.EventPhase, parkedNote)
+	select {
+	case s.preparing <- execution.ID:
+	default:
+		return s.fail(ctx, execution, "this machine has more runs waiting to be prepared than it can hold")
+	}
+
+	return nil
 }
 
 func (s *executionsService) Cancel(ctx context.Context, executionID, reason string) error {
 	s.mu.Lock()
-	_, holding := s.held[executionID]
+	execution, holding := s.held[executionID]
 	delete(s.held, executionID)
+	underway := s.stop(executionID)
 	s.mu.Unlock()
 
 	if !holding {
@@ -178,7 +188,13 @@ func (s *executionsService) Cancel(ctx context.Context, executionID, reason stri
 		slog.String("reason", reason),
 	)
 
-	return s.discard(ctx, executionID)
+	s.settle(ctx, execution, channelv1.StateCancelled, reason)
+
+	if underway {
+		return nil
+	}
+
+	return s.teardown(ctx, executionID)
 }
 
 func (s *executionsService) Reconcile(ctx context.Context, leased []string) error {
@@ -221,7 +237,7 @@ func (s *executionsService) Reconcile(ctx context.Context, leased []string) erro
 			slog.String("execution_id", id),
 		)
 
-		if err := s.discard(ctx, id); err != nil {
+		if err := s.teardown(ctx, id); err != nil {
 			return err
 		}
 	}
@@ -365,8 +381,39 @@ func (s *executionsService) fail(
 	delete(s.held, execution.ID)
 	s.mu.Unlock()
 
+	s.settle(ctx, execution, channelv1.StateFailed, reason)
+
 	return s.send(ctx, channelv1.ExecutionStateReport, execution.ID, channelv1.Report{
 		State:    string(channelv1.StateFailed),
+		Reason:   reason,
+		Occurred: s.now(),
+	})
+}
+
+func (s *executionsService) settle(
+	ctx context.Context,
+	execution entity.Execution,
+	state entity.ExecutionState,
+	reason string,
+) {
+	if execution.ID == "" {
+		return
+	}
+
+	execution.State = state
+
+	if err := s.runs.SaveTask(context.WithoutCancel(ctx), execution); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not write down how a run ended",
+			slog.String("execution_id", execution.ID),
+			slog.String("error", err.Error()),
+		)
+	}
+
+	s.record(ctx, execution.ID, entity.TimelineEntry{
+		Kind:     channelv1.EventTransition,
+		State:    state,
 		Reason:   reason,
 		Occurred: s.now(),
 	})
@@ -392,6 +439,13 @@ func (s *executionsService) move(
 	s.held[execution.ID] = execution
 	s.mu.Unlock()
 
+	s.record(ctx, execution.ID, entity.TimelineEntry{
+		Kind:     channelv1.EventTransition,
+		State:    state,
+		Reason:   reason,
+		Occurred: s.now(),
+	})
+
 	return s.send(ctx, channelv1.ExecutionStateReport, execution.ID, channelv1.Report{
 		State:    string(state),
 		Reason:   reason,
@@ -405,6 +459,12 @@ func (s *executionsService) note(
 	kind channelv1.EventKind,
 	reason string,
 ) error {
+	s.record(ctx, executionID, entity.TimelineEntry{
+		Kind:     kind,
+		Reason:   reason,
+		Occurred: s.now(),
+	})
+
 	return s.send(ctx, channelv1.ExecutionEvent, executionID, channelv1.Entry{
 		Kind:     string(kind),
 		Reason:   reason,
@@ -412,11 +472,26 @@ func (s *executionsService) note(
 	})
 }
 
-func (s *executionsService) discard(ctx context.Context, executionID string) error {
-	if err := s.runs.Remove(ctx, executionID); err != nil {
+func (s *executionsService) record(
+	ctx context.Context,
+	executionID string,
+	entry entity.TimelineEntry,
+) {
+	if err := s.runs.Append(context.WithoutCancel(ctx), executionID, entry); err != nil {
 		logging.From(ctx).WarnContext(
 			ctx,
-			"this machine could not clear a run directory away",
+			"this machine could not add a line to a run's own timeline",
+			slog.String("execution_id", executionID),
+			slog.String("error", err.Error()),
+		)
+	}
+}
+
+func (s *executionsService) teardown(ctx context.Context, executionID string) error {
+	if err := s.snapshots.Release(context.WithoutCancel(ctx), executionID); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not give a run's workspace back",
 			slog.String("execution_id", executionID),
 			slog.String("error", err.Error()),
 		)

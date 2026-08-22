@@ -71,14 +71,6 @@ func (s *channelsService) Run(ctx context.Context) {
 		return
 	}
 
-	if err := s.executions.Recover(ctx); err != nil {
-		logging.From(ctx).WarnContext(
-			ctx,
-			"this machine could not read back the runs it was holding",
-			slog.String("error", err.Error()),
-		)
-	}
-
 	for {
 		wait := s.tick(ctx)
 

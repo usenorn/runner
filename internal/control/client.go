@@ -10,6 +10,8 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"syscall"
 
 	"github.com/usenorn/runner/internal/config"
@@ -67,6 +69,16 @@ func (c *Client) Pause(ctx context.Context) (Paused, error) {
 
 func (c *Client) Resume(ctx context.Context) (Paused, error) {
 	return ask[Paused](ctx, c, http.MethodPost, ResumePath, struct{}{})
+}
+
+func (c *Client) Executions(ctx context.Context) ([]Execution, error) {
+	return ask[[]Execution](ctx, c, http.MethodGet, ExecutionsPath, nil)
+}
+
+func (c *Client) Logs(ctx context.Context, executionID string) ([]TimelineEntry, error) {
+	path := strings.Replace(LogsPath, "{executionId}", url.PathEscape(executionID), 1)
+
+	return ask[[]TimelineEntry](ctx, c, http.MethodGet, path, nil)
 }
 
 func (c *Client) Disconnect(ctx context.Context) (Disconnected, error) {

@@ -11,7 +11,7 @@ import (
 //go:generate go tool mockgen -source=executions.go -destination=execution/mock_executions.go -package=execution -mock_names=Executions=MockExecutions
 
 type Executions interface {
-	Recover(ctx context.Context) error
+	Run(ctx context.Context)
 	Offer(ctx context.Context, offer channelv1.Offer) error
 	Start(ctx context.Context, executionID string, start channelv1.Start) error
 	Cancel(ctx context.Context, executionID string, reason string) error
@@ -22,4 +22,6 @@ type Executions interface {
 	Greeting() channelv1.Hello
 	Pulse(ctx context.Context) channelv1.Pulse
 	Report(ctx context.Context) entity.SchedulerReport
+	List(ctx context.Context) ([]entity.Execution, error)
+	Timeline(ctx context.Context, executionID string) ([]entity.TimelineEntry, error)
 }

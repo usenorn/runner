@@ -9,9 +9,12 @@ import (
 	"testing"
 	"time"
 
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
+
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/entity"
+	runrepo "github.com/usenorn/runner/internal/repository/run"
 )
 
 func TestStatusAnswersOverTheSocketWithWhatTheRunnerIs(t *testing.T) {
@@ -223,5 +226,95 @@ func TestPausingAndResumingThisMachineTakesEffectWithoutARestart(t *testing.T) {
 
 	if status.Scheduler.Paused {
 		t.Fatalf("status still reports the machine as paused")
+	}
+}
+
+func TestTheRunsThisMachineHasTakenAreListedOverTheSocket(t *testing.T) {
+	h := newHarness(t, nil)
+	ctx := context.Background()
+
+	found, err := h.client.Executions(ctx)
+	if err != nil {
+		t.Fatalf("executions: %v", err)
+	}
+
+	if len(found) != 0 {
+		t.Fatalf("a machine that has run nothing listed %+v", found)
+	}
+
+	fabricate(t, h, "exec-01ABC")
+
+	found, err = h.client.Executions(ctx)
+	if err != nil {
+		t.Fatalf("executions: %v", err)
+	}
+
+	if len(found) != 1 || found[0].ID != "exec-01ABC" || found[0].IssueKey != "NORN-47" {
+		t.Fatalf("the machine listed %+v", found)
+	}
+
+	if found[0].Held {
+		t.Fatalf("a run left behind by an earlier daemon is being counted as held")
+	}
+}
+
+func TestWhatHappenedInOneRunReadsBackOverTheSocket(t *testing.T) {
+	h := newHarness(t, nil)
+	ctx := context.Background()
+
+	fabricate(t, h, "exec-01ABC")
+
+	if err := runrepo.New(h.dir).Append(ctx, "exec-01ABC", entity.TimelineEntry{
+		Kind:     channelv1.EventPhase,
+		State:    channelv1.StatePreparing,
+		Reason:   "this run works in /codebase",
+		Occurred: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("write a timeline entry: %v", err)
+	}
+
+	timeline, err := h.client.Logs(ctx, "exec-01ABC")
+	if err != nil {
+		t.Fatalf("logs: %v", err)
+	}
+
+	if len(timeline) != 1 || timeline[0].Reason != "this run works in /codebase" {
+		t.Fatalf("the run's timeline came back as %+v", timeline)
+	}
+}
+
+func TestAskingWhatHappenedInARunThisMachineNeverHadSaysSo(t *testing.T) {
+	h := newHarness(t, nil)
+
+	_, err := h.client.Logs(context.Background(), "exec-01GONE")
+	if err == nil {
+		t.Fatalf("a run this machine never had answered with a timeline")
+	}
+
+	if !strings.Contains(err.Error(), "not holding that execution") {
+		t.Fatalf("the refusal reads %q", err)
+	}
+}
+
+func fabricate(t *testing.T, h *harness, executionID string) {
+	t.Helper()
+
+	ctx := context.Background()
+	runs := runrepo.New(h.dir)
+
+	if _, err := runs.Open(ctx, executionID); err != nil {
+		t.Fatalf("make a run directory by hand: %v", err)
+	}
+
+	if err := runs.SaveTask(ctx, entity.Execution{
+		ID:         executionID,
+		Reference:  "NORN-47",
+		IssueKey:   "NORN-47",
+		Attempt:    1,
+		Title:      "Execution lifecycle",
+		State:      channelv1.StateInterrupted,
+		AcceptedAt: time.Now().UTC().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("write a task by hand: %v", err)
 	}
 }

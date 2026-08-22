@@ -492,3 +492,141 @@ func repositoryAt(t *testing.T, snapshot entity.Snapshot, relPath string) entity
 
 	return entity.SnapshotRepository{}
 }
+
+func TestARunOfItsOwnIsFilledInPlaceRatherThanGettingASecondDirectory(t *testing.T) {
+	e := newEngine(t)
+
+	taken, err := e.service.Take(context.Background(), service.TakeRequest{
+		Path:     e.root,
+		IssueKey: "NORN-47",
+		Attempt:  1,
+		Run:      "exec-01ABC",
+	})
+	if err != nil {
+		t.Fatalf("snapshot into a run of its own: %v", err)
+	}
+
+	if taken.Name != "exec-01ABC" || taken.Run != e.dir.Run("exec-01ABC") {
+		t.Fatalf("the snapshot landed in %q as %q", taken.Run, taken.Name)
+	}
+
+	if _, err := os.Stat(e.dir.Run(entity.RunNameFor("NORN-47", 1))); !os.IsNotExist(err) {
+		t.Fatalf("a second directory was made beside the run: %v", err)
+	}
+
+	held, err := runrepo.New(e.dir).Load(context.Background(), "exec-01ABC")
+	if err != nil {
+		t.Fatalf("read what the run copied: %v", err)
+	}
+
+	if len(held.Repositories) != len(taken.Repositories) {
+		t.Fatalf("the run remembers %d repositories, want %d",
+			len(held.Repositories), len(taken.Repositories))
+	}
+}
+
+func TestASecondAttemptTakesUpTheBranchTheFirstOneCommittedOn(t *testing.T) {
+	e := newEngine(t)
+	ctx := context.Background()
+
+	first, err := e.service.Take(ctx, service.TakeRequest{
+		Path: e.root, IssueKey: "NORN-47", Attempt: 1, Run: "exec-01ABC",
+	})
+	if err != nil {
+		t.Fatalf("snapshot the first attempt: %v", err)
+	}
+
+	held := repositoryAt(t, first, "runner")
+
+	writeFile(t, filepath.Join(held.Path, "carried.txt"), "work from the first attempt\n")
+	run(t, held.Path, "add", "carried.txt")
+	run(t, held.Path, "commit", "-q", "-m", "carried")
+
+	if err := e.service.Release(ctx, "exec-01ABC"); err != nil {
+		t.Fatalf("give the first attempt's workspace back: %v", err)
+	}
+
+	second, err := e.service.Take(ctx, service.TakeRequest{
+		Path:     e.root,
+		IssueKey: "NORN-47",
+		Attempt:  2,
+		Run:      "exec-01DEF",
+		Branches: map[string]string{"runner": held.Branch},
+	})
+	if err != nil {
+		t.Fatalf("snapshot the second attempt: %v", err)
+	}
+
+	again := repositoryAt(t, second, "runner")
+
+	if again.Branch != held.Branch {
+		t.Fatalf("the second attempt is on %q, want the first attempt's %q", again.Branch, held.Branch)
+	}
+
+	if _, err := os.Stat(filepath.Join(again.Path, "carried.txt")); err != nil {
+		t.Fatalf("the work the first attempt committed is not in the second: %v", err)
+	}
+}
+
+func TestGivingAWorkspaceBackReleasesTheWorktreesAndKeepsTheRecord(t *testing.T) {
+	e := newEngine(t)
+	ctx := context.Background()
+
+	taken, err := e.service.Take(ctx, service.TakeRequest{
+		Path: e.root, IssueKey: "NORN-47", Attempt: 1, Run: "exec-01ABC",
+	})
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+
+	held := repositoryAt(t, taken, "runner")
+
+	if err := e.service.Release(ctx, "exec-01ABC"); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+
+	if _, err := os.Stat(taken.Workspace); !os.IsNotExist(err) {
+		t.Fatalf("the workspace is still there: %v", err)
+	}
+
+	if listed := run(t, held.Source, "worktree", "list"); strings.Contains(listed, taken.Workspace) {
+		t.Fatalf("the original still has the run's worktree registered:\n%s", listed)
+	}
+
+	if branches := run(t, held.Source, "branch", "--list"); !strings.Contains(branches, held.Branch) {
+		t.Fatalf("the branch went with the workspace; it is the work:\n%s", branches)
+	}
+
+	if _, err := runrepo.New(e.dir).Load(ctx, "exec-01ABC"); err != nil {
+		t.Fatalf("the record of what the run copied went with the workspace: %v", err)
+	}
+}
+
+func TestARunHandedToTheEngineKeepsWhatExplainsItWhenTheCopyFails(t *testing.T) {
+	e := newEngine(t)
+	ctx := context.Background()
+
+	if _, err := runrepo.New(e.dir).Open(ctx, "exec-01ABC"); err != nil {
+		t.Fatalf("open a run: %v", err)
+	}
+
+	if err := os.RemoveAll(filepath.Join(e.root, "runner", ".git")); err != nil {
+		t.Fatalf("break a repository: %v", err)
+	}
+
+	if _, err := e.service.Take(ctx, service.TakeRequest{
+		Path: e.root, IssueKey: "NORN-47", Attempt: 1, Run: "exec-01ABC",
+	}); err == nil {
+		t.Fatalf("a folder with a broken repository was copied without complaint")
+	}
+
+	if _, err := os.Stat(filepath.Join(e.dir.Run("exec-01ABC"), entity.RunWorkspaceDir)); !os.IsNotExist(err) {
+		t.Fatalf("a half-built workspace was left behind: %v", err)
+	}
+
+	for _, child := range []string{entity.RunMetadataDir, entity.RunLogsDir} {
+		if _, err := os.Stat(filepath.Join(e.dir.Run("exec-01ABC"), child)); err != nil {
+			t.Fatalf("%s went with the failed copy, so nothing explains it any more: %v", child, err)
+		}
+	}
+}

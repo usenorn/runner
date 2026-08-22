@@ -80,7 +80,7 @@ func (s *snapshotsService) Take(
 	}
 
 	snapshot := entity.Snapshot{
-		Name:         entity.RunNameFor(request.IssueKey, request.Attempt),
+		Name:         nameFor(request),
 		IssueKey:     request.IssueKey,
 		Attempt:      max(request.Attempt, 1),
 		CodebaseID:   codebase.ID,
@@ -97,7 +97,7 @@ func (s *snapshotsService) Take(
 		))
 	}
 
-	run, err := s.runs.Prepare(ctx, snapshot.Name)
+	run, err := s.open(ctx, request, snapshot.Name)
 	if err != nil {
 		return entity.Snapshot{}, err
 	}
@@ -105,9 +105,9 @@ func (s *snapshotsService) Take(
 	snapshot.Run = run
 	snapshot.Workspace = filepath.Join(run, entity.RunWorkspaceDir)
 
-	taken, err := s.fill(ctx, snapshot, codebase, listed, policy)
+	taken, err := s.fill(ctx, snapshot, codebase, listed, policy, request.Branches)
 	if err != nil {
-		s.tear(ctx, snapshot.Name, taken.Repositories)
+		s.tear(ctx, snapshot.Name, taken.Repositories, request.Run == "")
 
 		return entity.Snapshot{}, err
 	}
@@ -115,12 +115,32 @@ func (s *snapshotsService) Take(
 	taken.Took = s.now().Sub(taken.TakenAt)
 
 	if err := s.runs.Save(ctx, taken); err != nil {
-		s.tear(ctx, snapshot.Name, taken.Repositories)
+		s.tear(ctx, snapshot.Name, taken.Repositories, request.Run == "")
 
 		return entity.Snapshot{}, err
 	}
 
 	return taken, nil
+}
+
+func nameFor(request service.TakeRequest) string {
+	if request.Run != "" {
+		return request.Run
+	}
+
+	return entity.RunNameFor(request.IssueKey, request.Attempt)
+}
+
+func (s *snapshotsService) open(
+	ctx context.Context,
+	request service.TakeRequest,
+	name string,
+) (string, error) {
+	if request.Run != "" {
+		return s.runs.Open(ctx, name)
+	}
+
+	return s.runs.Prepare(ctx, name)
 }
 
 func (s *snapshotsService) fill(
@@ -129,6 +149,7 @@ func (s *snapshotsService) fill(
 	codebase entity.Codebase,
 	listed []entity.Repository,
 	policy entity.SnapshotPolicy,
+	branches map[string]string,
 ) (entity.Snapshot, error) {
 	rules, err := s.settings.Ignores(ctx, codebase.RootPath)
 	if err != nil {
@@ -138,7 +159,9 @@ func (s *snapshotsService) fill(
 	sort.Slice(listed, func(i, j int) bool { return listed[i].RelPath < listed[j].RelPath })
 
 	for _, held := range listed {
-		checked, warnings, err := s.checkout(ctx, snapshot, codebase.RootPath, held, policy)
+		checked, warnings, err := s.checkout(
+			ctx, snapshot, codebase.RootPath, held, policy, branches[held.Name],
+		)
 
 		snapshot.Warnings = append(snapshot.Warnings, warnings...)
 
@@ -180,6 +203,7 @@ func (s *snapshotsService) checkout(
 	root string,
 	held entity.Repository,
 	policy entity.SnapshotPolicy,
+	branch string,
 ) (entity.SnapshotRepository, []string, error) {
 	source := filepath.Join(root, filepath.FromSlash(held.RelPath))
 	path := filepath.Join(snapshot.Workspace, filepath.FromSlash(held.RelPath))
@@ -208,7 +232,7 @@ func (s *snapshotsService) checkout(
 		Mode:    policy.GitMode,
 		Base:    policy.Base,
 		BaseSHA: base,
-		Branch:  entity.BranchFor(snapshot.IssueKey, held.Name, snapshot.Attempt),
+		Branch:  branchFor(branch, snapshot, held),
 	}
 
 	if err := s.worktrees.Branch(ctx, checked.Path, checked.Branch); err != nil {
@@ -343,13 +367,29 @@ func (s *snapshotsService) codebaseFor(
 	return entity.Codebase{}, entity.ErrCodebaseNotConnected
 }
 
-func (s *snapshotsService) Discard(ctx context.Context, name string) error {
+func branchFor(reused string, snapshot entity.Snapshot, held entity.Repository) string {
+	if reused != "" {
+		return reused
+	}
+
+	return entity.BranchFor(snapshot.IssueKey, held.Name, snapshot.Attempt)
+}
+
+func (s *snapshotsService) Release(ctx context.Context, name string) error {
 	snapshot, err := s.runs.Load(ctx, name)
 	if err != nil && !errors.Is(err, entity.ErrSnapshotMissing) {
 		return err
 	}
 
 	if err := s.release(ctx, snapshot.Repositories); err != nil {
+		return err
+	}
+
+	return s.runs.Prune(ctx, name)
+}
+
+func (s *snapshotsService) Discard(ctx context.Context, name string) error {
+	if err := s.Release(ctx, name); err != nil {
 		return err
 	}
 
@@ -381,11 +421,19 @@ func (s *snapshotsService) tear(
 	ctx context.Context,
 	name string,
 	repositories []entity.SnapshotRepository,
+	made bool,
 ) {
 	ctx = context.WithoutCancel(ctx)
 
 	_ = s.release(ctx, repositories)
-	_ = s.runs.Remove(ctx, name)
+
+	if made {
+		_ = s.runs.Remove(ctx, name)
+
+		return
+	}
+
+	_ = s.runs.Prune(ctx, name)
 }
 
 func resolve(path string) (string, error) {

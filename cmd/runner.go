@@ -28,6 +28,8 @@ func newRunnerCommand() *cobra.Command {
 		newRunnerSnapshotCommand(),
 		newRunnerPauseCommand(),
 		newRunnerResumeCommand(),
+		newRunnerExecutionsCommand(),
+		newRunnerLogsCommand(),
 		newRunnerInstallCommand(),
 		newRunnerUninstallCommand(),
 	)
@@ -62,6 +64,22 @@ func withScheduling(
 	defer cleanup()
 
 	return run(ctx, scheduling)
+}
+
+func withExecutions(
+	cmd *cobra.Command,
+	run func(context.Context, *internal.Executions) error,
+) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	executions, cleanup, err := internal.InitExecutions(cfgFile, config.Overrides{})
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	return run(ctx, executions)
 }
 
 func withVersion(cmd *cobra.Command, run func(context.Context, *internal.Version) error) error {

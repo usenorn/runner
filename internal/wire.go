@@ -83,6 +83,7 @@ var baseSet = wire.NewSet(
 	NewInspection,
 	NewSnapshotting,
 	NewScheduling,
+	NewExecutions,
 	NewInstaller,
 )
 
@@ -123,6 +124,12 @@ func InitSnapshotting(cfgFile string, overrides config.Overrides) (*Snapshotting
 }
 
 func InitScheduling(cfgFile string, overrides config.Overrides) (*Scheduling, func(), error) {
+	wire.Build(baseSet)
+
+	return nil, nil, nil
+}
+
+func InitExecutions(cfgFile string, overrides config.Overrides) (*Executions, func(), error) {
 	wire.Build(baseSet)
 
 	return nil, nil, nil

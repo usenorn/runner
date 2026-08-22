@@ -19,6 +19,7 @@ const (
 	IgnoreFileName  = ".nornignore"
 	SettingsDir     = ".norn"
 	SettingsFile    = "codebase.yaml"
+	PlanFile        = "run-plan.yaml"
 
 	ShortSHALength = 12
 )

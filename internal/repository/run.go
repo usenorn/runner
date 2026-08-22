@@ -10,10 +10,16 @@ import (
 
 type Run interface {
 	Prepare(ctx context.Context, name string) (string, error)
+	Open(ctx context.Context, name string) (string, error)
 	Save(ctx context.Context, snapshot entity.Snapshot) error
 	Load(ctx context.Context, name string) (entity.Snapshot, error)
 	List(ctx context.Context) ([]entity.Snapshot, error)
 	Remove(ctx context.Context, name string) error
+	Prune(ctx context.Context, name string) error
 	SaveTask(ctx context.Context, execution entity.Execution) error
 	LoadTasks(ctx context.Context) ([]entity.Execution, error)
+	SaveSetup(ctx context.Context, name string, setup entity.RunSetup) error
+	LoadSetup(ctx context.Context, name string) (entity.RunSetup, error)
+	Append(ctx context.Context, name string, entry entity.TimelineEntry) error
+	Timeline(ctx context.Context, name string) ([]entity.TimelineEntry, error)
 }

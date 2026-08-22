@@ -2,10 +2,12 @@ package execution_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
@@ -70,7 +72,7 @@ func TestStartingARunMakesItsDirectoryAndSaysWhatItIsFor(t *testing.T) {
 		t.Fatalf("load tasks: %v", err)
 	}
 
-	if len(held) != 1 || held[0].ID != "exec-01ABC" || held[0].Title != "Channel client" {
+	if len(held) != 1 || held[0].ID != "exec-01ABC" || held[0].Title != "Execution lifecycle" {
 		t.Fatalf("the record reads %+v", held)
 	}
 
@@ -78,12 +80,6 @@ func TestStartingARunMakesItsDirectoryAndSaysWhatItIsFor(t *testing.T) {
 
 	if reported.State != string(channelv1.StatePreparing) {
 		t.Fatalf("the machine reported %q, want preparing", reported.State)
-	}
-
-	note := decodeInto[channelv1.Entry](t, h.only(t, channelv1.ExecutionEvent))
-
-	if !strings.Contains(note.Reason, "not built into this release") {
-		t.Fatalf("the timeline does not say what the run is waiting for: %q", note.Reason)
 	}
 }
 
@@ -282,8 +278,16 @@ func TestARunNornHasGivenUpOnIsClearedAway(t *testing.T) {
 		t.Fatalf("the machine still holds %+v after norn gave up on it", held)
 	}
 
-	if _, err := os.Stat(h.dir.Run("exec-01ABC")); !os.IsNotExist(err) {
-		t.Fatalf("the run directory is still there: %v", err)
+	workspace := filepath.Join(h.dir.Run("exec-01ABC"), entity.RunWorkspaceDir)
+
+	if _, err := os.Stat(workspace); !os.IsNotExist(err) {
+		t.Fatalf("the workspace was not given back: %v", err)
+	}
+
+	task := filepath.Join(h.dir.Run("exec-01ABC"), entity.RunMetadataDir, entity.ExecutionTaskFile)
+
+	if _, err := os.Stat(task); err != nil {
+		t.Fatalf("the record of what the run was for went with it: %v", err)
 	}
 }
 
@@ -312,9 +316,11 @@ func TestARunNornStillExpectsButTheMachineLostIsFailedRatherThanLeftHanging(t *t
 	}
 }
 
-func TestARestartedMachinePicksUpTheRunsItWasHolding(t *testing.T) {
+func TestAMachineThatRestartedMidRunSaysTheRunWasInterruptedAndGivesTheBranchesBack(t *testing.T) {
 	h := newHarness(t, 2, 0)
 	ctx := context.Background()
+
+	stop := h.start(t)
 
 	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
 		t.Fatalf("offer: %v", err)
@@ -324,28 +330,379 @@ func TestARestartedMachinePicksUpTheRunsItWasHolding(t *testing.T) {
 		t.Fatalf("start: %v", err)
 	}
 
+	h.awaitNote(t, "workspace for this run is ready")
+
+	stop()
+
 	restarted := newHarnessOver(t, h, 2, 0)
+	settled := restarted.start(t)
 
-	if err := restarted.service.Recover(ctx); err != nil {
-		t.Fatalf("recover: %v", err)
+	defer settled()
+
+	restarted.awaitNote(t, "restarted while the run was under way")
+
+	if held := restarted.service.Report(ctx).Executions; len(held) != 0 {
+		t.Fatalf("a machine that restarted still holds %+v", held)
 	}
 
-	report := restarted.service.Report(ctx)
+	restarted.await(t, "waited for the workspace to be given back", func() bool {
+		_, err := os.Stat(filepath.Join(h.dir.Run("exec-01ABC"), entity.RunWorkspaceDir))
 
-	if len(report.Executions) != 1 || report.Executions[0].ID != "exec-01ABC" {
-		t.Fatalf("a restarted machine holds %+v", report.Executions)
+		return os.IsNotExist(err)
+	})
+
+	restarted.await(t, "waited for the run to be written down as interrupted", func() bool {
+		found, err := restarted.service.List(ctx)
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+
+		return len(found) == 1 && found[0].State == channelv1.StateInterrupted
+	})
+
+	for _, reported := range restarted.reports(t) {
+		if reported.State == string(channelv1.StateInterrupted) {
+			t.Fatalf("the machine claimed a state that is norn's to give")
+		}
+	}
+}
+
+func TestARunNornStillExpectsAfterARestartIsFailedSoItCanBeStartedAgain(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	stop := h.start(t)
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
 	}
 
-	if report.Used != 1 {
-		t.Fatalf("a recovered preparing run uses %d slots, want 1", report.Used)
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
 	}
+
+	h.awaitNote(t, "workspace for this run is ready")
+	stop()
+
+	restarted := newHarnessOver(t, h, 2, 0)
+	settled := restarted.start(t)
+
+	defer settled()
+
+	restarted.awaitNote(t, "restarted while the run was under way")
 
 	if err := restarted.service.Reconcile(ctx, []string{"exec-01ABC"}); err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	if len(restarted.service.Report(ctx).Executions) != 1 {
-		t.Fatalf("reconciling dropped a run norn and the machine agree on")
+	failed := false
+
+	for _, reported := range restarted.reports(t) {
+		if reported.State == string(channelv1.StateFailed) {
+			failed = true
+		}
+	}
+
+	if !failed {
+		t.Fatalf("norn was never told the run this machine lost is over")
+	}
+}
+
+func TestPreparingCopiesTheConnectedFolderIntoTheRunAndSaysWhatItSetUp(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.awaitNote(t, "workspace for this run is ready")
+
+	requests := h.requests()
+
+	if len(requests) != 1 {
+		t.Fatalf("the folder was copied %d times", len(requests))
+	}
+
+	if requests[0].Run != "exec-01ABC" || requests[0].Path != "/codebase" {
+		t.Fatalf("the snapshot was taken as %+v", requests[0])
+	}
+
+	setup, err := h.runs.LoadSetup(ctx, "exec-01ABC")
+	if err != nil {
+		t.Fatalf("read what the run was set up with: %v", err)
+	}
+
+	if setup.Permissions.Profile != entity.ProfileStandard {
+		t.Fatalf("the run is under the %q profile", setup.Permissions.Profile)
+	}
+
+	if setup.Driver.Kind != entity.DriverClaude || !setup.Driver.Installed {
+		t.Fatalf("the run names the driver as %+v", setup.Driver)
+	}
+
+	if setup.Services.Runtime != entity.RuntimeProcess {
+		t.Fatalf("the run resolved to the %q runtime", setup.Services.Runtime)
+	}
+
+	if setup.Plan.Source != entity.PlanNone {
+		t.Fatalf("a run plan was found where the folder has none: %+v", setup.Plan)
+	}
+
+	if _, err := h.runs.Load(ctx, "exec-01ABC"); err != nil {
+		t.Fatalf("the run kept no record of what it copied: %v", err)
+	}
+}
+
+func TestARunOnAMachineWithNoConnectedFolderFailsSayingSo(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.connected = nil
+
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.await(t, "waited for the run to fail", func() bool {
+		for _, reported := range h.reports(t) {
+			if reported.State == string(channelv1.StateFailed) &&
+				strings.Contains(reported.Reason, "no connected folder") {
+				return true
+			}
+		}
+
+		return false
+	})
+
+	if used := h.service.Report(ctx).Used; used != 0 {
+		t.Fatalf("a failed run still holds %d slots", used)
+	}
+}
+
+func TestAMachineWithSeveralConnectedFoldersSaysItCannotChooseBetweenThem(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.connected = []entity.Codebase{connected("/one"), connected("/two")}
+
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.await(t, "waited for the run to fail", func() bool {
+		for _, reported := range h.reports(t) {
+			if strings.Contains(reported.Reason, "more than one connected folder") &&
+				strings.Contains(reported.Reason, "it has 2") {
+				return true
+			}
+		}
+
+		return false
+	})
+}
+
+func TestAFailureWhileCopyingTheFolderNamesItsCauseOnTheTimeline(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.takeErr = fmt.Errorf("%w: runner", entity.ErrSnapshotDirtyConflict)
+
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.await(t, "waited for the run to fail", func() bool {
+		for _, reported := range h.reports(t) {
+			if reported.State != string(channelv1.StateFailed) {
+				continue
+			}
+
+			if strings.Contains(reported.Reason, "copy that folder into a workspace") &&
+				strings.Contains(reported.Reason, "do not apply onto the base commit") {
+				return true
+			}
+		}
+
+		return false
+	})
+}
+
+func TestCancellingARunPartWayThroughStopsTheWorkAndGivesTheBranchesBack(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.linger = patience
+
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.await(t, "waited for the folder to start being copied", func() bool {
+		return len(h.requests()) == 1
+	})
+
+	if err := h.service.Cancel(ctx, "exec-01ABC", "the person changed their mind"); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+
+	h.await(t, "waited for the workspace to be given back", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+
+		return len(h.released) > 0
+	})
+
+	if used := h.service.Report(ctx).Used; used != 0 {
+		t.Fatalf("a cancelled run still holds %d slots", used)
+	}
+
+	for _, reported := range h.reports(t) {
+		if reported.State == string(channelv1.StateFailed) {
+			t.Fatalf("a run the person cancelled was reported as a failure")
+		}
+	}
+}
+
+func TestARunStartedAgainAfterAnInterruptionTakesUpTheBranchTheLastOneLeft(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.awaitNote(t, "workspace for this run is ready")
+
+	again := h.offer("exec-01DEF")
+	again.Attempt = 2
+	again.Reference = "NORN-47-r2"
+
+	if err := h.service.Offer(ctx, again); err != nil {
+		t.Fatalf("second offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01DEF", channelv1.Start{ExecutionID: "exec-01DEF"}); err != nil {
+		t.Fatalf("second start: %v", err)
+	}
+
+	h.await(t, "waited for the second attempt to be prepared", func() bool {
+		return len(h.requests()) == 2
+	})
+
+	reused := h.requests()[1].Branches
+
+	if reused["runner"] != entity.BranchFor("NORN-47", "runner", 1) {
+		t.Fatalf("the second attempt asked for %q, want the first attempt's branch", reused["runner"])
+	}
+}
+
+func TestAFreshAttemptWithNothingToPickUpGetsABranchOfItsOwn(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	again := h.offer("exec-01DEF")
+	again.Attempt = 2
+
+	if err := h.service.Offer(ctx, again); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01DEF", channelv1.Start{ExecutionID: "exec-01DEF"}); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.await(t, "waited for the run to be prepared", func() bool {
+		return len(h.requests()) == 1
+	})
+
+	if branches := h.requests()[0].Branches; len(branches) != 0 {
+		t.Fatalf("a first attempt on this machine asked to reuse %+v", branches)
+	}
+}
+
+func TestARunKeepsItsOwnTimelineOnDiskSoItReadsWithoutNorn(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.awaitNote(t, "workspace for this run is ready")
+
+	timeline, err := h.service.Timeline(ctx, "exec-01ABC")
+	if err != nil {
+		t.Fatalf("read the run's own timeline: %v", err)
+	}
+
+	states := 0
+	phases := 0
+
+	for _, entry := range timeline {
+		if entry.State == channelv1.StatePreparing {
+			states++
+		}
+
+		if entry.Kind == channelv1.EventPhase {
+			phases++
+		}
+	}
+
+	if states != 1 || phases < 2 {
+		t.Fatalf("the run's own timeline reads %+v", timeline)
 	}
 }
 
@@ -394,5 +751,111 @@ func TestAStartForSomethingTheMachineNeverAcceptedIsFailedNotInvented(t *testing
 
 	if len(h.service.Report(ctx).Executions) != 0 {
 		t.Fatalf("the machine invented a run it was never offered")
+	}
+}
+
+func TestOnceTheWorkspaceIsReadyTheRunWaitsAndSaysWhatItIsWaitingFor(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.awaitNote(t, "not built into this release")
+
+	report := h.service.Report(ctx)
+
+	if len(report.Executions) != 1 || report.Executions[0].State != channelv1.StatePreparing {
+		t.Fatalf("a run with nothing left to do reads %+v", report.Executions)
+	}
+}
+
+func TestARunDirectoryLeftBehindByAnEarlierMachineIsPickedUpAndFinished(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	fabricate(t, h, "exec-01OLD", channelv1.StateRunning)
+
+	stop := h.start(t)
+	defer stop()
+
+	h.awaitNote(t, "restarted while the run was under way")
+
+	h.await(t, "waited for the run to be written down as interrupted", func() bool {
+		held, err := h.service.List(ctx)
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+
+		return len(held) == 1 && held[0].State == channelv1.StateInterrupted
+	})
+
+	if used := h.service.Report(ctx).Used; used != 0 {
+		t.Fatalf("a run left behind by an earlier machine still holds %d slots", used)
+	}
+
+	h.await(t, "waited for the workspace of the fabricated run to be given back", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+
+		return len(h.released) == 1
+	})
+
+	timeline, err := h.service.Timeline(ctx, "exec-01OLD")
+	if err != nil {
+		t.Fatalf("read the fabricated run's timeline: %v", err)
+	}
+
+	if len(timeline) == 0 {
+		t.Fatalf("nothing was written down about a run that was interrupted")
+	}
+}
+
+func fabricate(t *testing.T, h *harness, executionID string, state channelv1.State) {
+	t.Helper()
+
+	ctx := context.Background()
+
+	if _, err := h.runs.Open(ctx, executionID); err != nil {
+		t.Fatalf("make a run directory by hand: %v", err)
+	}
+
+	execution := entity.Execution{
+		ID:         executionID,
+		Reference:  "NORN-47",
+		IssueKey:   "NORN-47",
+		Attempt:    1,
+		Title:      "Execution lifecycle",
+		Directory:  h.dir.Run(executionID),
+		State:      state,
+		AcceptedAt: time.Now().UTC().Add(-time.Hour),
+		StartedAt:  time.Now().UTC().Add(-time.Hour),
+	}
+
+	if err := h.runs.SaveTask(ctx, execution); err != nil {
+		t.Fatalf("write a task by hand: %v", err)
+	}
+
+	if err := h.runs.Save(ctx, entity.Snapshot{
+		Name:      executionID,
+		IssueKey:  "NORN-47",
+		Attempt:   1,
+		Workspace: filepath.Join(h.dir.Run(executionID), entity.RunWorkspaceDir),
+		Repositories: []entity.SnapshotRepository{{
+			Name:   "runner",
+			Mode:   entity.GitModeWorktree,
+			Branch: entity.BranchFor("NORN-47", "runner", 1),
+		}},
+		TakenAt: time.Now().UTC().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("write a snapshot record by hand: %v", err)
 	}
 }

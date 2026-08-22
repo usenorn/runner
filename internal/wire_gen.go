@@ -84,8 +84,13 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	repositorySpool := spool.New(dir)
 	repositoryRun := run.New(dir)
 	repositoryDisk := disk.New()
+	repositorySettings := settings.New()
+	configSnapshot := config.NewSnapshot(configConfig)
+	repositoryWorktree := worktree.New(configSnapshot)
+	repositoryMaterialiser := materialiser.New()
+	snapshots := snapshot.New(repositoryWorktree, repositoryMaterialiser, repositorySettings, repositoryInventory, repositoryRun, configSnapshot)
 	scheduler := config.NewScheduler(configConfig)
-	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, dir, runner, app, scheduler)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositorySettings, repositoryInventory, snapshots, dir, runner, app, scheduler)
 	configSpool := config.NewSpool(configConfig)
 	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, configChannel, configSpool, app)
 	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, executions, build)
@@ -99,7 +104,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 		cleanup()
 		return nil, nil, err
 	}
-	daemon := NewDaemon(configControl, server, listener, sessions, updates, codebases, channels, logger)
+	daemon := NewDaemon(configControl, server, listener, sessions, updates, codebases, channels, executions, logger)
 	return daemon, func() {
 		cleanup2()
 		cleanup()
@@ -218,6 +223,23 @@ func InitScheduling(cfgFile string, overrides config.Overrides) (*Scheduling, fu
 	}, nil
 }
 
+func InitExecutions(cfgFile string, overrides config.Overrides) (*Executions, func(), error) {
+	configConfig, err := config.New(cfgFile, overrides)
+	if err != nil {
+		return nil, nil, err
+	}
+	configControl := config.NewControl(configConfig)
+	state := config.NewState(configConfig)
+	dir, err := statedir.New(state)
+	if err != nil {
+		return nil, nil, err
+	}
+	client := control.NewClient(configControl, dir)
+	executions := NewExecutions(client)
+	return executions, func() {
+	}, nil
+}
+
 func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func(), error) {
 	configConfig, err := config.New(cfgFile, overrides)
 	if err != nil {
@@ -243,5 +265,6 @@ var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, ser
 	NewInspection,
 	NewSnapshotting,
 	NewScheduling,
+	NewExecutions,
 	NewInstaller,
 )

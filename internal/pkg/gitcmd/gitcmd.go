@@ -31,6 +31,8 @@ func Command(ctx context.Context, dir string, args ...string) *exec.Cmd {
 	command := exec.CommandContext(ctx, Binary, args...)
 	command.Env = append(command.Environ(), environment...)
 
+	contain(command)
+
 	return command
 }
 

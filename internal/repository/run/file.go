@@ -19,10 +19,19 @@ import (
 )
 
 const (
-	recordFile = "repositories.json"
-	dirMode    = 0o700
-	version    = 1
+	dirMode  = 0o700
+	fileMode = 0o600
+	version  = 1
 )
+
+func children(path string) []string {
+	return []string{
+		filepath.Join(path, entity.RunWorkspaceDir),
+		filepath.Join(path, entity.RunMetadataDir),
+		filepath.Join(path, entity.RunLogsDir),
+		filepath.Join(path, entity.RunArtifactsDir),
+	}
+}
 
 type storedTask struct {
 	Version     int       `json:"version"`
@@ -93,23 +102,36 @@ func New(dir *statedir.Dir) repository.Run {
 	return &fileRun{dir: dir}
 }
 
-func (r *fileRun) Prepare(_ context.Context, name string) (string, error) {
+func (r *fileRun) Prepare(ctx context.Context, name string) (string, error) {
 	path := r.dir.Run(name)
 
 	if _, err := os.Stat(path); err == nil {
 		return "", fmt.Errorf("%w: %s", entity.ErrSnapshotExists, path)
 	}
 
-	for _, child := range []string{
-		filepath.Join(path, entity.RunWorkspaceDir),
-		filepath.Join(path, entity.RunMetadataDir),
-	} {
+	return r.Open(ctx, name)
+}
+
+func (r *fileRun) Open(_ context.Context, name string) (string, error) {
+	path := r.dir.Run(name)
+
+	for _, child := range children(path) {
 		if err := os.MkdirAll(child, dirMode); err != nil {
 			return "", fmt.Errorf("create %s: %w", child, err)
 		}
 	}
 
 	return path, nil
+}
+
+func (r *fileRun) Prune(_ context.Context, name string) error {
+	workspace := filepath.Join(r.dir.Run(name), entity.RunWorkspaceDir)
+
+	if err := os.RemoveAll(workspace); err != nil {
+		return fmt.Errorf("remove %s: %w", workspace, err)
+	}
+
+	return nil
 }
 
 func (r *fileRun) Save(_ context.Context, snapshot entity.Snapshot) error {
@@ -124,7 +146,7 @@ func (r *fileRun) Save(_ context.Context, snapshot entity.Snapshot) error {
 		return fmt.Errorf("write what %s holds: %w", snapshot.Name, err)
 	}
 
-	return statedir.WriteSecret(filepath.Join(dir, recordFile), append(raw, '\n'))
+	return statedir.WriteSecret(filepath.Join(dir, entity.RunRepositoryFile), append(raw, '\n'))
 }
 
 func (r *fileRun) Load(_ context.Context, name string) (entity.Snapshot, error) {
@@ -294,7 +316,7 @@ func storedTaskOf(execution entity.Execution) storedTask {
 }
 
 func (r *fileRun) read(name string) (entity.Snapshot, error) {
-	path := filepath.Join(r.dir.Run(name), entity.RunMetadataDir, recordFile)
+	path := filepath.Join(r.dir.Run(name), entity.RunMetadataDir, entity.RunRepositoryFile)
 
 	raw, err := os.ReadFile(path)
 	if err != nil {
