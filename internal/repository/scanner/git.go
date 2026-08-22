@@ -2,21 +2,14 @@ package scanner
 
 import (
 	"context"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/gitcmd"
 )
 
 const originHead = "refs/remotes/origin/HEAD"
-
-var gitEnvironment = []string{
-	"GIT_OPTIONAL_LOCKS=0",
-	"GIT_TERMINAL_PROMPT=0",
-	"GIT_ASKPASS=",
-	"GCM_INTERACTIVE=never",
-}
 
 func (r *filesystemScanner) probe(ctx context.Context, dir string) (entity.GitFacts, bool) {
 	answers, ok := r.git(ctx, dir,
@@ -86,10 +79,7 @@ func (r *filesystemScanner) git(ctx context.Context, dir string, args ...string)
 	ctx, cancel := context.WithTimeout(ctx, r.cfg.ProbeTimeout)
 	defer cancel()
 
-	command := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
-	command.Env = append(command.Environ(), gitEnvironment...)
-
-	out, err := command.Output()
+	out, err := gitcmd.Command(ctx, dir, args...).Output()
 	if err != nil {
 		return nil, false
 	}

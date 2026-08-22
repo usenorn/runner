@@ -12,6 +12,7 @@ type Config struct {
 	Update  Update  `mapstructure:"update"`
 
 	Codebase Codebase `mapstructure:"codebase"`
+	Snapshot Snapshot `mapstructure:"snapshot"`
 }
 
 type Runner struct {
@@ -108,4 +109,14 @@ const (
 
 func Consoles() []Console {
 	return []Console{ConsoleAuto, ConsoleAlways, ConsoleNever}
+}
+
+type Snapshot struct {
+	GitMode        string        `mapstructure:"git_mode"`
+	Base           string        `mapstructure:"base"`
+	LocalChanges   string        `mapstructure:"local_changes"`
+	Fetch          bool          `mapstructure:"fetch"`
+	FetchTimeout   time.Duration `mapstructure:"fetch_timeout"`
+	GitTimeout     time.Duration `mapstructure:"git_timeout"`
+	MaxSharedBytes int64         `mapstructure:"max_shared_bytes"`
 }

@@ -22,11 +22,16 @@ import (
 	"github.com/usenorn/runner/internal/repository/dashboard"
 	"github.com/usenorn/runner/internal/repository/identity"
 	"github.com/usenorn/runner/internal/repository/inventory"
+	"github.com/usenorn/runner/internal/repository/materialiser"
 	"github.com/usenorn/runner/internal/repository/release"
+	"github.com/usenorn/runner/internal/repository/run"
 	"github.com/usenorn/runner/internal/repository/scanner"
+	"github.com/usenorn/runner/internal/repository/settings"
+	"github.com/usenorn/runner/internal/repository/worktree"
 	"github.com/usenorn/runner/internal/service/codebase"
 	"github.com/usenorn/runner/internal/service/enrolment"
 	"github.com/usenorn/runner/internal/service/session"
+	"github.com/usenorn/runner/internal/service/snapshot"
 	"github.com/usenorn/runner/internal/service/update"
 	"net/http"
 )
@@ -160,6 +165,28 @@ func InitInspection(cfgFile string, overrides config.Overrides) (*Inspection, fu
 	}, nil
 }
 
+func InitSnapshotting(cfgFile string, overrides config.Overrides) (*Snapshotting, func(), error) {
+	configConfig, err := config.New(cfgFile, overrides)
+	if err != nil {
+		return nil, nil, err
+	}
+	configSnapshot := config.NewSnapshot(configConfig)
+	repositoryWorktree := worktree.New(configSnapshot)
+	repositoryMaterialiser := materialiser.New()
+	repositorySettings := settings.New()
+	state := config.NewState(configConfig)
+	dir, err := statedir.New(state)
+	if err != nil {
+		return nil, nil, err
+	}
+	repositoryInventory := inventory.New(dir)
+	repositoryRun := run.New(dir)
+	snapshots := snapshot.New(repositoryWorktree, repositoryMaterialiser, repositorySettings, repositoryInventory, repositoryRun, configSnapshot)
+	snapshotting := NewSnapshotting(snapshots)
+	return snapshotting, func() {
+	}, nil
+}
+
 func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func(), error) {
 	configConfig, err := config.New(cfgFile, overrides)
 	if err != nil {
@@ -178,10 +205,11 @@ func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, session.Set, enrolment.Set, update.Set, codebase.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,
 	NewInspection,
+	NewSnapshotting,
 	NewInstaller,
 )

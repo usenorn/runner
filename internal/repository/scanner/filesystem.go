@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/gitcmd"
 	"github.com/usenorn/runner/internal/repository"
 )
 
@@ -30,7 +30,7 @@ func (r *filesystemScanner) Scan(
 	root string,
 	depth int,
 ) (repository.ScannedFolder, error) {
-	if _, err := exec.LookPath("git"); err != nil {
+	if !gitcmd.Installed() {
 		return repository.ScannedFolder{}, entity.ErrGitMissing
 	}
 

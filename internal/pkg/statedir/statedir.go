@@ -73,6 +73,8 @@ func (d *Dir) Codebase(id string) string { return filepath.Join(d.Codebases(), i
 
 func (d *Dir) Runs() string { return filepath.Join(d.root, runsDir) }
 
+func (d *Dir) Run(name string) string { return filepath.Join(d.Runs(), name) }
+
 func (d *Dir) Cache() string { return filepath.Join(d.root, cacheDir) }
 
 func (d *Dir) Spool() string { return filepath.Join(d.root, spoolDir) }

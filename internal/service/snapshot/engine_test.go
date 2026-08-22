@@ -1,0 +1,494 @@
+package snapshot_test
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io/fs"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/usenorn/runner/internal/config"
+	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/statedir"
+	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
+	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
+	runrepo "github.com/usenorn/runner/internal/repository/run"
+	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
+	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
+	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
+	"github.com/usenorn/runner/internal/service"
+	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
+)
+
+func run(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+
+	command := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	command.Env = append(os.Environ(),
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_SYSTEM=/dev/null",
+		"GIT_AUTHOR_NAME=norn",
+		"GIT_AUTHOR_EMAIL=norn@example.com",
+		"GIT_COMMITTER_NAME=norn",
+		"GIT_COMMITTER_EMAIL=norn@example.com",
+	)
+
+	out, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v in %s: %v\n%s", args, dir, err, out)
+	}
+
+	return strings.TrimSpace(string(out))
+}
+
+func started(t *testing.T, path, remote string) {
+	t.Helper()
+
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatalf("create %s: %v", path, err)
+	}
+
+	run(t, path, "init", "-q", "-b", "main")
+	writeFile(t, filepath.Join(path, "README.md"), "hello\n")
+	run(t, path, "add", "README.md")
+	run(t, path, "commit", "-q", "-m", "first")
+
+	if remote == "" {
+		return
+	}
+
+	if out, err := exec.Command("git", "init", "--bare", "-q", "-b", "main", remote).CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare %s: %v\n%s", remote, err, out)
+	}
+
+	run(t, path, "remote", "add", "origin", remote)
+	run(t, path, "push", "-q", "origin", "main")
+	run(t, path, "fetch", "-q", "origin")
+}
+
+func codebase(t *testing.T) string {
+	t.Helper()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed, so a real folder cannot be built to snapshot")
+	}
+
+	base := t.TempDir()
+	root := filepath.Join(base, "work")
+	remotes := filepath.Join(base, "remotes")
+
+	if err := os.MkdirAll(remotes, 0o755); err != nil {
+		t.Fatalf("create %s: %v", remotes, err)
+	}
+
+	source := filepath.Join(base, "source", "ui")
+	started(t, source, "")
+
+	started(t, filepath.Join(root, "norn"), filepath.Join(remotes, "norn.git"))
+	started(t, filepath.Join(root, "runner"), filepath.Join(remotes, "runner.git"))
+	started(t, filepath.Join(root, "norn", "scratch"), "")
+
+	run(t, filepath.Join(root, "norn"),
+		"-c", "protocol.file.allow=always", "submodule", "--quiet", "add", source, "web/ui")
+	run(t, filepath.Join(root, "norn"), "commit", "-q", "-m", "add ui")
+	run(t, filepath.Join(root, "norn"), "push", "-q", "origin", "main")
+	run(t, filepath.Join(root, "norn"), "fetch", "-q", "origin")
+	run(t, filepath.Join(root, "norn"), "worktree", "add", "--detach", "-q", "../wt", "HEAD")
+
+	if err := os.MkdirAll(filepath.Join(root, "archive"), 0o755); err != nil {
+		t.Fatalf("create archive: %v", err)
+	}
+
+	bare := filepath.Join(root, "archive", "old.git")
+
+	if out, err := exec.Command("git", "init", "--bare", "-q", bare).CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare: %v\n%s", err, out)
+	}
+
+	writeFile(t, filepath.Join(root, "AGENTS.md"), "rules\n")
+	writeFile(t, filepath.Join(root, "Makefile"), "all:\n")
+	writeFile(t, filepath.Join(root, "docs", "guide.md"), "read me\n")
+	writeFile(t, filepath.Join(root, ".env"), "SECRET=hunter2\n")
+	writeFile(t, filepath.Join(root, "node_modules", "left-pad", "index.js"), "1\n")
+
+	return root
+}
+
+const snapshotBudget = 30 * time.Second
+
+type engine struct {
+	t       *testing.T
+	root    string
+	dir     *statedir.Dir
+	service service.Snapshots
+}
+
+func newEngine(t *testing.T) *engine {
+	t.Helper()
+
+	root := codebase(t)
+
+	dir, err := statedir.New(config.State{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("create the state directory: %v", err)
+	}
+
+	held := scanned(t, root)
+
+	inventories := inventoryrepo.New(dir)
+	if err := inventories.Save(context.Background(), held); err != nil {
+		t.Fatalf("record the codebase: %v", err)
+	}
+
+	return &engine{
+		t:    t,
+		root: root,
+		dir:  dir,
+		service: snapshotsvc.New(
+			worktreerepo.New(defaults()),
+			materialiserrepo.New(),
+			settingsrepo.New(),
+			inventories,
+			runrepo.New(dir),
+			defaults(),
+		),
+	}
+}
+
+func scanned(t *testing.T, root string) entity.Codebase {
+	t.Helper()
+
+	folder, err := scannerrepo.New(config.Codebase{
+		ScanDepth:    entity.ScanDepthDefault,
+		ProbeTimeout: defaults().GitTimeout,
+	}).Scan(context.Background(), root, entity.ScanDepthDefault)
+	if err != nil {
+		t.Fatalf("scan %s: %v", root, err)
+	}
+
+	inventory := entity.Inventory{
+		Name:         filepath.Base(folder.Root),
+		RootPath:     folder.Root,
+		Repositories: entity.Classify(folder.Root, folder.Repositories),
+		SharedFiles:  folder.SharedFiles,
+	}
+
+	return entity.Codebase{
+		ID:        uuid.New(),
+		Name:      inventory.Name,
+		RootPath:  folder.Root,
+		Confirmed: inventory,
+		Reported:  inventory,
+	}
+}
+
+func (e *engine) take(key string, attempt int, dirty bool) entity.Snapshot {
+	e.t.Helper()
+
+	request := service.TakeRequest{Path: e.root, IssueKey: key, Attempt: attempt}
+
+	if dirty {
+		request.LocalChanges = entity.LocalChangesInclude
+	}
+
+	taken, err := e.service.Take(context.Background(), request)
+	if err != nil {
+		e.t.Fatalf("snapshot %s: %v", e.root, err)
+	}
+
+	return taken
+}
+
+func fingerprint(t *testing.T, root string) map[string]string {
+	t.Helper()
+
+	tree := map[string]string{}
+
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+
+		if entry.Name() == ".git" {
+			if entry.IsDir() {
+				return fs.SkipDir
+			}
+
+			return nil
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+
+		switch {
+		case entry.IsDir():
+			tree[relative] = "dir|" + info.Mode().String()
+		case entry.Type()&fs.ModeSymlink != 0:
+			target, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+
+			tree[relative] = "link|" + target
+		default:
+			body, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+
+			sum := sha256.Sum256(body)
+			tree[relative] = fmt.Sprintf(
+				"%s|%d|%s|%s",
+				info.Mode(), info.Size(), info.ModTime().UTC(), hex.EncodeToString(sum[:]),
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("fingerprint %s: %v", root, err)
+	}
+
+	return tree
+}
+
+func TestAFolderOfRepositoriesIsSnapshottedInSecondsAndLeavesTheOriginalsAlone(t *testing.T) {
+	e := newEngine(t)
+	before := fingerprint(t, e.root)
+
+	taken := e.take("NORN-46", 1, false)
+
+	if taken.Took > snapshotBudget {
+		t.Fatalf("the snapshot took %s; worktrees share the object store precisely so that this "+
+			"is seconds and not minutes", taken.Took)
+	}
+
+	wanted := map[string]string{
+		"norn":         "norn/NORN-46/norn",
+		"norn/scratch": "norn/NORN-46/scratch",
+		"runner":       "norn/NORN-46/runner",
+		"wt":           "norn/NORN-46/wt",
+	}
+
+	if len(taken.Repositories) != len(wanted) {
+		t.Fatalf("%d repositories were snapshotted and the folder holds %d that can be worked in: %+v",
+			len(taken.Repositories), len(wanted), taken.Repositories)
+	}
+
+	for _, held := range taken.Repositories {
+		branch, known := wanted[held.RelPath]
+		if !known {
+			t.Fatalf("%s was snapshotted and should not have been", held.RelPath)
+		}
+
+		if held.Branch != branch {
+			t.Fatalf("%s is on %q and should be on %q", held.RelPath, held.Branch, branch)
+		}
+
+		if got := run(t, held.Path, "rev-parse", "--abbrev-ref", "HEAD"); got != branch {
+			t.Fatalf("%s on disk is on %q", held.RelPath, got)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(taken.Workspace, "archive", "old.git")); err == nil {
+		t.Fatalf("a bare repository was copied into the snapshot as loose files")
+	}
+
+	after := fingerprint(t, e.root)
+
+	for path, want := range before {
+		got, present := after[path]
+
+		switch {
+		case !present:
+			t.Fatalf("%s disappeared while the snapshot was taken", path)
+		case got != want:
+			t.Fatalf(
+				"%s changed while the snapshot was taken (%s became %s); a person's own working "+
+					"copies are the one thing this may never write to",
+				path, want, got,
+			)
+		}
+	}
+
+	for path := range after {
+		if _, present := before[path]; !present {
+			t.Fatalf("taking the snapshot created %s inside the person's folder", path)
+		}
+	}
+}
+
+func TestASecretInTheFolderNeverReachesTheSnapshotHoweverItIsAskedFor(t *testing.T) {
+	e := newEngine(t)
+
+	writeFile(t, filepath.Join(e.root, entity.IgnoreFileName), "!.env\n!*.pem\n!.norn/\n")
+
+	taken := e.take("NORN-46", 1, false)
+
+	if _, err := os.Stat(filepath.Join(taken.Workspace, ".env")); err == nil {
+		t.Fatalf(
+			"the .env reached the snapshot even though the built-in denylist covers it; a %s that "+
+				"can re-include a secret is a %s that hands one to a coding agent",
+			entity.IgnoreFileName, entity.IgnoreFileName,
+		)
+	}
+
+	for _, file := range taken.Shared {
+		if file.RelPath == ".env" {
+			t.Fatalf("the snapshot records having copied the .env")
+		}
+	}
+}
+
+func TestTheSnapshotCarriesTheSharedFilesAndLeavesTheCachesBehind(t *testing.T) {
+	e := newEngine(t)
+	taken := e.take("NORN-46", 1, false)
+
+	for _, relPath := range []string{"AGENTS.md", "Makefile", filepath.Join("docs", "guide.md")} {
+		if _, err := os.Stat(filepath.Join(taken.Workspace, relPath)); err != nil {
+			t.Fatalf(
+				"%s is missing from the snapshot: %v; an execution reads the folder's own "+
+					"instructions before it does anything else",
+				relPath, err,
+			)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(taken.Workspace, "node_modules")); err == nil {
+		t.Fatalf("node_modules was copied into the snapshot")
+	}
+}
+
+func TestUncommittedWorkArrivesAsOneCommitAndTheSnapshotIsClean(t *testing.T) {
+	e := newEngine(t)
+
+	writeFile(t, filepath.Join(e.root, "runner", "README.md"), "hello, and more\n")
+	writeFile(t, filepath.Join(e.root, "runner", "notes.md"), "not committed yet\n")
+	writeFile(t, filepath.Join(e.root, "runner", ".env"), "SECRET=hunter2\n")
+	writeFile(t, filepath.Join(e.root, "runner", "debug.log"), "noise\n")
+
+	taken := e.take("NORN-46", 1, true)
+
+	held := repositoryAt(t, taken, "runner")
+
+	if held.Local == nil {
+		t.Fatalf("the uncommitted work in runner was not carried across")
+	}
+
+	if status := run(t, held.Path, "status", "--porcelain"); status != "" {
+		t.Fatalf(
+			"the snapshot is dirty after carrying local work across:\n%s\nthe coding agent has to "+
+				"start from a clean tree or its own diff becomes unreadable",
+			status,
+		)
+	}
+
+	if got := run(t, held.Path, "log", "-1", "--format=%s"); !strings.HasPrefix(got, "norn: local changes at ") {
+		t.Fatalf("the top commit of the snapshot reads %q", got)
+	}
+
+	if body, err := os.ReadFile(filepath.Join(held.Path, "README.md")); err != nil || string(body) != "hello, and more\n" {
+		t.Fatalf("the tracked change did not arrive: %q, %v", body, err)
+	}
+
+	if _, err := os.Stat(filepath.Join(held.Path, "notes.md")); err != nil {
+		t.Fatalf("the untracked file did not arrive: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(held.Path, ".env")); err == nil {
+		t.Fatalf(
+			"an uncommitted .env was committed onto the execution's branch; that branch gets " +
+				"pushed, so this would publish a secret",
+		)
+	}
+
+	if _, err := os.Stat(filepath.Join(held.Path, "debug.log")); err == nil {
+		t.Fatalf("an untracked log file was committed onto the execution's branch")
+	}
+}
+
+func TestDiscardingASnapshotLeavesNoWorktreeRegistrationBehind(t *testing.T) {
+	e := newEngine(t)
+
+	norn := filepath.Join(e.root, "norn")
+	before := len(strings.Split(run(t, norn, "worktree", "list"), "\n"))
+
+	taken := e.take("NORN-46", 1, false)
+
+	if during := len(strings.Split(run(t, norn, "worktree", "list"), "\n")); during <= before {
+		t.Fatalf("the snapshot registered no worktrees at all")
+	}
+
+	if err := e.service.Discard(context.Background(), taken.Name); err != nil {
+		t.Fatalf("discard %s: %v", taken.Name, err)
+	}
+
+	after := strings.Split(run(t, norn, "worktree", "list"), "\n")
+
+	if len(after) != before {
+		t.Fatalf(
+			"the repository still lists %d worktrees and started with %d:\n%s\na registration "+
+				"left behind makes the person's own repository complain about a folder that is gone",
+			len(after), before, strings.Join(after, "\n"),
+		)
+	}
+
+	if _, err := os.Stat(taken.Run); err == nil {
+		t.Fatalf("%s is still on disk after it was discarded", taken.Run)
+	}
+}
+
+func TestASubmoduleThatCannotBeFilledInIsNamedRatherThanLeftSilentlyEmpty(t *testing.T) {
+	e := newEngine(t)
+	taken := e.take("NORN-46", 1, false)
+
+	held := repositoryAt(t, taken, "norn")
+
+	if _, err := os.Stat(filepath.Join(held.Path, "web", "ui", "README.md")); err == nil {
+		return
+	}
+
+	named := false
+
+	for _, warning := range taken.Warnings {
+		named = named || (strings.Contains(warning, "norn") && strings.Contains(warning, "submodule"))
+	}
+
+	if !named {
+		t.Fatalf(
+			"the submodule under norn is empty and nothing said so; a coding agent handed a "+
+				"folder that should hold a dependency and does not will spend its run guessing "+
+				"why the build fails: %v",
+			taken.Warnings,
+		)
+	}
+}
+
+func repositoryAt(t *testing.T, snapshot entity.Snapshot, relPath string) entity.SnapshotRepository {
+	t.Helper()
+
+	for _, held := range snapshot.Repositories {
+		if held.RelPath == relPath {
+			return held
+		}
+	}
+
+	t.Fatalf("%s is not in the snapshot", relPath)
+
+	return entity.SnapshotRepository{}
+}
