@@ -36,6 +36,7 @@ import (
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
+	questionsvc "github.com/usenorn/runner/internal/service/question"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
@@ -186,6 +187,8 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 	spool := spoolrepo.New(dir)
 	disks := diskrepo.New()
 
+	questions := questionsvc.New(runrepo.New(dir), spool, questionSettings())
+
 	services := supervisorsvc.New(
 		processrepo.New(),
 		portrepo.New(config.Runner{PortRange: [2]int{45100, 45199}}),
@@ -211,6 +214,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		),
 		services,
 		uploadStub{},
+		questions,
 		driverStub{},
 		dir,
 		config.Runner{Capacity: 2},
@@ -233,6 +237,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		spool,
 		sessions,
 		executions,
+		questions,
 		channelSettings(),
 		spoolSettings(),
 		config.App{Version: "test"},
@@ -251,6 +256,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			channels,
 			executions,
 			services,
+			questions,
 			build,
 		)
 	}
@@ -267,7 +273,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 	return &harness{
 		dir:         dir,
 		build:       build,
-		client:      control.NewClient(settings(), dir),
+		client:      control.NewClient(settings(), questionSettings(), dir),
 		dashboard:   dashboard,
 		credentials: credentials,
 		identities:  identities,
@@ -317,4 +323,8 @@ func (driverStub) Resume(
 	string,
 ) (repository.Session, error) {
 	return nil, entity.ErrDriverMissing
+}
+
+func questionSettings() config.Questions {
+	return config.Questions{SoftWait: 300 * time.Millisecond, MaxWait: time.Second}
 }

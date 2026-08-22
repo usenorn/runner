@@ -39,6 +39,7 @@ import (
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
+	questionsvc "github.com/usenorn/runner/internal/service/question"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
@@ -84,6 +85,7 @@ var baseSet = wire.NewSet(
 	snapshotsvc.Set,
 	supervisorsvc.Set,
 	uploadsvc.Set,
+	questionsvc.Set,
 	executionsvc.Set,
 	channelsvc.Set,
 

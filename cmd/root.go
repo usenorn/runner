@@ -23,7 +23,7 @@ func newRootCommand() *cobra.Command {
 
 	root.PersistentFlags().StringVar(&cfgFile, "config", "", "path to a config file")
 
-	root.AddCommand(newRunnerCommand(), newServiceCommand())
+	root.AddCommand(newRunnerCommand(), newServiceCommand(), newAskCommand())
 
 	return root
 }

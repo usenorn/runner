@@ -24,6 +24,7 @@ type channelsService struct {
 	spool      repository.Spool
 	sessions   service.Sessions
 	executions service.Executions
+	questions  service.Questions
 	cfg        config.Channel
 	spooling   config.Spool
 	app        config.App
@@ -41,6 +42,7 @@ func New(
 	spool repository.Spool,
 	sessions service.Sessions,
 	executions service.Executions,
+	questions service.Questions,
 	cfg config.Channel,
 	spooling config.Spool,
 	app config.App,
@@ -50,6 +52,7 @@ func New(
 		spool:      spool,
 		sessions:   sessions,
 		executions: executions,
+		questions:  questions,
 		cfg:        cfg,
 		spooling:   spooling,
 		app:        app,

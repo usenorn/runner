@@ -54,6 +54,14 @@ func (s *executionsService) Run(ctx context.Context) {
 
 				s.prepare(ctx, executionID)
 			}()
+		case held := <-s.resuming:
+			working.Add(1)
+
+			go func() {
+				defer working.Done()
+
+				s.resume(ctx, held)
+			}()
 		}
 	}
 }

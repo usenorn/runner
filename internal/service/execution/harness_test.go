@@ -26,6 +26,7 @@ import (
 	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	"github.com/usenorn/runner/internal/service"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
+	questionsvc "github.com/usenorn/runner/internal/service/question"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
@@ -48,6 +49,7 @@ type harness struct {
 	dashboard   *dashboardrepo.MockDashboard
 	sessions    *sessionsvc.MockSessions
 	uploads     service.Uploads
+	questions   service.Questions
 	service     service.Executions
 
 	free      int64
@@ -117,6 +119,10 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		MaxPending:    8,
 	})
 
+	h.questions = questionsvc.New(
+		h.runs, h.spool, config.Questions{SoftWait: 20 * time.Millisecond, MaxWait: time.Second},
+	)
+
 	h.service = executionsvc.New(
 		h.runs,
 		h.spool,
@@ -126,6 +132,7 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		h.snapshots,
 		h.services,
 		h.uploads,
+		h.questions,
 		h.drivers,
 		dir,
 		config.Runner{Capacity: capacity},

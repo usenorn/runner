@@ -65,7 +65,7 @@ func TestAskingAnUnknownPathIsRefused(t *testing.T) {
 
 func TestStatusWithNoRunnerListeningFailsAtOnceAndSaysHowToStartOne(t *testing.T) {
 	dir := newStateDir(t)
-	client := control.NewClient(settings(), dir)
+	client := control.NewClient(settings(), questionSettings(), dir)
 
 	started := time.Now()
 

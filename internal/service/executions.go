@@ -15,6 +15,7 @@ type Executions interface {
 	Offer(ctx context.Context, offer channelv1.Offer) error
 	Start(ctx context.Context, executionID string, start channelv1.Start) error
 	Cancel(ctx context.Context, executionID string, reason string) error
+	Continue(ctx context.Context, executionID string, instruction channelv1.Instruction) error
 	Reconcile(ctx context.Context, leased []string) error
 	Pause()
 	Resume()

@@ -40,6 +40,7 @@ import (
 	"github.com/usenorn/runner/internal/service/codebase"
 	"github.com/usenorn/runner/internal/service/enrolment"
 	"github.com/usenorn/runner/internal/service/execution"
+	"github.com/usenorn/runner/internal/service/question"
 	"github.com/usenorn/runner/internal/service/session"
 	"github.com/usenorn/runner/internal/service/snapshot"
 	"github.com/usenorn/runner/internal/service/supervisor"
@@ -104,13 +105,15 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	repositoryUpload := upload.New(client, runner)
 	configUpload := config.NewUpload(configConfig)
 	uploads := upload2.New(repositoryUpload, repositoryDashboard, sessions, configUpload)
+	questions := config.NewQuestions(configConfig)
+	serviceQuestions := question.New(repositoryRun, repositorySpool, questions)
 	configDriver := config.NewDriver(configConfig)
 	repositoryDriver := driver.New(repositoryProcess, configDriver)
 	scheduler := config.NewScheduler(configConfig)
-	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositorySettings, repositoryInventory, snapshots, services, uploads, repositoryDriver, dir, runner, app, scheduler, configDriver)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, repositoryDriver, dir, runner, app, scheduler, configDriver)
 	configSpool := config.NewSpool(configConfig)
-	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, configChannel, configSpool, app)
-	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, executions, services, build)
+	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, serviceQuestions, configChannel, configSpool, app)
+	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, executions, services, serviceQuestions, build)
 	listener, cleanup, err := socket.New(dir)
 	if err != nil {
 		return nil, nil, err
@@ -134,12 +137,13 @@ func InitStatus(cfgFile string, overrides config.Overrides) (*Status, func(), er
 		return nil, nil, err
 	}
 	configControl := config.NewControl(configConfig)
+	questions := config.NewQuestions(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := control.NewClient(configControl, dir)
+	client := control.NewClient(configControl, questions, dir)
 	status := NewStatus(client)
 	return status, func() {
 	}, nil
@@ -151,12 +155,13 @@ func InitVersion(cfgFile string, overrides config.Overrides) (*Version, func(), 
 		return nil, nil, err
 	}
 	configControl := config.NewControl(configConfig)
+	questions := config.NewQuestions(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := control.NewClient(configControl, dir)
+	client := control.NewClient(configControl, questions, dir)
 	configUpdate := config.NewUpdate(configConfig)
 	app := config.NewApp(configConfig)
 	repositoryRelease := release.New(configUpdate, app)
@@ -173,12 +178,13 @@ func InitBinding(cfgFile string, overrides config.Overrides) (*Binding, func(), 
 		return nil, nil, err
 	}
 	configControl := config.NewControl(configConfig)
+	questions := config.NewQuestions(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := control.NewClient(configControl, dir)
+	client := control.NewClient(configControl, questions, dir)
 	binding := NewBinding(client)
 	return binding, func() {
 	}, nil
@@ -190,12 +196,13 @@ func InitInspection(cfgFile string, overrides config.Overrides) (*Inspection, fu
 		return nil, nil, err
 	}
 	configControl := config.NewControl(configConfig)
+	questions := config.NewQuestions(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := control.NewClient(configControl, dir)
+	client := control.NewClient(configControl, questions, dir)
 	inspection := NewInspection(client)
 	return inspection, func() {
 	}, nil
@@ -229,12 +236,13 @@ func InitScheduling(cfgFile string, overrides config.Overrides) (*Scheduling, fu
 		return nil, nil, err
 	}
 	configControl := config.NewControl(configConfig)
+	questions := config.NewQuestions(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := control.NewClient(configControl, dir)
+	client := control.NewClient(configControl, questions, dir)
 	scheduling := NewScheduling(client)
 	return scheduling, func() {
 	}, nil
@@ -246,12 +254,13 @@ func InitExecutions(cfgFile string, overrides config.Overrides) (*Executions, fu
 		return nil, nil, err
 	}
 	configControl := config.NewControl(configConfig)
+	questions := config.NewQuestions(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := control.NewClient(configControl, dir)
+	client := control.NewClient(configControl, questions, dir)
 	executions := NewExecutions(client)
 	return executions, func() {
 	}, nil
@@ -263,12 +272,13 @@ func InitServices(cfgFile string, overrides config.Overrides) (*Services, func()
 		return nil, nil, err
 	}
 	configControl := config.NewControl(configConfig)
+	questions := config.NewQuestions(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := control.NewClient(configControl, dir)
+	client := control.NewClient(configControl, questions, dir)
 	services := NewServices(client)
 	return services, func() {
 	}, nil
@@ -292,7 +302,7 @@ func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, spool.Set, channel.Set, disk.Set, process.Set, port.Set, servicelog.Set, driver.Set, upload.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, execution.Set, channel2.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, spool.Set, channel.Set, disk.Set, process.Set, port.Set, servicelog.Set, driver.Set, upload.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, execution.Set, channel2.Set, control.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,

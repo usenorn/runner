@@ -24,6 +24,7 @@ const (
 	ServiceRestartPath = "/v1/executions/{executionId}/services/{service}/restart"
 	ServiceLogsPath    = "/v1/executions/{executionId}/services/{service}/logs"
 	StepsPath          = "/v1/executions/{executionId}/steps"
+	QuestionsPath      = "/v1/executions/{executionId}/questions"
 )
 
 type Update struct {
@@ -107,6 +108,7 @@ type Execution struct {
 	AcceptedAt time.Time  `json:"acceptedAt"`
 	StartedAt  *time.Time `json:"startedAt,omitempty"`
 	Lease      *time.Time `json:"leaseExpiresAt,omitempty"`
+	Waiting    string     `json:"waiting,omitempty"`
 }
 
 type Health struct {
@@ -114,6 +116,26 @@ type Health struct {
 	Path    string `json:"path,omitempty"`
 	Port    string `json:"port,omitempty"`
 	Pattern string `json:"pattern,omitempty"`
+}
+
+type QuestionRequest struct {
+	Kind          string   `json:"kind,omitempty"`
+	Blocking      bool     `json:"blocking"`
+	Message       string   `json:"message"`
+	Options       []string `json:"options,omitempty"`
+	AllowFreeText bool     `json:"allowFreeText"`
+	Default       string   `json:"default,omitempty"`
+	WaitSeconds   int      `json:"waitSeconds,omitempty"`
+	Preview       string   `json:"preview,omitempty"`
+	Files         []string `json:"files,omitempty"`
+}
+
+type QuestionAnswer struct {
+	Status     string `json:"status"`
+	QuestionID string `json:"questionId"`
+	Answer     string `json:"answer,omitempty"`
+	AnsweredBy string `json:"answeredBy,omitempty"`
+	Advice     string `json:"advice"`
 }
 
 type ServiceRequest struct {

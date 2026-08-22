@@ -125,7 +125,9 @@ func TestARequestStillRunningPastTheDrainDeadlineForcesTheExitCode(t *testing.T)
 	go func() { done <- daemon.Run(ctx) }()
 
 	client := control.NewClient(
-		config.Control{DialTimeout: time.Second, RequestTimeout: 5 * time.Second}, dir,
+		config.Control{DialTimeout: time.Second, RequestTimeout: 5 * time.Second},
+		config.Questions{SoftWait: 20 * time.Millisecond, MaxWait: time.Second},
+		dir,
 	)
 
 	asked := make(chan struct{})

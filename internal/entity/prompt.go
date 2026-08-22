@@ -95,6 +95,11 @@ func standingRules() string {
 			"convention. Uncommitted work is work nobody will see.",
 		"- Do not push, open a pull request, or touch any remote. That is done for you afterwards.",
 		"- The project's own instruction files are in the workspace and apply to you.",
+		"- When a decision is not yours to make, ask a person rather than guessing: " +
+			"`norn ask \"your question\" --option \"one answer\" --option \"another\"`. It waits " +
+			"a little for a reply; if nobody has answered by then it tells you to stop, and norn " +
+			"starts you again with the answer once somebody gives one. Add " +
+			"`--meanwhile \"what you will do\"` instead when you do not need to stop.",
 		"- When the work is done, say what you changed and why, in a few sentences.",
 	}, "\n")
 }

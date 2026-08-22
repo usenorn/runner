@@ -19,6 +19,7 @@ import (
 	"github.com/usenorn/runner/internal/service"
 	channelsvc "github.com/usenorn/runner/internal/service/channel"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
+	questionsvc "github.com/usenorn/runner/internal/service/question"
 )
 
 type wire struct {
@@ -143,6 +144,7 @@ type harness struct {
 	dials      *channelrepo.MockChannel
 	sessions   *sessionMock
 	executions service.Executions
+	questions  service.Questions
 	service    service.Channels
 	wires      []*wire
 	dialled    chan *wire
@@ -199,6 +201,10 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		h.wires = append(h.wires, newWire(autoAck))
 	}
 
+	h.questions = questionsvc.New(
+		runStub{}, h.spool, config.Questions{SoftWait: time.Millisecond, MaxWait: time.Second},
+	)
+
 	h.executions = executionsvc.New(
 		runStub{},
 		h.spool,
@@ -208,6 +214,7 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		snapshotStub{},
 		servicesStub{},
 		uploadStub{},
+		h.questions,
 		driverStub{},
 		dir,
 		config.Runner{Capacity: 2},
@@ -245,6 +252,7 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		h.spool,
 		h.sessions,
 		h.executions,
+		h.questions,
 		settings(),
 		config.Spool{MaxMessages: 100, MaxAge: time.Hour, Batch: 8},
 		config.App{Version: "1.4.0"},
@@ -264,6 +272,7 @@ func offChannel(t *testing.T, h *harness) service.Channels {
 		h.spool,
 		h.sessions,
 		h.executions,
+		h.questions,
 		off,
 		config.Spool{MaxMessages: 100, MaxAge: time.Hour, Batch: 8},
 		config.App{Version: "1.4.0"},

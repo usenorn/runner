@@ -30,7 +30,8 @@ var (
 		"the coding agent stopped before it said it was finished",
 	)
 	ErrDriverUnanswerable = errors.New(
-		"the coding agent asked a person a question, and this release has no way to deliver it",
+		"the coding agent stopped for something it wanted to be asked directly, which nothing " +
+			"outside its own session can answer; a question for a person goes through 'norn ask'",
 	)
 	ErrDriverSessionUnknown = errors.New(
 		"this run has no coding agent session to carry on from",

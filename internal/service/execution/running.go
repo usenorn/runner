@@ -54,6 +54,21 @@ func (s *executionsService) drive(
 		return err
 	}
 
+	return s.finish(ctx, execution, result)
+}
+
+// finish decides where a run stops. A coding agent that stopped to ask something parks instead of
+// finalizing, because there is nothing to collect until a person has decided and the run has had
+// another turn with the answer.
+func (s *executionsService) finish(
+	ctx context.Context,
+	execution entity.Execution,
+	result entity.DriverResult,
+) error {
+	if question, waiting := s.questions.Waiting(execution.ID); waiting {
+		return s.park(ctx, execution, question)
+	}
+
 	if !result.Outcome.Finished() {
 		return fmt.Errorf("%w: %s", entity.ErrDriverCrashed, ending(result))
 	}
@@ -65,6 +80,20 @@ func (s *executionsService) drive(
 	execution.State = channelv1.StateFinalizing
 
 	return s.note(ctx, execution.ID, channelv1.EventPhase, finishedNote)
+}
+
+func (s *executionsService) park(
+	ctx context.Context,
+	execution entity.Execution,
+	question entity.Question,
+) error {
+	if err := s.move(ctx, execution, channelv1.StateWaitingForInput, waiting(question)); err != nil {
+		return err
+	}
+
+	execution.State = channelv1.StateWaitingForInput
+
+	return nil
 }
 
 func (s *executionsService) sessions(
@@ -313,4 +342,8 @@ func quiet(err error) string {
 
 	return "this machine cannot send norn what the coding agent is doing, and is holding it " +
 		"back until it can: " + err.Error()
+}
+
+func waiting(question entity.Question) string {
+	return "the coding agent stopped to ask: " + strings.TrimSpace(question.Message)
 }

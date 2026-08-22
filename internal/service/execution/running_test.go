@@ -295,7 +295,7 @@ func TestWhatTheMachineDecidedAboutPermissionsIsWrittenDownWithTheRun(t *testing
 	}
 }
 
-func TestAnAgentThatWantsToAskAPersonFailsTheRunSayingWhyItCannotBeAsked(t *testing.T) {
+func TestAnAgentThatStopsForSomethingOnlyItsOwnSessionCouldAnswerFailsTheRunSayingSo(t *testing.T) {
 	h := newHarness(t, 2, 0)
 
 	asked := finishes("session-01", "should I keep the old endpoint?")
@@ -308,10 +308,10 @@ func TestAnAgentThatWantsToAskAPersonFailsTheRunSayingWhyItCannotBeAsked(t *test
 
 	begun(t, h, "exec-01ABC")
 
-	h.await(t, "waited for the run to say it cannot deliver a question", func() bool {
+	h.await(t, "waited for the run to say the agent stopped for something nobody can answer", func() bool {
 		for _, reported := range h.reports(t) {
 			if reported.State == string(channelv1.StateFailed) {
-				return strings.Contains(reported.Reason, "no way to deliver it")
+				return strings.Contains(reported.Reason, "goes through 'norn ask'")
 			}
 		}
 
