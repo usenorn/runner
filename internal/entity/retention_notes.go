@@ -26,3 +26,11 @@ func Retired(window time.Duration) string {
 		window,
 	)
 }
+
+func Kept(until time.Time) string {
+	return fmt.Sprintf(
+		"somebody asked for longer to look at this run, so its workspace, its services and its "+
+			"previews are kept here until %s",
+		until.Format(time.RFC3339),
+	)
+}

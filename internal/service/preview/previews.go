@@ -81,7 +81,7 @@ func (s *previewsService) Expose(
 
 	s.mu.Unlock()
 
-	s.tell(ctx, executionID, fmt.Sprintf(
+	s.tell(ctx, executionID, exposed, channelv1.PreviewOpen, fmt.Sprintf(
 		"%s is open at %s, on the service %s", exposed.Name, exposed.URL, exposed.Service,
 	))
 
@@ -110,7 +110,7 @@ func (s *previewsService) Close(
 		return entity.Preview{}, fmt.Errorf("%w: %s", entity.ErrPreviewUnknown, name)
 	}
 
-	s.tell(ctx, executionID, closed.Name+" is closed")
+	s.tell(ctx, executionID, closed, channelv1.PreviewClosed, closed.Name+" is closed")
 
 	return closed, nil
 }
@@ -137,11 +137,26 @@ func (s *previewsService) List(
 	return open, nil
 }
 
-func (s *previewsService) Release(_ context.Context, executionID string) {
+func (s *previewsService) Release(ctx context.Context, executionID string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+
+	standing := make([]entity.Preview, 0, len(s.held[executionID]))
+
+	for _, preview := range s.held[executionID] {
+		standing = append(standing, preview)
+	}
 
 	delete(s.held, executionID)
+
+	s.mu.Unlock()
+
+	sort.Slice(standing, func(i, j int) bool { return standing[i].Name < standing[j].Name })
+
+	for _, preview := range standing {
+		s.tell(
+			ctx, executionID, preview, channelv1.PreviewClosed, preview.Name+" is closed",
+		)
+	}
 }
 
 func (s *previewsService) serving(
@@ -200,7 +215,13 @@ func (s *previewsService) claim(
 	return execution, nil
 }
 
-func (s *previewsService) tell(ctx context.Context, executionID string, reason string) {
+func (s *previewsService) tell(
+	ctx context.Context,
+	executionID string,
+	preview entity.Preview,
+	state string,
+	reason string,
+) {
 	ctx = context.WithoutCancel(ctx)
 
 	entry := entity.TimelineEntry{
@@ -218,17 +239,29 @@ func (s *previewsService) tell(ctx context.Context, executionID string, reason s
 		)
 	}
 
-	raw, err := json.Marshal(channelv1.Entry{
-		Kind:     string(channelv1.EventPreview),
-		Reason:   reason,
-		Occurred: entry.Occurred,
+	s.register(ctx, executionID, preview, state, entry.Occurred)
+}
+
+func (s *previewsService) register(
+	ctx context.Context,
+	executionID string,
+	preview entity.Preview,
+	state string,
+	occurred time.Time,
+) {
+	raw, err := json.Marshal(channelv1.Preview{
+		Name:     preview.Name,
+		Service:  preview.Service,
+		Path:     preview.Path,
+		State:    state,
+		Occurred: occurred,
 	})
 	if err != nil {
 		return
 	}
 
 	message, err := channelv1.NewRunnerMessage(
-		channelv1.ExecutionEvent, executionID, raw, s.now(),
+		channelv1.PreviewState, executionID, raw, s.now(),
 	)
 	if err != nil {
 		return
@@ -237,8 +270,10 @@ func (s *previewsService) tell(ctx context.Context, executionID string, reason s
 	if err := s.spool.Append(ctx, message); err != nil {
 		logging.From(ctx).WarnContext(
 			ctx,
-			"this machine could not tell norn a preview was opened",
+			"this machine could not register a preview with norn, so nothing off this machine "+
+				"will reach it",
 			slog.String("execution_id", executionID),
+			slog.String("preview", preview.Name),
 			slog.String("error", err.Error()),
 		)
 	}

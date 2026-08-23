@@ -12,6 +12,7 @@ package execution
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 	entity "github.com/usenorn/runner/internal/entity"
@@ -231,6 +232,20 @@ func (m *MockExecutions) Resume(ctx context.Context) {
 func (mr *MockExecutionsMockRecorder) Resume(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resume", reflect.TypeOf((*MockExecutions)(nil).Resume), ctx)
+}
+
+// Retain mocks base method.
+func (m *MockExecutions) Retain(ctx context.Context, executionID string, keepUntil time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Retain", ctx, executionID, keepUntil)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Retain indicates an expected call of Retain.
+func (mr *MockExecutionsMockRecorder) Retain(ctx, executionID, keepUntil any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retain", reflect.TypeOf((*MockExecutions)(nil).Retain), ctx, executionID, keepUntil)
 }
 
 // Run mocks base method.

@@ -15,6 +15,7 @@ type RunUsage struct {
 	Name      string
 	Bytes     int64
 	Settled   time.Time
+	KeepUntil time.Time
 	Finished  bool
 	Held      bool
 	Workspace bool
@@ -22,6 +23,10 @@ type RunUsage struct {
 
 func (u RunUsage) settled(now time.Time, after time.Duration) bool {
 	if u.Held || !u.Finished || u.Settled.IsZero() {
+		return false
+	}
+
+	if !u.KeepUntil.IsZero() && now.Before(u.KeepUntil) {
 		return false
 	}
 

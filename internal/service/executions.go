@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
@@ -17,6 +18,7 @@ type Executions interface {
 	Cancel(ctx context.Context, executionID string, reason string) error
 	Continue(ctx context.Context, executionID string, instruction channelv1.Instruction) error
 	Reconcile(ctx context.Context, leased []string) error
+	Retain(ctx context.Context, executionID string, keepUntil time.Time) error
 	Pause(ctx context.Context)
 	Resume(ctx context.Context)
 	Configure(configuration channelv1.Configuration)

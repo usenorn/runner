@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
+
 	"github.com/usenorn/runner/internal/entity"
 )
 
@@ -183,7 +185,12 @@ func TestOpeningAPreviewPutsItOnTheRunsOwnTimeline(t *testing.T) {
 	}
 
 	if spooled != 1 {
-		t.Fatalf("norn was sent %d messages about a preview being opened, want exactly one", spooled)
+		t.Fatalf(
+			"norn was sent %d messages about a preview being opened, want the one registration. "+
+				"The address this machine knows is a loopback one, so norn composes the line a "+
+				"person reads from the pair it was registered",
+			spooled,
+		)
 	}
 }
 
@@ -236,5 +243,106 @@ func TestAPreviewIsTimedTheWayEveryOtherLineOnTheTimelineIs(t *testing.T) {
 				"happened out of order: %s",
 			exposed.ExposedAt,
 		)
+	}
+}
+
+func TestOpeningAPreviewRegistersThePairNornWillLetPeopleThrough(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+
+	h.running(t, "exec-01REG", serving("web", 43111, entity.ServiceHealthy))
+
+	if _, err := h.service.Expose(ctx, "exec-01REG", entity.Preview{
+		Service: "web",
+		Path:    "/app",
+	}); err != nil {
+		t.Fatalf("open a preview: %v", err)
+	}
+
+	registered := h.registered(t)
+	if len(registered) != 1 {
+		t.Fatalf(
+			"norn was told about %d previews, want 1. Norn routes only pairs a machine "+
+				"registered, so a preview it never hears about reaches nobody",
+			len(registered),
+		)
+	}
+
+	if registered[0].Name != "web" || registered[0].Service != "web" {
+		t.Fatalf("the registration named %+v", registered[0])
+	}
+
+	if registered[0].Path != "/app" {
+		t.Fatalf(
+			"the registration opens at %q rather than /app, so norn would send people to the "+
+				"wrong place inside the service",
+			registered[0].Path,
+		)
+	}
+
+	if registered[0].State != channelv1.PreviewOpen {
+		t.Fatalf("the preview was registered as %q, want open", registered[0].State)
+	}
+}
+
+func TestClosingAPreviewTellsNornToStopLettingPeopleThrough(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+
+	h.running(t, "exec-01SHUT", serving("web", 43111, entity.ServiceHealthy))
+
+	if _, err := h.service.Expose(ctx, "exec-01SHUT", entity.Preview{Service: "web"}); err != nil {
+		t.Fatalf("open a preview: %v", err)
+	}
+
+	if _, err := h.service.Close(ctx, "exec-01SHUT", "web"); err != nil {
+		t.Fatalf("close the preview: %v", err)
+	}
+
+	registered := h.registered(t)
+	last := registered[len(registered)-1]
+
+	if last.State != channelv1.PreviewClosed {
+		t.Fatalf(
+			"the last thing norn heard was %q. The service behind it is gone, and norn has no "+
+				"other way to know",
+			last.State,
+		)
+	}
+}
+
+func TestGivingARunBackClosesEveryPreviewItStillHeldWithNorn(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+
+	h.running(
+		t, "exec-01GONE",
+		serving("web", 43111, entity.ServiceHealthy),
+		serving("docs", 43112, entity.ServiceHealthy),
+	)
+
+	for _, name := range []string{"web", "docs"} {
+		if _, err := h.service.Expose(ctx, "exec-01GONE", entity.Preview{Service: name}); err != nil {
+			t.Fatalf("open the %s preview: %v", name, err)
+		}
+	}
+
+	h.service.Release(ctx, "exec-01GONE")
+
+	closed := map[string]bool{}
+
+	for _, registered := range h.registered(t) {
+		closed[registered.Name] = registered.State == channelv1.PreviewClosed
+	}
+
+	for _, name := range []string{"web", "docs"} {
+		if !closed[name] {
+			t.Fatalf(
+				"norn was never told %s closed when the run was given back. The service is "+
+					"stopped and its port released, so the address would proxy to whatever "+
+					"takes that port next",
+				name,
+			)
+		}
 	}
 }
