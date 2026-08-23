@@ -2,6 +2,7 @@ package preview_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -90,4 +91,30 @@ func serving(name string, port int, state entity.ServiceState) entity.ServiceRec
 		State:     state,
 		StartedAt: time.Now().UTC(),
 	}
+}
+
+func (h *harness) registered(t *testing.T) []channelv1.Preview {
+	t.Helper()
+
+	spooled, err := h.spool.Head(context.Background(), 100)
+	if err != nil {
+		t.Fatalf("read what is waiting for norn: %v", err)
+	}
+
+	registrations := make([]channelv1.Preview, 0, len(spooled))
+
+	for _, message := range spooled {
+		if message.Type != channelv1.PreviewState {
+			continue
+		}
+
+		var registered channelv1.Preview
+		if err := json.Unmarshal(message.Payload, &registered); err != nil {
+			t.Fatalf("decode a preview registration: %v", err)
+		}
+
+		registrations = append(registrations, registered)
+	}
+
+	return registrations
 }

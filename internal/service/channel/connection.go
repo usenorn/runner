@@ -170,6 +170,14 @@ func (c *connection) act(ctx context.Context, message channelv1.Message) error {
 			AnsweredBy: answer.AnsweredBy,
 			AnsweredAt: answer.AnsweredAt,
 		})
+	case channelv1.ExecutionRetain:
+		var retention channelv1.Retention
+
+		if err := json.Unmarshal(message.Payload, &retention); err != nil {
+			return c.unreadable(ctx, message, err)
+		}
+
+		return c.service.executions.Retain(ctx, message.ExecutionID, retention.KeepUntil)
 	case channelv1.RunnerPause:
 		c.service.executions.Pause(ctx)
 

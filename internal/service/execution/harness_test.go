@@ -130,6 +130,16 @@ func newHarnessOver(t *testing.T, first *harness, capacity int, watermark int64)
 	return build(t, first.dir, capacity, watermark, first.free, keeping())
 }
 
+func newHarnessOverKeeping(
+	t *testing.T,
+	first *harness,
+	retention config.Retention,
+) *harness {
+	t.Helper()
+
+	return build(t, first.dir, 2, 0, first.free, retention)
+}
+
 func build(
 	t *testing.T,
 	dir *statedir.Dir,

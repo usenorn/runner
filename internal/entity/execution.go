@@ -44,6 +44,7 @@ type Execution struct {
 	AcceptedAt  time.Time
 	StartedAt   time.Time
 	SettledAt   time.Time
+	KeepUntil   time.Time
 }
 
 func ExecutionOf(offer channelv1.Offer, root string, acceptedAt time.Time) Execution {

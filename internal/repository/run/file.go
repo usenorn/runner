@@ -51,6 +51,7 @@ type storedTask struct {
 	AcceptedAt  time.Time `json:"acceptedAt"`
 	StartedAt   time.Time `json:"startedAt,omitzero"`
 	SettledAt   time.Time `json:"settledAt,omitzero"`
+	KeepUntil   time.Time `json:"keepUntil,omitzero"`
 }
 
 type storedPatch struct {
@@ -324,6 +325,7 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 		AcceptedAt:  held.AcceptedAt,
 		StartedAt:   held.StartedAt,
 		SettledAt:   held.SettledAt,
+		KeepUntil:   held.KeepUntil,
 	}, nil
 }
 
@@ -346,6 +348,7 @@ func storedTaskOf(execution entity.Execution) storedTask {
 		AcceptedAt:  execution.AcceptedAt,
 		StartedAt:   execution.StartedAt,
 		SettledAt:   execution.SettledAt,
+		KeepUntil:   execution.KeepUntil,
 	}
 }
 
@@ -529,6 +532,7 @@ func (r *fileRun) usageOf(name string) (entity.RunUsage, error) {
 	if execution.ID != "" {
 		held.Finished = execution.Finished()
 		held.Settled = execution.SettledAt
+		held.KeepUntil = execution.KeepUntil
 	}
 
 	bytes, err := occupied(path)
