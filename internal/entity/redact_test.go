@@ -8,12 +8,14 @@ import (
 )
 
 func TestATicketNeverSurvivesIntoSomethingAPersonCanRead(t *testing.T) {
+	const ticket = "nru_this-is-not-a-real-ticket"
+
 	failure := `failed to WebSocket dial: Get "http://tunnel.norn.ink/v1/runners/tunnel?` +
-		`ticket=nru_Mwp5sq765zn0NTdt33hFUPm2WWPvzvSp9zAiDgui6u0": dial tcp: connection refused`
+		`ticket=` + ticket + `": dial tcp: connection refused`
 
 	said := entity.Redacted(failure)
 
-	if strings.Contains(said, "nru_Mwp5sq765zn0NTdt33hFUPm2WWPvzvSp9zAiDgui6u0") {
+	if strings.Contains(said, ticket) {
 		t.Fatalf(
 			"a dial failure carried the ticket into %q; norn runner status is printed, pasted "+
 				"into issues and read over shoulders, and a credential does not belong in it",
