@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -424,10 +423,10 @@ func TestAMachineSomebodyPausedComesBackPaused(t *testing.T) {
 	declined := over.only(t, channelv1.ExecutionDeclined)
 	reason := decodeInto[channelv1.Decline](t, declined)
 
-	if reason.Reason == "" || !strings.Contains(reason.Reason, "paused") {
+	if reason.Code != channelv1.DeclinePaused {
 		t.Fatalf(
 			"a machine somebody paused took work again after a restart, answering %q",
-			reason.Reason,
+			reason.Code,
 		)
 	}
 }

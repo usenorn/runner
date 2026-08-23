@@ -157,7 +157,8 @@ func (s *executionsService) decline(
 	)
 
 	return s.send(ctx, channelv1.ExecutionDeclined, executionID, channelv1.Decline{
-		Reason: fmt.Sprintf("%s: %s", reason, reason.Because(report)),
+		Code:   string(reason),
+		Detail: reason.Because(report),
 	})
 }
 

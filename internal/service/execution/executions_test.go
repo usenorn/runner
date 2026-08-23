@@ -105,14 +105,18 @@ func TestAMachineAlreadyHoldingAllItCanTurnsTheNextOfferDown(t *testing.T) {
 		t.Fatalf("the decline named %q", declined.ExecutionID)
 	}
 
-	reason := decodeInto[channelv1.Decline](t, declined).Reason
+	turned := decodeInto[channelv1.Decline](t, declined)
 
-	if !strings.HasPrefix(reason, channelv1.DeclineAtCapacity) {
-		t.Fatalf("the decline reads %q, want it to lead with at_capacity", reason)
+	if turned.Code != channelv1.DeclineAtCapacity {
+		t.Fatalf(
+			"the decline is coded %q, want %q; norn decides whether to hand the work to "+
+				"another machine by reading this, and it cannot read a sentence",
+			turned.Code, channelv1.DeclineAtCapacity,
+		)
 	}
 
-	if !strings.Contains(reason, "1 of 1") {
-		t.Fatalf("the decline does not say how full the machine is: %q", reason)
+	if !strings.Contains(turned.Detail, "1 of 1") {
+		t.Fatalf("the decline does not say how full the machine is: %q", turned.Detail)
 	}
 }
 
@@ -161,10 +165,10 @@ func TestBelowTheWatermarkAMachineTurnsWorkDownAndSaysSo(t *testing.T) {
 		t.Fatalf("offer: %v", err)
 	}
 
-	reason := decodeInto[channelv1.Decline](t, h.only(t, channelv1.ExecutionDeclined)).Reason
+	turned := decodeInto[channelv1.Decline](t, h.only(t, channelv1.ExecutionDeclined))
 
-	if !strings.HasPrefix(reason, channelv1.DeclineDiskPressure) {
-		t.Fatalf("the decline reads %q, want it to lead with disk_pressure", reason)
+	if turned.Code != channelv1.DeclineDiskPressure {
+		t.Fatalf("the decline is coded %q, want disk_pressure", turned.Code)
 	}
 
 	report := h.service.Report(ctx)
@@ -195,10 +199,10 @@ func TestAPausedMachineTakesNoWorkUntilItIsResumed(t *testing.T) {
 		t.Fatalf("offer: %v", err)
 	}
 
-	reason := decodeInto[channelv1.Decline](t, h.only(t, channelv1.ExecutionDeclined)).Reason
+	turned := decodeInto[channelv1.Decline](t, h.only(t, channelv1.ExecutionDeclined))
 
-	if !strings.HasPrefix(reason, channelv1.DeclinePaused) {
-		t.Fatalf("the decline reads %q, want it to lead with paused", reason)
+	if turned.Code != channelv1.DeclinePaused {
+		t.Fatalf("the decline is coded %q, want paused", turned.Code)
 	}
 
 	if !h.service.Report(ctx).Paused {

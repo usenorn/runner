@@ -27,42 +27,48 @@ var (
 type ExecutionState = channelv1.State
 
 type Execution struct {
-	ID          string
-	Reference   string
-	IssueKey    string
-	Attempt     int
-	WorkspaceID string
-	Title       string
-	Description string
-	Brief       string
-	Tool        string
-	Model       string
-	Runtime     string
-	Directory   string
-	State       ExecutionState
-	Lease       time.Time
-	AcceptedAt  time.Time
-	StartedAt   time.Time
-	SettledAt   time.Time
-	KeepUntil   time.Time
+	ID           string
+	Reference    string
+	IssueKey     string
+	Attempt      int
+	WorkspaceID  string
+	Title        string
+	Description  string
+	Brief        string
+	Tool         string
+	Model        string
+	Runtime      string
+	BaseRef      string
+	IncludeDirty bool
+	Profile      string
+	Directory    string
+	State        ExecutionState
+	Lease        time.Time
+	AcceptedAt   time.Time
+	StartedAt    time.Time
+	SettledAt    time.Time
+	KeepUntil    time.Time
 }
 
 func ExecutionOf(offer channelv1.Offer, root string, acceptedAt time.Time) Execution {
 	return Execution{
-		ID:          offer.ExecutionID,
-		Reference:   offer.Reference,
-		IssueKey:    offer.Issue.Reference,
-		Attempt:     max(offer.Attempt, 1),
-		WorkspaceID: offer.WorkspaceID,
-		Title:       offer.Issue.Title,
-		Description: offer.Issue.Description,
-		Brief:       offer.Issue.Brief,
-		Tool:        offer.Params.Tool,
-		Model:       offer.Params.Model,
-		Runtime:     offer.Params.Runtime,
-		Directory:   filepath.Join(root, offer.ExecutionID),
-		State:       channelv1.StateLeased,
-		AcceptedAt:  acceptedAt,
+		ID:           offer.ExecutionID,
+		Reference:    offer.Reference,
+		IssueKey:     offer.Issue.Reference,
+		Attempt:      max(offer.Attempt, 1),
+		WorkspaceID:  offer.WorkspaceID,
+		Title:        offer.Issue.Title,
+		Description:  offer.Issue.Description,
+		Brief:        offer.Issue.Brief,
+		Tool:         offer.Params.Tool,
+		Model:        offer.Params.Model,
+		Runtime:      offer.Params.Runtime,
+		BaseRef:      offer.Params.BaseRef,
+		IncludeDirty: offer.Params.IncludeDirty,
+		Profile:      offer.Params.Profile,
+		Directory:    filepath.Join(root, offer.ExecutionID),
+		State:        channelv1.StateLeased,
+		AcceptedAt:   acceptedAt,
 	}
 }
 

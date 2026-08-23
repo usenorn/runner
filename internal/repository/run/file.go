@@ -34,24 +34,27 @@ func children(path string) []string {
 }
 
 type storedTask struct {
-	Version     int       `json:"version"`
-	ID          string    `json:"id"`
-	Reference   string    `json:"reference"`
-	IssueKey    string    `json:"issueKey"`
-	Attempt     int       `json:"attempt"`
-	WorkspaceID string    `json:"workspaceId"`
-	Title       string    `json:"title"`
-	Description string    `json:"description,omitempty"`
-	Brief       string    `json:"brief,omitempty"`
-	Tool        string    `json:"tool,omitempty"`
-	Model       string    `json:"model,omitempty"`
-	Runtime     string    `json:"runtime,omitempty"`
-	State       string    `json:"state"`
-	Lease       time.Time `json:"leaseExpiresAt,omitzero"`
-	AcceptedAt  time.Time `json:"acceptedAt"`
-	StartedAt   time.Time `json:"startedAt,omitzero"`
-	SettledAt   time.Time `json:"settledAt,omitzero"`
-	KeepUntil   time.Time `json:"keepUntil,omitzero"`
+	Version      int       `json:"version"`
+	ID           string    `json:"id"`
+	Reference    string    `json:"reference"`
+	IssueKey     string    `json:"issueKey"`
+	Attempt      int       `json:"attempt"`
+	WorkspaceID  string    `json:"workspaceId"`
+	Title        string    `json:"title"`
+	Description  string    `json:"description,omitempty"`
+	Brief        string    `json:"brief,omitempty"`
+	Tool         string    `json:"tool,omitempty"`
+	Model        string    `json:"model,omitempty"`
+	Runtime      string    `json:"runtime,omitempty"`
+	BaseRef      string    `json:"baseRef,omitempty"`
+	IncludeDirty bool      `json:"includeDirty,omitempty"`
+	Profile      string    `json:"profile,omitempty"`
+	State        string    `json:"state"`
+	Lease        time.Time `json:"leaseExpiresAt,omitzero"`
+	AcceptedAt   time.Time `json:"acceptedAt"`
+	StartedAt    time.Time `json:"startedAt,omitzero"`
+	SettledAt    time.Time `json:"settledAt,omitzero"`
+	KeepUntil    time.Time `json:"keepUntil,omitzero"`
 }
 
 type storedPatch struct {
@@ -308,47 +311,53 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 	}
 
 	return entity.Execution{
-		ID:          held.ID,
-		Reference:   held.Reference,
-		IssueKey:    held.IssueKey,
-		Attempt:     held.Attempt,
-		WorkspaceID: held.WorkspaceID,
-		Title:       held.Title,
-		Description: held.Description,
-		Brief:       held.Brief,
-		Tool:        held.Tool,
-		Model:       held.Model,
-		Runtime:     held.Runtime,
-		Directory:   r.dir.Run(name),
-		State:       entity.ExecutionState(held.State),
-		Lease:       held.Lease,
-		AcceptedAt:  held.AcceptedAt,
-		StartedAt:   held.StartedAt,
-		SettledAt:   held.SettledAt,
-		KeepUntil:   held.KeepUntil,
+		ID:           held.ID,
+		Reference:    held.Reference,
+		IssueKey:     held.IssueKey,
+		Attempt:      held.Attempt,
+		WorkspaceID:  held.WorkspaceID,
+		Title:        held.Title,
+		Description:  held.Description,
+		Brief:        held.Brief,
+		Tool:         held.Tool,
+		Model:        held.Model,
+		Runtime:      held.Runtime,
+		BaseRef:      held.BaseRef,
+		IncludeDirty: held.IncludeDirty,
+		Profile:      held.Profile,
+		Directory:    r.dir.Run(name),
+		State:        entity.ExecutionState(held.State),
+		Lease:        held.Lease,
+		AcceptedAt:   held.AcceptedAt,
+		StartedAt:    held.StartedAt,
+		SettledAt:    held.SettledAt,
+		KeepUntil:    held.KeepUntil,
 	}, nil
 }
 
 func storedTaskOf(execution entity.Execution) storedTask {
 	return storedTask{
-		Version:     version,
-		ID:          execution.ID,
-		Reference:   execution.Reference,
-		IssueKey:    execution.IssueKey,
-		Attempt:     execution.Attempt,
-		WorkspaceID: execution.WorkspaceID,
-		Title:       execution.Title,
-		Description: execution.Description,
-		Brief:       execution.Brief,
-		Tool:        execution.Tool,
-		Model:       execution.Model,
-		Runtime:     execution.Runtime,
-		State:       string(execution.State),
-		Lease:       execution.Lease,
-		AcceptedAt:  execution.AcceptedAt,
-		StartedAt:   execution.StartedAt,
-		SettledAt:   execution.SettledAt,
-		KeepUntil:   execution.KeepUntil,
+		Version:      version,
+		ID:           execution.ID,
+		Reference:    execution.Reference,
+		IssueKey:     execution.IssueKey,
+		Attempt:      execution.Attempt,
+		WorkspaceID:  execution.WorkspaceID,
+		Title:        execution.Title,
+		Description:  execution.Description,
+		Brief:        execution.Brief,
+		Tool:         execution.Tool,
+		Model:        execution.Model,
+		Runtime:      execution.Runtime,
+		BaseRef:      execution.BaseRef,
+		IncludeDirty: execution.IncludeDirty,
+		Profile:      execution.Profile,
+		State:        string(execution.State),
+		Lease:        execution.Lease,
+		AcceptedAt:   execution.AcceptedAt,
+		StartedAt:    execution.StartedAt,
+		SettledAt:    execution.SettledAt,
+		KeepUntil:    execution.KeepUntil,
 	}
 }
 

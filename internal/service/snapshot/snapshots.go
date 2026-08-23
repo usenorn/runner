@@ -74,7 +74,7 @@ func (s *snapshotsService) Take(
 		return entity.Snapshot{}, entity.ErrSnapshotEmpty
 	}
 
-	policy, err := s.policy(ctx, codebase.RootPath, request.LocalChanges)
+	policy, err := s.policy(ctx, codebase.RootPath, request)
 	if err != nil {
 		return entity.Snapshot{}, err
 	}
@@ -315,7 +315,7 @@ func (s *snapshotsService) skipping(
 func (s *snapshotsService) policy(
 	ctx context.Context,
 	root string,
-	asked entity.LocalChanges,
+	asked service.TakeRequest,
 ) (entity.SnapshotPolicy, error) {
 	policy := entity.SnapshotPolicy{
 		GitMode:      entity.GitMode(s.cfg.GitMode),
@@ -345,8 +345,12 @@ func (s *snapshotsService) policy(
 		policy.Fetch = *held.Fetch
 	}
 
-	if asked.Valid() {
-		policy.LocalChanges = asked
+	if asked.LocalChanges.Valid() {
+		policy.LocalChanges = asked.LocalChanges
+	}
+
+	if asked.Base.Valid() {
+		policy.Base = asked.Base
 	}
 
 	return policy, nil

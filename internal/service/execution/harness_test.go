@@ -101,7 +101,18 @@ func newHarness(t *testing.T, capacity int, watermark int64) *harness {
 		t.Fatalf("make a state directory: %v", err)
 	}
 
-	return build(t, dir, capacity, watermark, 100<<30, keeping())
+	return build(t, dir, capacity, watermark, 100<<30, keeping(), config.ProfileStandard)
+}
+
+func newHarnessUnder(t *testing.T, profile config.Profile) *harness {
+	t.Helper()
+
+	dir, err := statedir.New(config.State{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("make a state directory: %v", err)
+	}
+
+	return build(t, dir, 2, 0, 100<<30, keeping(), profile)
 }
 
 func newHarnessKeeping(t *testing.T, retention config.Retention) *harness {
@@ -112,7 +123,7 @@ func newHarnessKeeping(t *testing.T, retention config.Retention) *harness {
 		t.Fatalf("make a state directory: %v", err)
 	}
 
-	return build(t, dir, 2, 0, 100<<30, retention)
+	return build(t, dir, 2, 0, 100<<30, retention, config.ProfileStandard)
 }
 
 func keeping() config.Retention {
@@ -127,7 +138,7 @@ func keeping() config.Retention {
 func newHarnessOver(t *testing.T, first *harness, capacity int, watermark int64) *harness {
 	t.Helper()
 
-	return build(t, first.dir, capacity, watermark, first.free, keeping())
+	return build(t, first.dir, capacity, watermark, first.free, keeping(), config.ProfileStandard)
 }
 
 func newHarnessOverKeeping(
@@ -137,7 +148,7 @@ func newHarnessOverKeeping(
 ) *harness {
 	t.Helper()
 
-	return build(t, first.dir, 2, 0, first.free, retention)
+	return build(t, first.dir, 2, 0, first.free, retention, config.ProfileStandard)
 }
 
 func build(
@@ -146,6 +157,7 @@ func build(
 	capacity int,
 	watermark, free int64,
 	retention config.Retention,
+	profile config.Profile,
 ) *harness {
 	t.Helper()
 
@@ -169,7 +181,7 @@ func build(
 		free:        free,
 		connected:   []entity.Codebase{connected("/codebase")},
 		telemetry:   entity.TelemetryFull,
-		profile:     config.ProfileStandard,
+		profile:     profile,
 		dirty:       map[string][]string{},
 		remote:      "git@github.com:usenorn/runner.git",
 		patch:       []byte("diff --git a/a b/a\n"),
