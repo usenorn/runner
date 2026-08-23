@@ -41,8 +41,11 @@ type run struct {
 	dropped    bool
 }
 
+const artifactDirMode = 0o700
+
 type uploadsService struct {
 	uploads   repository.Upload
+	runs      repository.Run
 	dashboard repository.Dashboard
 	sessions  service.Sessions
 	cfg       config.Upload
@@ -54,12 +57,14 @@ type uploadsService struct {
 
 func New(
 	uploads repository.Upload,
+	runs repository.Run,
 	dashboard repository.Dashboard,
 	sessions service.Sessions,
 	cfg config.Upload,
 ) service.Uploads {
 	return &uploadsService{
 		uploads:   uploads,
+		runs:      runs,
 		dashboard: dashboard,
 		sessions:  sessions,
 		cfg:       cfg,

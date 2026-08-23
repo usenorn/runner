@@ -12,6 +12,7 @@ import (
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/observability/logging"
 	"github.com/usenorn/runner/internal/pkg/statedir"
+	"github.com/usenorn/runner/internal/repository"
 	"github.com/usenorn/runner/internal/service"
 )
 
@@ -28,6 +29,9 @@ type Server struct {
 	executions service.Executions
 	services   service.Services
 	questions  service.Questions
+	previews   service.Previews
+	uploads    service.Uploads
+	tokens     repository.RunToken
 	build      entity.Build
 	startedAt  time.Time
 	handler    http.Handler
@@ -46,6 +50,9 @@ func NewServer(
 	executions service.Executions,
 	services service.Services,
 	questions service.Questions,
+	previews service.Previews,
+	uploads service.Uploads,
+	tokens repository.RunToken,
 	build entity.Build,
 ) *Server {
 	server := &Server{
@@ -61,6 +68,9 @@ func NewServer(
 		executions: executions,
 		services:   services,
 		questions:  questions,
+		previews:   previews,
+		uploads:    uploads,
+		tokens:     tokens,
 		build:      build,
 		startedAt:  time.Now().UTC(),
 	}
@@ -76,13 +86,20 @@ func NewServer(
 	mux.HandleFunc("POST "+ResumePath, server.resume)
 	mux.HandleFunc("GET "+ExecutionsPath, server.runs)
 	mux.HandleFunc("GET "+LogsPath, server.logs)
-	mux.HandleFunc("GET "+ServicesPath, server.runServices)
-	mux.HandleFunc("POST "+ServicesPath, server.startService)
-	mux.HandleFunc("DELETE "+ServicePath, server.stopService)
-	mux.HandleFunc("POST "+ServiceRestartPath, server.restartService)
-	mux.HandleFunc("GET "+ServiceLogsPath, server.serviceLogs)
-	mux.HandleFunc("POST "+StepsPath, server.step)
-	mux.HandleFunc("POST "+QuestionsPath, server.ask)
+	mux.HandleFunc("GET "+ServicesPath, server.guarded(server.runServices))
+	mux.HandleFunc("POST "+ServicesPath, server.guarded(server.startService))
+	mux.HandleFunc("DELETE "+ServicePath, server.guarded(server.stopService))
+	mux.HandleFunc("POST "+ServiceRestartPath, server.guarded(server.restartService))
+	mux.HandleFunc("GET "+ServiceLogsPath, server.guarded(server.serviceLogs))
+	mux.HandleFunc("POST "+StepsPath, server.guarded(server.step))
+	mux.HandleFunc("POST "+PortsPath, server.guarded(server.allocatePort))
+	mux.HandleFunc("POST "+QuestionsPath, server.guarded(server.ask))
+	mux.HandleFunc("GET "+PreviewsPath, server.guarded(server.runPreviews))
+	mux.HandleFunc("POST "+PreviewsPath, server.guarded(server.exposePreview))
+	mux.HandleFunc("DELETE "+PreviewPath, server.guarded(server.closePreview))
+	mux.HandleFunc("POST "+ProgressPath, server.guarded(server.progress))
+	mux.HandleFunc("POST "+ArtifactsPath, server.guarded(server.publishArtifact))
+	mux.HandleFunc("POST "+CompletePath, server.guarded(server.complete))
 
 	server.handler = recovering(mux)
 

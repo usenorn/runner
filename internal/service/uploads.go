@@ -15,4 +15,9 @@ type Uploads interface {
 	Line(ctx context.Context, executionID string, line entity.LogLine)
 	Flush(ctx context.Context, executionID string) error
 	Close(ctx context.Context, executionID string)
+	Publish(
+		ctx context.Context,
+		executionID string,
+		artifact entity.Artifact,
+	) (entity.ArtifactReceipt, error)
 }

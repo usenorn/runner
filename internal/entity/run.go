@@ -18,6 +18,7 @@ const (
 	RunPlanFile        = "run-plan.json"
 	RunDriverFile      = "driver.json"
 	RunServicesFile    = "services.json"
+	RunMCPFile         = "mcp.json"
 )
 
 type PrepareStep string

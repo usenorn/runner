@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"io"
 
 	"github.com/usenorn/runner/internal/entity"
 )
@@ -26,4 +27,11 @@ type Upload interface {
 		token string,
 		executionID string,
 	) ([]entity.StreamCursor, error)
+	PublishArtifact(
+		ctx context.Context,
+		token string,
+		executionID string,
+		label string,
+		body io.Reader,
+	) (entity.ArtifactReceipt, error)
 }

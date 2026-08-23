@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"syscall"
@@ -26,9 +27,21 @@ type Client struct {
 	cfg       config.Control
 	questions config.Questions
 	path      string
+	token     string
 }
 
-func NewClient(cfg config.Control, questions config.Questions, dir *statedir.Dir) *Client {
+type Bearer string
+
+func NewBearer() Bearer {
+	return Bearer(os.Getenv(entity.ExecutionTokenVariable))
+}
+
+func NewClient(
+	cfg config.Control,
+	questions config.Questions,
+	dir *statedir.Dir,
+	bearer Bearer,
+) *Client {
 	path := dir.Socket()
 
 	return &Client{
@@ -44,6 +57,7 @@ func NewClient(cfg config.Control, questions config.Questions, dir *statedir.Dir
 		cfg:       cfg,
 		questions: questions,
 		path:      path,
+		token:     string(bearer),
 	}
 }
 
@@ -126,6 +140,10 @@ func ask[T any](
 		request.Header.Set("Content-Type", "application/json")
 	}
 
+	if c.token != "" {
+		request.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
 	response, err := c.http.Do(request)
 	if err != nil {
 		return answer, c.unreachable(err)
@@ -205,15 +223,85 @@ func (c *Client) ServiceLogs(
 	ctx context.Context,
 	executionID string,
 	name string,
-	tail int,
+	query entity.LogQuery,
 ) (ServiceLines, error) {
 	path := forService(ServiceLogsPath, executionID, name)
 
-	if tail > 0 {
-		path += "?tail=" + strconv.Itoa(tail)
+	asked := url.Values{}
+
+	if query.Tail > 0 {
+		asked.Set("tail", strconv.Itoa(query.Tail))
+	}
+
+	if query.Grep != "" {
+		asked.Set("grep", query.Grep)
+	}
+
+	if len(asked) > 0 {
+		path += "?" + asked.Encode()
 	}
 
 	return ask[ServiceLines](ctx, c, http.MethodGet, path, nil)
+}
+
+func (c *Client) AllocatePort(ctx context.Context, executionID string, name string) (Port, error) {
+	path := forRun(PortsPath, executionID)
+
+	return ask[Port](ctx, c, http.MethodPost, path, PortRequest{Name: name})
+}
+
+func (c *Client) Previews(ctx context.Context, executionID string) ([]Preview, error) {
+	return ask[[]Preview](ctx, c, http.MethodGet, forRun(PreviewsPath, executionID), nil)
+}
+
+func (c *Client) ExposePreview(
+	ctx context.Context,
+	executionID string,
+	request PreviewRequest,
+) (Preview, error) {
+	return ask[Preview](ctx, c, http.MethodPost, forRun(PreviewsPath, executionID), request)
+}
+
+func (c *Client) ClosePreview(
+	ctx context.Context,
+	executionID string,
+	name string,
+) (Preview, error) {
+	path := strings.Replace(
+		forRun(PreviewPath, executionID), "{preview}", url.PathEscape(name), 1,
+	)
+
+	return ask[Preview](ctx, c, http.MethodDelete, path, nil)
+}
+
+func (c *Client) Report(
+	ctx context.Context,
+	executionID string,
+	request ProgressRequest,
+) (ProgressRequest, error) {
+	path := forRun(ProgressPath, executionID)
+
+	return ask[ProgressRequest](ctx, c, http.MethodPost, path, request)
+}
+
+func (c *Client) PublishArtifact(
+	ctx context.Context,
+	executionID string,
+	request ArtifactRequest,
+) (Artifact, error) {
+	path := forRun(ArtifactsPath, executionID)
+
+	return ask[Artifact](ctx, c, http.MethodPost, path, request)
+}
+
+func (c *Client) Complete(
+	ctx context.Context,
+	executionID string,
+	request CompleteRequest,
+) (Completed, error) {
+	path := forRun(CompletePath, executionID)
+
+	return ask[Completed](ctx, c, http.MethodPost, path, request)
 }
 
 func (c *Client) RunStep(

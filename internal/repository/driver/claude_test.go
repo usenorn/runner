@@ -86,6 +86,33 @@ func TestASessionIsAskedForTheStreamNornCanReadAndOnlyTheMcpServersItWasGiven(t 
 	}
 }
 
+func TestASessionIsHandedNornsOwnToolsAndNothingElsesMcpConfig(t *testing.T) {
+	h := newHarness(t)
+
+	h.replays(t, "clean.ndjson")
+
+	env := h.env(t, entity.ProfileStandard)
+
+	session, err := h.driver.Start(t.Context(), env, entity.Task{Prompt: "do the work"})
+	if err != nil {
+		t.Fatalf("start the coding agent: %v", err)
+	}
+
+	h.drain(t, session)
+
+	asked := h.asked(t)
+
+	config := slices.Index(asked, "--mcp-config")
+	if config < 0 || config+1 >= len(asked) || asked[config+1] != env.MCPConfig {
+		t.Fatalf(
+			"the session was started with %v, so it was never handed the tools norn wrote for "+
+				"it. With --strict-mcp-config already on, that leaves the agent with no way to "+
+				"start a service, ask a person or say it is done",
+			asked,
+		)
+	}
+}
+
 func TestCarryingOnAskesForTheSameSessionRatherThanANewOne(t *testing.T) {
 	h := newHarness(t)
 

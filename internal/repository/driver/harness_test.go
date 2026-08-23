@@ -113,6 +113,7 @@ func (h *harness) env(t *testing.T, profile entity.PermissionProfile) entity.Exe
 		ExecutionID: "exec-01ABC",
 		Workspace:   t.TempDir(),
 		Environment: os.Environ(),
+		MCPConfig:   filepath.Join(t.TempDir(), entity.RunMCPFile),
 		Profile:     profile,
 	}
 }

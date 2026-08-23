@@ -11,6 +11,7 @@ package upload
 
 import (
 	context "context"
+	io "io"
 	reflect "reflect"
 
 	entity "github.com/usenorn/runner/internal/entity"
@@ -84,4 +85,19 @@ func (m *MockUpload) Cursors(ctx context.Context, token, executionID string) ([]
 func (mr *MockUploadMockRecorder) Cursors(ctx, token, executionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cursors", reflect.TypeOf((*MockUpload)(nil).Cursors), ctx, token, executionID)
+}
+
+// PublishArtifact mocks base method.
+func (m *MockUpload) PublishArtifact(ctx context.Context, token, executionID, label string, body io.Reader) (entity.ArtifactReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublishArtifact", ctx, token, executionID, label, body)
+	ret0, _ := ret[0].(entity.ArtifactReceipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PublishArtifact indicates an expected call of PublishArtifact.
+func (mr *MockUploadMockRecorder) PublishArtifact(ctx, token, executionID, label, body any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishArtifact", reflect.TypeOf((*MockUpload)(nil).PublishArtifact), ctx, token, executionID, label, body)
 }

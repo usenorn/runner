@@ -57,18 +57,33 @@ func (mr *MockServicesMockRecorder) List(ctx, executionID any) *gomock.Call {
 }
 
 // Logs mocks base method.
-func (m *MockServices) Logs(ctx context.Context, executionID, name string, tail int) ([]string, error) {
+func (m *MockServices) Logs(ctx context.Context, executionID, name string, query entity.LogQuery) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Logs", ctx, executionID, name, tail)
+	ret := m.ctrl.Call(m, "Logs", ctx, executionID, name, query)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Logs indicates an expected call of Logs.
-func (mr *MockServicesMockRecorder) Logs(ctx, executionID, name, tail any) *gomock.Call {
+func (mr *MockServicesMockRecorder) Logs(ctx, executionID, name, query any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logs", reflect.TypeOf((*MockServices)(nil).Logs), ctx, executionID, name, tail)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logs", reflect.TypeOf((*MockServices)(nil).Logs), ctx, executionID, name, query)
+}
+
+// Port mocks base method.
+func (m *MockServices) Port(ctx context.Context, executionID, name string) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Port", ctx, executionID, name)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Port indicates an expected call of Port.
+func (mr *MockServicesMockRecorder) Port(ctx, executionID, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Port", reflect.TypeOf((*MockServices)(nil).Port), ctx, executionID, name)
 }
 
 // Release mocks base method.

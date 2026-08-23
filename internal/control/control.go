@@ -5,8 +5,9 @@ import "time"
 const (
 	Host = "runner"
 
-	ReasonNotEnrolled = "not-enrolled"
-	ReasonRefused     = "refused"
+	ReasonNotEnrolled  = "not-enrolled"
+	ReasonRefused      = "refused"
+	ReasonUnauthorised = "unauthorised"
 
 	StatusPath     = "/v1/status"
 	VersionPath    = "/v1/version"
@@ -24,7 +25,13 @@ const (
 	ServiceRestartPath = "/v1/executions/{executionId}/services/{service}/restart"
 	ServiceLogsPath    = "/v1/executions/{executionId}/services/{service}/logs"
 	StepsPath          = "/v1/executions/{executionId}/steps"
+	PortsPath          = "/v1/executions/{executionId}/ports"
 	QuestionsPath      = "/v1/executions/{executionId}/questions"
+	PreviewsPath       = "/v1/executions/{executionId}/previews"
+	PreviewPath        = "/v1/executions/{executionId}/previews/{preview}"
+	ProgressPath       = "/v1/executions/{executionId}/progress"
+	ArtifactsPath      = "/v1/executions/{executionId}/artifacts"
+	CompletePath       = "/v1/executions/{executionId}/complete"
 )
 
 type Update struct {
@@ -128,6 +135,7 @@ type QuestionRequest struct {
 	WaitSeconds   int      `json:"waitSeconds,omitempty"`
 	Preview       string   `json:"preview,omitempty"`
 	Files         []string `json:"files,omitempty"`
+	Artifacts     []string `json:"artifacts,omitempty"`
 }
 
 type QuestionAnswer struct {
@@ -177,6 +185,56 @@ type StepResult struct {
 
 type ServiceLines struct {
 	Lines []string `json:"lines"`
+}
+
+type PortRequest struct {
+	Name string `json:"name"`
+}
+
+type Port struct {
+	Name string `json:"name"`
+	Port int    `json:"port"`
+}
+
+type PreviewRequest struct {
+	Service string `json:"service"`
+	Name    string `json:"name,omitempty"`
+	Path    string `json:"path,omitempty"`
+}
+
+type Preview struct {
+	Name      string    `json:"name"`
+	Service   string    `json:"service"`
+	Path      string    `json:"path,omitempty"`
+	Port      int       `json:"port"`
+	URL       string    `json:"url"`
+	ExposedAt time.Time `json:"exposedAt"`
+}
+
+type ProgressRequest struct {
+	Summary string `json:"summary"`
+	Phase   string `json:"phase,omitempty"`
+	Percent int    `json:"percent,omitempty"`
+}
+
+type ArtifactRequest struct {
+	Path  string `json:"path"`
+	Label string `json:"label"`
+}
+
+type Artifact struct {
+	ArtifactID string `json:"artifactId"`
+	Label      string `json:"label"`
+	Bytes      int64  `json:"bytes"`
+}
+
+type CompleteRequest struct {
+	Summary string `json:"summary"`
+	Notes   string `json:"notes,omitempty"`
+}
+
+type Completed struct {
+	Advice string `json:"advice"`
 }
 
 type TimelineEntry struct {

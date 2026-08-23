@@ -112,7 +112,7 @@ func (s *Services) Logs(
 	ctx context.Context,
 	executionID string,
 	name string,
-	tail int,
+	query entity.LogQuery,
 	asJSON bool,
 ) error {
 	run, err := s.run(executionID)
@@ -120,7 +120,7 @@ func (s *Services) Logs(
 		return err
 	}
 
-	held, err := s.client.ServiceLogs(ctx, run, name, tail)
+	held, err := s.client.ServiceLogs(ctx, run, name, query)
 	if err != nil {
 		return err
 	}

@@ -27,6 +27,7 @@ import (
 	processrepo "github.com/usenorn/runner/internal/repository/process"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
+	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
@@ -36,6 +37,7 @@ import (
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
+	previewsvc "github.com/usenorn/runner/internal/service/preview"
 	questionsvc "github.com/usenorn/runner/internal/service/question"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
@@ -46,6 +48,7 @@ import (
 type harness struct {
 	dir         *statedir.Dir
 	client      *control.Client
+	tokens      repository.RunToken
 	build       entity.Build
 	dashboard   *dashboardrepo.MockDashboard
 	credentials *credentialrepo.MockCredential
@@ -198,6 +201,9 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		supervisorSettings(),
 	)
 
+	previews := previewsvc.New(runrepo.New(dir), spool)
+	tokens := runtokenrepo.New()
+
 	executions := executionsvc.New(
 		runrepo.New(dir),
 		spool,
@@ -215,6 +221,8 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		services,
 		uploadStub{},
 		questions,
+		previews,
+		tokens,
 		driverStub{},
 		dir,
 		config.Runner{Capacity: 2},
@@ -257,6 +265,9 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			executions,
 			services,
 			questions,
+			previews,
+			uploadStub{},
+			tokens,
 			build,
 		)
 	}
@@ -273,14 +284,40 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 	return &harness{
 		dir:         dir,
 		build:       build,
-		client:      control.NewClient(settings(), questionSettings(), dir),
+		tokens:      tokens,
+		client:      control.NewClient(settings(), questionSettings(), dir, ""),
 		dashboard:   dashboard,
 		credentials: credentials,
 		identities:  identities,
 	}
 }
 
+func (h *harness) bearer(t *testing.T, executionID string) control.Bearer {
+	t.Helper()
+
+	minted, err := h.tokens.Mint(context.Background(), executionID)
+	if err != nil {
+		t.Fatalf("mint a token for %s: %v", executionID, err)
+	}
+
+	return control.Bearer(minted)
+}
+
+func (h *harness) as(t *testing.T, executionID string) *control.Client {
+	t.Helper()
+
+	return control.NewClient(settings(), questionSettings(), h.dir, h.bearer(t, executionID))
+}
+
 type uploadStub struct{}
+
+func (uploadStub) Publish(
+	context.Context,
+	string,
+	entity.Artifact,
+) (entity.ArtifactReceipt, error) {
+	return entity.ArtifactReceipt{}, nil
+}
 
 func (uploadStub) Run(context.Context) {}
 

@@ -86,7 +86,8 @@ func (s *Server) serviceLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lines, err := s.services.Logs(
-		r.Context(), r.PathValue("executionId"), r.PathValue("service"), tail,
+		r.Context(), r.PathValue("executionId"), r.PathValue("service"),
+		entity.LogQuery{Tail: tail, Grep: r.URL.Query().Get("grep")},
 	)
 	if err != nil {
 		s.refuse(w, r, err)
@@ -137,6 +138,27 @@ func (s *Server) step(w http.ResponseWriter, r *http.Request) {
 		Took:     result.Took.Round(time.Millisecond).String(),
 		TimedOut: result.TimedOut,
 	})
+}
+
+func (s *Server) allocatePort(w http.ResponseWriter, r *http.Request) {
+	var request PortRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		respond(w, r, http.StatusBadRequest, Failure{
+			Reason: ReasonRefused, Message: "that port request is malformed",
+		})
+
+		return
+	}
+
+	port, err := s.services.Port(r.Context(), r.PathValue("executionId"), request.Name)
+	if err != nil {
+		s.refuse(w, r, err)
+
+		return
+	}
+
+	respond(w, r, http.StatusOK, Port{Name: request.Name, Port: port})
 }
 
 func servicesOf(records []entity.ServiceRecord) []Service {

@@ -128,6 +128,7 @@ func TestARequestStillRunningPastTheDrainDeadlineForcesTheExitCode(t *testing.T)
 		config.Control{DialTimeout: time.Second, RequestTimeout: 5 * time.Second},
 		config.Questions{SoftWait: 20 * time.Millisecond, MaxWait: time.Second},
 		dir,
+		"",
 	)
 
 	asked := make(chan struct{})

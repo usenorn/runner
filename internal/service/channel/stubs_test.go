@@ -127,13 +127,20 @@ func (servicesStub) List(context.Context, string) ([]entity.ServiceRecord, error
 	return nil, nil
 }
 
-func (servicesStub) Logs(context.Context, string, string, int) ([]string, error) {
+func (servicesStub) Logs(
+	context.Context,
+	string,
+	string,
+	entity.LogQuery,
+) ([]string, error) {
 	return nil, nil
 }
 
 func (servicesStub) Step(context.Context, string, entity.Step) (entity.StepResult, error) {
 	return entity.StepResult{}, nil
 }
+
+func (servicesStub) Port(context.Context, string, string) (int, error) { return 0, nil }
 
 func (servicesStub) Release(context.Context, string) error { return nil }
 
@@ -152,6 +159,14 @@ func (uploadStub) Line(context.Context, string, entity.LogLine) {}
 func (uploadStub) Flush(context.Context, string) error { return nil }
 
 func (uploadStub) Close(context.Context, string) {}
+
+func (uploadStub) Publish(
+	context.Context,
+	string,
+	entity.Artifact,
+) (entity.ArtifactReceipt, error) {
+	return entity.ArtifactReceipt{}, nil
+}
 
 type driverStub struct{}
 

@@ -41,6 +41,8 @@ type Upload struct {
 	Flush         time.Duration `mapstructure:"flush"`
 	MaxChunkBytes int64         `mapstructure:"max_chunk_bytes"`
 	MaxPending    int           `mapstructure:"max_pending"`
+
+	MaxArtifactBytes int64 `mapstructure:"max_artifact_bytes"`
 }
 
 type Channel struct {

@@ -175,6 +175,32 @@ func adviceFor(err error) (int, string, string) {
 		return http.StatusUnprocessableEntity, ReasonRefused,
 			err.Error()
 
+	case errors.Is(err, errNoRunToken), errors.Is(err, errWrongRunToken):
+		return http.StatusUnauthorized, ReasonUnauthorised, err.Error()
+
+	case errors.Is(err, entity.ErrPreviewUnknown):
+		return http.StatusNotFound, ReasonRefused, err.Error()
+
+	case errors.Is(err, entity.ErrPreviewInvalid),
+		errors.Is(err, entity.ErrPreviewNotOwned),
+		errors.Is(err, entity.ErrPreviewCrowded):
+		return http.StatusUnprocessableEntity, ReasonRefused, err.Error()
+
+	case errors.Is(err, entity.ErrArtifactMissing):
+		return http.StatusNotFound, ReasonRefused, err.Error()
+
+	case errors.Is(err, entity.ErrArtifactTooLarge):
+		return http.StatusRequestEntityTooLarge, ReasonRefused, err.Error()
+
+	case errors.Is(err, entity.ErrArtifactOutside), errors.Is(err, entity.ErrArtifactInvalid):
+		return http.StatusUnprocessableEntity, ReasonRefused, err.Error()
+
+	case errors.Is(err, entity.ErrProgressEmpty),
+		errors.Is(err, entity.ErrProgressRange),
+		errors.Is(err, entity.ErrCompleteEmpty),
+		errors.Is(err, entity.ErrCompleteLong):
+		return http.StatusUnprocessableEntity, ReasonRefused, err.Error()
+
 	case errors.Is(err, entity.ErrServiceUnknown):
 		return http.StatusNotFound, ReasonRefused,
 			err.Error()

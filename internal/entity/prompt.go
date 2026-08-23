@@ -95,12 +95,29 @@ func standingRules() string {
 			"convention. Uncommitted work is work nobody will see.",
 		"- Do not push, open a pull request, or touch any remote. That is done for you afterwards.",
 		"- The project's own instruction files are in the workspace and apply to you.",
-		"- When a decision is not yours to make, ask a person rather than guessing: " +
-			"`norn ask \"your question\" --option \"one answer\" --option \"another\"`. It waits " +
-			"a little for a reply; if nobody has answered by then it tells you to stop, and norn " +
-			"starts you again with the answer once somebody gives one. Add " +
-			"`--meanwhile \"what you will do\"` instead when you do not need to stop.",
-		"- When the work is done, say what you changed and why, in a few sentences.",
+		"- Norn's own tools are how you touch anything outside your editing, and they are " +
+			"named `mcp__norn__*`. Read what each one says before you reach for a shell.",
+		"- Start every long-running process with `start_service`, never yourself in the " +
+			"background. Norn keeps it in a process group of its own, captures its output and " +
+			"stops it when this run ends; a process you daemonise outlives the run and is " +
+			"nobody's to clean up. Run one-off commands — install, build, migrate, test — with " +
+			"`run_step` so they are timed and recorded.",
+		"- Never choose a port. Write `${ports.web}` in a service's command, environment or " +
+			"health check and norn substitutes a free one, which the process also reads as " +
+			"`NORN_PORT_WEB`.",
+		"- Open something for a person to look at with `expose_preview`, on a service norn is " +
+			"already running.",
+		"- When a decision is not yours to make, `ask_human` rather than guessing, and offer " +
+			"the answers you would accept. It waits a little for a reply; if nobody has " +
+			"answered by then it tells you to stop, and norn starts you again with the answer " +
+			"once somebody gives one. Set `blocking` to false and say what you will do " +
+			"meanwhile when you do not need to stop.",
+		"- Say where you are with `report_progress` when you move between real phases of the " +
+			"work, and hand over a file worth keeping with `publish_artifact`.",
+		"- When the work is committed, call `complete_task` once with what you changed and why, " +
+			"and end your turn without saying anything else.",
+		"- Working through bash instead? The same things are `norn service …`, `norn preview " +
+			"…` and `norn ask \"your question\" --option \"one answer\"`.",
 	}, "\n")
 }
 

@@ -194,6 +194,48 @@ type StepResult struct {
 	TimedOut bool
 }
 
+type LogQuery struct {
+	Tail int
+	Grep string
+}
+
+func (q LogQuery) Window() int {
+	if q.Grep != "" {
+		return 0
+	}
+
+	return q.Tail
+}
+
+func (q LogQuery) Select(lines []string) ([]string, error) {
+	if q.Grep == "" {
+		return lines, nil
+	}
+
+	pattern, err := regexp.Compile(q.Grep)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %q is not a pattern: %s", ErrServiceInvalid, q.Grep, err)
+	}
+
+	kept := make([]string, 0, len(lines))
+
+	for _, line := range lines {
+		if pattern.MatchString(line) {
+			kept = append(kept, line)
+		}
+	}
+
+	if q.Tail > 0 && len(kept) > q.Tail {
+		kept = kept[len(kept)-q.Tail:]
+	}
+
+	return kept, nil
+}
+
+func ValidName(name string) bool {
+	return serviceName.MatchString(name)
+}
+
 func PortVariable(name string) string {
 	return "NORN_PORT_" + portUnsafe.ReplaceAllString(strings.ToUpper(name), "_")
 }
