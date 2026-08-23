@@ -231,6 +231,8 @@ func (s *servicesSupervisor) spawn(
 
 	lines, forget := entry.stream.Watch()
 
+	s.forward(ctx, execution.ID, wanted.Name, entry.stream)
+
 	child, err := s.processes.Start(ctx, repository.Launch{
 		Dir:         filepath.Join(execution.Directory, entity.RunWorkspaceDir, wanted.Dir),
 		Command:     wanted.Command,
@@ -255,7 +257,7 @@ func (s *servicesSupervisor) spawn(
 	s.mu.Unlock()
 
 	s.persist(ctx, execution.ID)
-	s.tell(ctx, execution.ID, said(wanted.Name, entity.ServiceStarting, entry.record.Reason))
+	s.report(ctx, execution.ID, entry.record, wanted.Health.Kind)
 
 	return &heard{lines: lines, forget: forget, child: child}, nil
 }

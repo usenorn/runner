@@ -49,6 +49,7 @@ type servicesSupervisor struct {
 	logs      repository.ServiceLog
 	runs      repository.Run
 	spool     repository.Spool
+	uploads   service.Uploads
 	cfg       config.Supervisor
 	now       func() time.Time
 
@@ -62,6 +63,7 @@ func New(
 	logs repository.ServiceLog,
 	runs repository.Run,
 	spool repository.Spool,
+	uploads service.Uploads,
 	cfg config.Supervisor,
 ) service.Services {
 	return &servicesSupervisor{
@@ -70,6 +72,7 @@ func New(
 		logs:      logs,
 		runs:      runs,
 		spool:     spool,
+		uploads:   uploads,
 		cfg:       cfg,
 		now:       func() time.Time { return time.Now().UTC() },
 		held:      map[string]*run{},
@@ -144,7 +147,7 @@ func (s *servicesSupervisor) reclaim(ctx context.Context, execution entity.Execu
 
 		changed = true
 
-		s.tell(ctx, execution.ID, said(record.Name, entity.ServiceStopped, reason))
+		s.report(ctx, execution.ID, services.Services[at], "")
 	}
 
 	if !changed {
@@ -381,7 +384,7 @@ func (s *servicesSupervisor) settle(
 	s.mu.Unlock()
 
 	s.persist(ctx, executionID)
-	s.tell(ctx, executionID, said(entry.record.Name, state, reason))
+	s.report(ctx, executionID, entry.record, entry.wanted.Health.Kind)
 }
 
 func attending(entry *supervised) bool {
@@ -441,6 +444,92 @@ func (s *servicesSupervisor) persist(ctx context.Context, executionID string) {
 			ctx,
 			"this machine could not write down what a run's services are doing",
 			slog.String("execution_id", executionID),
+			slog.String("error", err.Error()),
+		)
+	}
+}
+
+func (s *servicesSupervisor) forward(
+	ctx context.Context,
+	executionID, name string,
+	from *stream,
+) {
+	lines, forget := from.Watch()
+
+	go func() {
+		defer forget()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case line, open := <-lines:
+				if !open {
+					return
+				}
+
+				s.uploads.Line(ctx, executionID, entity.LogLine{
+					At:     s.now(),
+					Stream: "stdout",
+					Source: name,
+					Text:   line,
+				})
+			}
+		}
+	}()
+}
+
+func (s *servicesSupervisor) report(
+	ctx context.Context,
+	executionID string,
+	record entity.ServiceRecord,
+	probe entity.HealthKind,
+) {
+	ctx = context.WithoutCancel(ctx)
+
+	occurred := s.now()
+	reason := said(record.Name, record.State, record.Reason)
+
+	entry := entity.TimelineEntry{
+		Kind:     channelv1.EventService,
+		Reason:   reason,
+		Occurred: occurred,
+	}
+
+	if err := s.runs.Append(ctx, executionID, entry); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not add a line to a run's own timeline",
+			slog.String("execution_id", executionID),
+			slog.String("error", err.Error()),
+		)
+	}
+
+	raw, err := json.Marshal(channelv1.Service{
+		Name:     record.Name,
+		State:    string(record.State),
+		Probe:    string(probe),
+		Port:     record.Port,
+		Reason:   record.Reason,
+		Occurred: occurred,
+	})
+	if err != nil {
+		return
+	}
+
+	message, err := channelv1.NewRunnerMessage(
+		channelv1.ServiceState, executionID, raw, occurred,
+	)
+	if err != nil {
+		return
+	}
+
+	if err := s.spool.Append(ctx, message); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not tell norn what one of a run's services is doing",
+			slog.String("execution_id", executionID),
+			slog.String("service", record.Name),
 			slog.String("error", err.Error()),
 		)
 	}
