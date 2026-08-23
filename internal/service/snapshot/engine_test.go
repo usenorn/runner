@@ -153,7 +153,7 @@ func newEngine(t *testing.T) *engine {
 		root: root,
 		dir:  dir,
 		service: snapshotsvc.New(
-			worktreerepo.New(defaults()),
+			worktreerepo.New(defaults(), results()),
 			materialiserrepo.New(),
 			settingsrepo.New(),
 			inventories,
@@ -674,7 +674,7 @@ func newLoneEngine(t *testing.T) *engine {
 		root: root,
 		dir:  dir,
 		service: snapshotsvc.New(
-			worktreerepo.New(defaults()),
+			worktreerepo.New(defaults(), results()),
 			materialiserrepo.New(),
 			settingsrepo.New(),
 			inventories,
@@ -754,5 +754,15 @@ func TestUncommittedWorkInAFolderThatIsItselfOneRepositoryIsCarriedAcrossAndName
 
 	if _, err := os.Stat(filepath.Join(held.Path, "notes.md")); err != nil {
 		t.Fatalf("the untracked file did not arrive: %v", err)
+	}
+}
+
+func results() config.Results {
+	return config.Results{
+		CreatePRs:    config.PullRequestsAuto,
+		Attribution:  config.AttributionNone,
+		PushTimeout:  60 * time.Second,
+		ForgeTimeout: 30 * time.Second,
+		MaxDiffBytes: 3 << 20,
 	}
 }

@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	entity "github.com/usenorn/runner/internal/entity"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -126,6 +127,21 @@ func (mr *MockWorktreeMockRecorder) Commit(ctx, dest, message any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockWorktree)(nil).Commit), ctx, dest, message)
 }
 
+// Commits mocks base method.
+func (m *MockWorktree) Commits(ctx context.Context, dest, base string) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Commits", ctx, dest, base)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Commits indicates an expected call of Commits.
+func (mr *MockWorktreeMockRecorder) Commits(ctx, dest, base any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commits", reflect.TypeOf((*MockWorktree)(nil).Commits), ctx, dest, base)
+}
+
 // Diff mocks base method.
 func (m *MockWorktree) Diff(ctx context.Context, repository string, paths []string) ([]byte, error) {
 	m.ctrl.T.Helper()
@@ -139,6 +155,21 @@ func (m *MockWorktree) Diff(ctx context.Context, repository string, paths []stri
 func (mr *MockWorktreeMockRecorder) Diff(ctx, repository, paths any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Diff", reflect.TypeOf((*MockWorktree)(nil).Diff), ctx, repository, paths)
+}
+
+// Diffstat mocks base method.
+func (m *MockWorktree) Diffstat(ctx context.Context, dest, base string) (entity.Diffstat, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Diffstat", ctx, dest, base)
+	ret0, _ := ret[0].(entity.Diffstat)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Diffstat indicates an expected call of Diffstat.
+func (mr *MockWorktreeMockRecorder) Diffstat(ctx, dest, base any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Diffstat", reflect.TypeOf((*MockWorktree)(nil).Diffstat), ctx, dest, base)
 }
 
 // Fetch mocks base method.
@@ -168,6 +199,50 @@ func (m *MockWorktree) Head(ctx context.Context, repository string) (string, err
 func (mr *MockWorktreeMockRecorder) Head(ctx, repository any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Head", reflect.TypeOf((*MockWorktree)(nil).Head), ctx, repository)
+}
+
+// Patch mocks base method.
+func (m *MockWorktree) Patch(ctx context.Context, dest, base string) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Patch", ctx, dest, base)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Patch indicates an expected call of Patch.
+func (mr *MockWorktreeMockRecorder) Patch(ctx, dest, base any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockWorktree)(nil).Patch), ctx, dest, base)
+}
+
+// Push mocks base method.
+func (m *MockWorktree) Push(ctx context.Context, dest, url, branch string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Push", ctx, dest, url, branch)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Push indicates an expected call of Push.
+func (mr *MockWorktreeMockRecorder) Push(ctx, dest, url, branch any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockWorktree)(nil).Push), ctx, dest, url, branch)
+}
+
+// Remote mocks base method.
+func (m *MockWorktree) Remote(ctx context.Context, repository string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Remote", ctx, repository)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Remote indicates an expected call of Remote.
+func (mr *MockWorktreeMockRecorder) Remote(ctx, repository any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remote", reflect.TypeOf((*MockWorktree)(nil).Remote), ctx, repository)
 }
 
 // Remove mocks base method.

@@ -20,6 +20,7 @@ type Config struct {
 	Driver     Driver     `mapstructure:"driver"`
 	Upload     Upload     `mapstructure:"upload"`
 	Questions  Questions  `mapstructure:"questions"`
+	Results    Results    `mapstructure:"results"`
 }
 
 type Driver struct {
@@ -28,6 +29,14 @@ type Driver struct {
 	SessionTimeout time.Duration `mapstructure:"session_timeout"`
 	StopGrace      time.Duration `mapstructure:"stop_grace"`
 	ResumeAttempts int           `mapstructure:"resume_attempts"`
+}
+
+type Results struct {
+	CreatePRs    PullRequests  `mapstructure:"create_prs"`
+	Attribution  Attribution   `mapstructure:"attribution"`
+	PushTimeout  time.Duration `mapstructure:"push_timeout"`
+	ForgeTimeout time.Duration `mapstructure:"forge_timeout"`
+	MaxDiffBytes int64         `mapstructure:"max_diff_bytes"`
 }
 
 type Questions struct {
@@ -168,6 +177,28 @@ const (
 
 func Telemetries() []Telemetry {
 	return []Telemetry{TelemetryStandard, TelemetryMinimal}
+}
+
+type PullRequests string
+
+const (
+	PullRequestsAuto     PullRequests = "auto"
+	PullRequestsPushOnly PullRequests = "push_only"
+)
+
+func PullRequestChoices() []PullRequests {
+	return []PullRequests{PullRequestsAuto, PullRequestsPushOnly}
+}
+
+type Attribution string
+
+const (
+	AttributionNone     Attribution = "none"
+	AttributionStandard Attribution = "standard"
+)
+
+func Attributions() []Attribution {
+	return []Attribution{AttributionNone, AttributionStandard}
 }
 
 type Console string

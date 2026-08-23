@@ -754,7 +754,7 @@ func TestAStartForSomethingTheMachineNeverAcceptedIsFailedNotInvented(t *testing
 	}
 }
 
-func TestOnceTheCodingAgentHasFinishedTheRunWaitsAndSaysWhatItIsWaitingFor(t *testing.T) {
+func TestOnceTheCodingAgentHasFinishedTheRunWaitsForReviewAndGivesItsSlotBack(t *testing.T) {
 	h := newHarness(t, 2, 0)
 	ctx := context.Background()
 
@@ -769,12 +769,21 @@ func TestOnceTheCodingAgentHasFinishedTheRunWaitsAndSaysWhatItIsWaitingFor(t *te
 		t.Fatalf("start: %v", err)
 	}
 
-	h.awaitNote(t, "not built into this release")
+	h.awaitReview(t, "exec-01ABC")
 
 	report := h.service.Report(ctx)
 
-	if len(report.Executions) != 1 || report.Executions[0].State != channelv1.StateFinalizing {
+	if len(report.Executions) != 1 ||
+		report.Executions[0].State != channelv1.StateAwaitingReview {
 		t.Fatalf("a run with nothing left to do reads %+v", report.Executions)
+	}
+
+	if report.Used != 0 {
+		t.Fatalf(
+			"a run waiting for a person to review it still holds %d of this machine's %d slots; "+
+				"nothing is running, so the machine would turn work away for no reason",
+			report.Used, report.Capacity,
+		)
 	}
 }
 

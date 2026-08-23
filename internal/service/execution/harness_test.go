@@ -19,13 +19,16 @@ import (
 	"github.com/usenorn/runner/internal/repository"
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
 	diskrepo "github.com/usenorn/runner/internal/repository/disk"
+	forgerepo "github.com/usenorn/runner/internal/repository/forge"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
+	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
 	"github.com/usenorn/runner/internal/service"
+	changesetsvc "github.com/usenorn/runner/internal/service/changeset"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
 	previewsvc "github.com/usenorn/runner/internal/service/preview"
 	questionsvc "github.com/usenorn/runner/internal/service/question"
@@ -52,6 +55,9 @@ type harness struct {
 	posts       *uploadrepo.MockUpload
 	dashboard   *dashboardrepo.MockDashboard
 	sessions    *sessionsvc.MockSessions
+	worktrees   *worktreerepo.MockWorktree
+	forges      *forgerepo.MockForge
+	changesets  service.ChangeSets
 	uploads     service.Uploads
 	questions   service.Questions
 	service     service.Executions
@@ -63,7 +69,21 @@ type harness struct {
 	telemetry entity.TelemetryMode
 	profile   config.Profile
 
+	dirty    map[string][]string
+	commits  int
+	stat     entity.Diffstat
+	patch    []byte
+	remote   string
+	remoteEr error
+	pushErr  error
+	forge    bool
+	opened   string
+	openErr  error
+	existing string
+
 	mu          sync.Mutex
+	pushed      []string
+	requested   []entity.PullRequest
 	takeErr     error
 	linger      time.Duration
 	taken       []service.TakeRequest
@@ -107,10 +127,15 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		posts:       uploadrepo.NewMockUpload(controller),
 		dashboard:   dashboardrepo.NewMockDashboard(controller),
 		sessions:    sessionsvc.NewMockSessions(controller),
+		worktrees:   worktreerepo.NewMockWorktree(controller),
+		forges:      forgerepo.NewMockForge(controller),
 		free:        free,
 		connected:   []entity.Codebase{connected("/codebase")},
 		telemetry:   entity.TelemetryFull,
 		profile:     config.ProfileStandard,
+		dirty:       map[string][]string{},
+		remote:      "git@github.com:usenorn/runner.git",
+		patch:       []byte("diff --git a/a b/a\n"),
 	}
 
 	h.expect()
@@ -129,6 +154,9 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 	)
 
 	h.previews = previewsvc.New(h.runs, h.spool)
+	h.changesets = changesetsvc.New(
+		h.runs, h.spool, h.worktrees, h.forges, h.uploads, results(),
+	)
 	h.tokens = runtokenrepo.New()
 
 	h.service = executionsvc.New(
@@ -142,6 +170,7 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		h.uploads,
 		h.questions,
 		h.previews,
+		h.changesets,
 		h.tokens,
 		h.drivers,
 		dir,
@@ -230,6 +259,110 @@ func (h *harness) expect() {
 		AppendLogs(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(h.appendLogs).
 		AnyTimes()
+
+	h.expectGit()
+	h.expectForge()
+}
+
+func (h *harness) expectGit() {
+	h.worktrees.EXPECT().
+		Changed(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, path string) ([]string, error) {
+			return h.left(path), nil
+		}).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		Untracked(gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		Commits(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string) (int, error) { return h.commits, nil }).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		Head(gomock.Any(), gomock.Any()).
+		Return("head-sha", nil).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		Diffstat(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string) (entity.Diffstat, error) {
+			return h.stat, nil
+		}).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		Patch(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string) ([]byte, error) { return h.patch, nil }).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		Remote(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string) (string, error) {
+			return h.remote, h.remoteEr
+		}).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		Push(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _, _, branch string) error {
+			if h.pushErr != nil {
+				return h.pushErr
+			}
+
+			h.mu.Lock()
+			h.pushed = append(h.pushed, branch)
+			h.mu.Unlock()
+
+			return nil
+		}).
+		AnyTimes()
+}
+
+func (h *harness) expectForge() {
+	h.forges.EXPECT().
+		Available(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string) (entity.ForgeKind, bool) {
+			if !h.forge {
+				return "", false
+			}
+
+			return entity.ForgeGitHub, true
+		}).
+		AnyTimes()
+
+	h.forges.EXPECT().
+		Existing(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string) (string, error) {
+			return h.existing, nil
+		}).
+		AnyTimes()
+
+	h.forges.EXPECT().
+		Open(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			_ context.Context, _ string, request entity.PullRequest,
+		) (string, error) {
+			h.mu.Lock()
+			h.requested = append(h.requested, request)
+			h.mu.Unlock()
+
+			return h.opened, h.openErr
+		}).
+		AnyTimes()
+}
+
+func (h *harness) left(path string) []string {
+	for repository, files := range h.dirty {
+		if strings.HasSuffix(path, repository) {
+			return files
+		}
+	}
+
+	return nil
 }
 
 func (h *harness) appendTranscript(
@@ -317,9 +450,13 @@ func (h *harness) take(
 		Attempt:   request.Attempt,
 		Workspace: filepath.Join(h.dir.Run(request.Run), entity.RunWorkspaceDir),
 		Repositories: []entity.SnapshotRepository{{
-			Name:   "runner",
-			Mode:   entity.GitModeWorktree,
-			Branch: branchFor(request),
+			Name:    "runner",
+			RelPath: "runner",
+			Mode:    entity.GitModeWorktree,
+			Source:  filepath.Join("/codebase", "runner"),
+			Path:    filepath.Join(h.dir.Run(request.Run), entity.RunWorkspaceDir, "runner"),
+			BaseSHA: "base-sha",
+			Branch:  branchFor(request),
 		}},
 		TakenAt: time.Now().UTC(),
 	}
@@ -393,6 +530,30 @@ func (h *harness) await(t *testing.T, what string, until func() bool) {
 	t.Fatalf("%s, and it never did", what)
 }
 
+func (h *harness) awaitState(
+	t *testing.T,
+	executionID string,
+	wanted entity.ExecutionState,
+) {
+	t.Helper()
+
+	h.await(t, "waited for "+executionID+" to reach "+string(wanted), func() bool {
+		for _, reported := range h.reports(t) {
+			if reported.State == string(wanted) {
+				return true
+			}
+		}
+
+		return false
+	})
+}
+
+func (h *harness) awaitReview(t *testing.T, executionID string) {
+	t.Helper()
+
+	h.awaitState(t, executionID, channelv1.StateAwaitingReview)
+}
+
 func (h *harness) awaitNote(t *testing.T, wanted string) channelv1.Entry {
 	t.Helper()
 
@@ -455,6 +616,20 @@ func (h *harness) spooled(t *testing.T) []channelv1.Message {
 	return waiting
 }
 
+func (h *harness) sentOf(t *testing.T, kind channelv1.MessageType) []channelv1.Message {
+	t.Helper()
+
+	found := []channelv1.Message{}
+
+	for _, message := range h.spooled(t) {
+		if message.Type == kind {
+			found = append(found, message)
+		}
+	}
+
+	return found
+}
+
 func (h *harness) only(t *testing.T, kind channelv1.MessageType) channelv1.Message {
 	t.Helper()
 
@@ -501,4 +676,14 @@ func started() channelv1.Start {
 	lease := time.Now().UTC().Add(time.Minute)
 
 	return channelv1.Start{ExecutionID: "exec-01ABC", LeaseExpiresAt: &lease}
+}
+
+func results() config.Results {
+	return config.Results{
+		CreatePRs:    config.PullRequestsAuto,
+		Attribution:  config.AttributionNone,
+		PushTimeout:  time.Second,
+		ForgeTimeout: time.Second,
+		MaxDiffBytes: 1 << 20,
+	}
 }

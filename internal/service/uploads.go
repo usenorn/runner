@@ -20,4 +20,10 @@ type Uploads interface {
 		executionID string,
 		artifact entity.Artifact,
 	) (entity.ArtifactReceipt, error)
+	Attach(
+		ctx context.Context,
+		executionID string,
+		label string,
+		body []byte,
+	) (entity.ArtifactReceipt, error)
 }

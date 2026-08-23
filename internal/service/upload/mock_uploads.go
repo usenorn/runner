@@ -41,6 +41,21 @@ func (m *MockUploads) EXPECT() *MockUploadsMockRecorder {
 	return m.recorder
 }
 
+// Attach mocks base method.
+func (m *MockUploads) Attach(ctx context.Context, executionID, label string, body []byte) (entity.ArtifactReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Attach", ctx, executionID, label, body)
+	ret0, _ := ret[0].(entity.ArtifactReceipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Attach indicates an expected call of Attach.
+func (mr *MockUploadsMockRecorder) Attach(ctx, executionID, label, body any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Attach", reflect.TypeOf((*MockUploads)(nil).Attach), ctx, executionID, label, body)
+}
+
 // Close mocks base method.
 func (m *MockUploads) Close(ctx context.Context, executionID string) {
 	m.ctrl.T.Helper()

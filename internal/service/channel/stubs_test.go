@@ -190,3 +190,12 @@ func (driverStub) Resume(
 ) (repository.Session, error) {
 	return nil, entity.ErrDriverMissing
 }
+
+func (uploadStub) Attach(
+	context.Context,
+	string,
+	string,
+	[]byte,
+) (entity.ArtifactReceipt, error) {
+	return entity.ArtifactReceipt{}, nil
+}

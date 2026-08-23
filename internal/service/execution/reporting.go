@@ -95,4 +95,5 @@ func (s *executionsService) forget(executionID string) {
 	defer s.mu.Unlock()
 
 	delete(s.done, executionID)
+	delete(s.commits, executionID)
 }
