@@ -48,17 +48,23 @@ func (s *executionsService) sweep(ctx context.Context) {
 	retention := s.runner.Retention
 	now := s.now()
 
-	for _, name := range entity.Retirable(usage, now, retention.WorkspaceAfterDone) {
+	retired := entity.Retirable(usage, now, retention.WorkspaceAfterDone)
+	reaped := entity.Reapable(usage, now, retention.RunsMaxAge, retention.RunsMaxDisk)
+
+	for _, name := range retired {
 		s.retire(ctx, name)
 	}
-
-	reaped := entity.Reapable(usage, now, retention.RunsMaxAge, retention.RunsMaxDisk)
 
 	for _, name := range reaped {
 		s.reap(ctx, name)
 	}
 
-	left := entity.Left(usage, reaped)
+	if len(retired) > 0 {
+		usage = s.remeasured(ctx, usage)
+	}
+
+	kept := entity.Without(usage, reaped)
+	left := entity.Occupied(kept)
 
 	if left > retention.RunsMaxDisk {
 		logging.From(ctx).WarnContext(
@@ -71,7 +77,7 @@ func (s *executionsService) sweep(ctx context.Context) {
 	}
 
 	s.swept(entity.RunsReport{
-		Runs:    len(usage) - len(reaped),
+		Runs:    len(kept),
 		Bytes:   left,
 		SweptAt: now,
 	})
@@ -125,6 +131,24 @@ func (s *executionsService) reap(ctx context.Context, executionID string) {
 		"an old run was taken off the disk; what it did is on its branches and with norn",
 		slog.String("execution_id", executionID),
 	)
+}
+
+func (s *executionsService) remeasured(
+	ctx context.Context,
+	measured []entity.RunUsage,
+) []entity.RunUsage {
+	usage, err := s.runs.Usage(ctx)
+	if err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not read back what its runs take up now it has cleared some away",
+			slog.String("error", err.Error()),
+		)
+
+		return measured
+	}
+
+	return usage
 }
 
 func (s *executionsService) marked(usage []entity.RunUsage) []entity.RunUsage {

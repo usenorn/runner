@@ -401,7 +401,7 @@ func (s *executionsService) room(ctx context.Context) entity.Room {
 }
 
 func (s *executionsService) stranded(ctx context.Context, executionID string) error {
-	if held, err := s.runs.LoadTask(ctx, executionID); err == nil && held.Finished() {
+	if held, err := s.runs.LoadTask(ctx, executionID); err == nil && held.Reported() {
 		return nil
 	}
 
@@ -477,6 +477,14 @@ func (s *executionsService) move(
 ) error {
 	if !execution.CanReport(state) {
 		return fmt.Errorf("%w: %s to %s", entity.ErrExecutionRefused, execution.State, state)
+	}
+
+	s.mu.Lock()
+	_, holding := s.held[execution.ID]
+	s.mu.Unlock()
+
+	if !holding {
+		return fmt.Errorf("%w: %s", entity.ErrExecutionUnknown, execution.ID)
 	}
 
 	execution.State = state

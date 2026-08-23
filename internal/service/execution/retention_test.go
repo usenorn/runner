@@ -178,6 +178,51 @@ func TestARunSomebodyStoppedIsAlsoGivenBackOnceItsWindowHasPassed(t *testing.T) 
 	})
 }
 
+func TestARunSomebodyStoppedNeverReportsAnythingAfterwards(t *testing.T) {
+	h := newHarnessKeeping(t, config.Retention{
+		WorkspaceAfterDone: time.Hour,
+		RunsMaxAge:         14 * 24 * time.Hour,
+		RunsMaxDisk:        20 << 30,
+		SweepInterval:      time.Hour,
+	})
+
+	h.drivers.scripts = []script{holds("session-01")}
+
+	stop := h.start(t)
+	defer stop()
+
+	begun(t, h, "exec-01ABC")
+	h.awaitState(t, "exec-01ABC", channelv1.StateRunning)
+
+	if err := h.service.Cancel(
+		context.Background(), "exec-01ABC", "a person stopped it",
+	); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+
+	h.awaitNote(t, "kept here for")
+
+	held, err := h.runs.LoadTask(context.Background(), "exec-01ABC")
+	if err != nil {
+		t.Fatalf("read back what the run ended as: %v", err)
+	}
+
+	if held.State != channelv1.StateCancelled || held.SettledAt.IsZero() {
+		t.Fatalf(
+			"a cancelled run was written down as %s settled %s, because the turn that was still "+
+				"running carried on and reported over the top of the cancel. Norn refuses those "+
+				"moves, and the machine is then left holding a workspace nothing will ever collect",
+			held.State, held.SettledAt,
+		)
+	}
+
+	for _, reported := range h.reports(t) {
+		if reported.State == string(channelv1.StateAwaitingReview) {
+			t.Fatalf("a run somebody stopped told norn it was waiting for review")
+		}
+	}
+}
+
 func TestTheSweepNeverTouchesARunThatIsWaitingForSomebodyToReviewIt(t *testing.T) {
 	h := newHarnessKeeping(t, config.Retention{
 		WorkspaceAfterDone: time.Nanosecond,
@@ -314,6 +359,45 @@ func TestWhatTheRunsOnThisMachineTakeUpIsOnItsStatus(t *testing.T) {
 
 		return runs.Runs == 1 && runs.Bytes >= 4096 && !runs.SweptAt.IsZero()
 	})
+}
+
+func TestOnceARunIsClearedAwayTheMachineStopsCountingWhatItUsedToTakeUp(t *testing.T) {
+	h := newHarnessKeeping(t, config.Retention{
+		WorkspaceAfterDone: time.Nanosecond,
+		RunsMaxAge:         14 * 24 * time.Hour,
+		RunsMaxDisk:        20 << 30,
+		SweepInterval:      time.Hour,
+	})
+
+	settle(t, h, "exec-01ABC", time.Now().UTC().Add(-time.Hour))
+
+	if err := os.WriteFile(
+		filepath.Join(workspace(h, "exec-01ABC"), "big"), make([]byte, 1<<20), 0o600,
+	); err != nil {
+		t.Fatalf("fill the run: %v", err)
+	}
+
+	stop := h.start(t)
+	defer stop()
+
+	h.await(t, "waited for the workspace to be given back", func() bool {
+		_, err := os.Stat(workspace(h, "exec-01ABC"))
+
+		return os.IsNotExist(err)
+	})
+
+	h.await(t, "waited for the one sweep to finish", func() bool {
+		return !h.service.Report(context.Background()).Runs.SweptAt.IsZero()
+	})
+
+	if held := h.service.Report(context.Background()).Runs.Bytes; held >= 1<<20 {
+		t.Fatalf(
+			"the sweep that gave a workspace back still counts its %d bytes, so status overstates "+
+				"the disk until the next sweep — which on the default settings is five minutes of "+
+				"telling a person their machine is fuller than it is",
+			held,
+		)
+	}
 
 }
 
@@ -366,6 +450,33 @@ func TestARunThisMachineHasAlreadyFinishedIsNotReportedFailedWhenNornCatchesUp(t
 					"move, and a message it refuses closes the channel rather than being answered",
 			)
 		}
+	}
+}
+
+func TestARunThisMachineOnlyMarkedInterruptedIsStillReportedWhenNornCatchesUp(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	fabricate(t, h, "exec-01ABC", channelv1.StateInterrupted)
+
+	if err := h.service.Reconcile(ctx, []string{"exec-01ABC"}); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+
+	failed := false
+
+	for _, reported := range h.reports(t) {
+		if reported.State == string(channelv1.StateFailed) {
+			failed = true
+		}
+	}
+
+	if !failed {
+		t.Fatalf(
+			"a run this machine marked interrupted after a restart was never reported, so norn " +
+				"holds a lease nothing will settle. Interrupted is not a state a runner may claim, " +
+				"which is why the sync has to say failed instead",
+		)
 	}
 }
 

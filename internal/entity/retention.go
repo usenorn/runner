@@ -70,18 +70,18 @@ func Reapable(runs []RunUsage, now time.Time, maxAge time.Duration, budget int64
 	return names
 }
 
-func Left(runs []RunUsage, reaped []string) int64 {
-	gone := make(map[string]bool, len(reaped))
+func Without(runs []RunUsage, gone []string) []RunUsage {
+	taken := make(map[string]bool, len(gone))
 
-	for _, name := range reaped {
-		gone[name] = true
+	for _, name := range gone {
+		taken[name] = true
 	}
 
-	var left int64
+	left := make([]RunUsage, 0, len(runs))
 
 	for _, run := range runs {
-		if !gone[run.Name] {
-			left += run.Bytes
+		if !taken[run.Name] {
+			left = append(left, run)
 		}
 	}
 

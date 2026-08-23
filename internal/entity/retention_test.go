@@ -124,7 +124,7 @@ func TestWhatTheMachineCannotCollectIsStillCounted(t *testing.T) {
 		{Name: "gone", Bytes: 100, Settled: at(-1), Finished: true},
 	}
 
-	if left := entity.Left(runs, []string{"gone"}); left != 100 {
+	if left := entity.Occupied(entity.Without(runs, []string{"gone"})); left != 100 {
 		t.Fatalf(
 			"left = %d, want 100. The machine has to know it is still over its budget so it can "+
 				"say so rather than look tidy",

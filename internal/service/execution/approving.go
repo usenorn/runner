@@ -24,14 +24,14 @@ func (s *executionsService) approve(ctx context.Context, execution entity.Execut
 		return err
 	}
 
-	s.mu.Lock()
-	delete(s.held, execution.ID)
-	s.mu.Unlock()
-
 	return s.finished(ctx, execution.ID)
 }
 
 func (s *executionsService) finished(ctx context.Context, executionID string) error {
+	s.mu.Lock()
+	delete(s.held, executionID)
+	s.mu.Unlock()
+
 	s.questions.Forget(executionID)
 	s.tokens.Release(context.WithoutCancel(ctx), executionID)
 	s.forget(executionID)

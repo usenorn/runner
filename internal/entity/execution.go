@@ -77,6 +77,10 @@ func (e Execution) Finished() bool {
 	return e.State.Terminal()
 }
 
+func (e Execution) Reported() bool {
+	return e.Finished() && e.State.RunnerDriven()
+}
+
 func (e Execution) CanReport(state ExecutionState) bool {
 	return state.RunnerDriven() && e.State.CanTransitionTo(state)
 }
