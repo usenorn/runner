@@ -51,12 +51,13 @@ const (
 	defaultSpoolMessages   = 10000
 	defaultSpoolBatch      = 32
 
-	defaultResumeAttempts = 1
-	defaultUploadBatch    = 200
-	defaultMaxChunkBytes  = 1 << 20
-	defaultMaxPending     = 64
-	serverMaxChunkBytes   = 1 << 20
-	serverMaxChunkEntries = 5000
+	defaultResumeAttempts   = 1
+	defaultUploadBatch      = 200
+	defaultMaxChunkBytes    = 1 << 20
+	defaultMaxArtifactBytes = 32 << 20
+	defaultMaxPending       = 64
+	serverMaxChunkBytes     = 1 << 20
+	serverMaxChunkEntries   = 5000
 
 	channelLeaseTTL = time.Minute
 )
@@ -70,6 +71,7 @@ func Version() string {
 type Overrides struct {
 	Capacity *int
 	Runtime  *Runtime
+	Console  *Console
 }
 
 func New(cfgFile string, overrides Overrides) (Config, error) {
@@ -113,6 +115,10 @@ func New(cfgFile string, overrides Overrides) (Config, error) {
 
 	if overrides.Runtime != nil {
 		cfg.Runner.Runtime = *overrides.Runtime
+	}
+
+	if overrides.Console != nil {
+		cfg.Log.Console = *overrides.Console
 	}
 
 	if err := validate(cfg); err != nil {
@@ -244,6 +250,7 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("upload.flush", 5*time.Second)
 	v.SetDefault("upload.max_chunk_bytes", int64(defaultMaxChunkBytes))
 	v.SetDefault("upload.max_pending", defaultMaxPending)
+	v.SetDefault("upload.max_artifact_bytes", int64(defaultMaxArtifactBytes))
 
 	v.SetDefault("update.check", true)
 	v.SetDefault("update.interval", 24*time.Hour)
@@ -526,6 +533,10 @@ func validateUpload(upload Upload) error {
 				"in one batch; a larger figure here would only have norn refuse the batch",
 			serverMaxChunkBytes,
 		)
+	}
+
+	if upload.MaxArtifactBytes <= 0 {
+		return fmt.Errorf("upload.max_artifact_bytes must be positive")
 	}
 
 	if upload.MaxPending <= 0 {

@@ -160,9 +160,10 @@ func newServiceListCommand() *cobra.Command {
 
 func newServiceLogsCommand() *cobra.Command {
 	var (
-		exec   string
-		tail   int
-		asJSON bool
+		exec    string
+		tail    int
+		pattern string
+		asJSON  bool
 	)
 
 	command := &cobra.Command{
@@ -170,13 +171,16 @@ func newServiceLogsCommand() *cobra.Command {
 		Short: "Show what a service has written",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			query := entity.LogQuery{Tail: tail, Grep: pattern}
+
 			return withServices(cmd, func(ctx context.Context, s *internal.Services) error {
-				return s.Logs(ctx, exec, args[0], tail, asJSON)
+				return s.Logs(ctx, exec, args[0], query, asJSON)
 			})
 		},
 	}
 
 	command.Flags().IntVar(&tail, "tail", 0, "show only the last this many lines")
+	command.Flags().StringVar(&pattern, "grep", "", "show only the lines matching this pattern")
 
 	withRun(command, &exec, &asJSON)
 

@@ -26,4 +26,6 @@ type Executions interface {
 	Driver(ctx context.Context) entity.DriverHealth
 	List(ctx context.Context) ([]entity.Execution, error)
 	Timeline(ctx context.Context, executionID string) ([]entity.TimelineEntry, error)
+	Progress(ctx context.Context, executionID string, progress entity.Progress) error
+	Complete(ctx context.Context, executionID string, completion entity.Completion) error
 }

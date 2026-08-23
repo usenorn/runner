@@ -56,6 +56,20 @@ func (mr *MockExecutionsMockRecorder) Cancel(ctx, executionID, reason any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cancel", reflect.TypeOf((*MockExecutions)(nil).Cancel), ctx, executionID, reason)
 }
 
+// Complete mocks base method.
+func (m *MockExecutions) Complete(ctx context.Context, executionID string, completion entity.Completion) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Complete", ctx, executionID, completion)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Complete indicates an expected call of Complete.
+func (mr *MockExecutionsMockRecorder) Complete(ctx, executionID, completion any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Complete", reflect.TypeOf((*MockExecutions)(nil).Complete), ctx, executionID, completion)
+}
+
 // Configure mocks base method.
 func (m *MockExecutions) Configure(configuration channelv1.Configuration) {
 	m.ctrl.T.Helper()
@@ -149,6 +163,20 @@ func (m *MockExecutions) Pause() {
 func (mr *MockExecutionsMockRecorder) Pause() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pause", reflect.TypeOf((*MockExecutions)(nil).Pause))
+}
+
+// Progress mocks base method.
+func (m *MockExecutions) Progress(ctx context.Context, executionID string, progress entity.Progress) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Progress", ctx, executionID, progress)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Progress indicates an expected call of Progress.
+func (mr *MockExecutionsMockRecorder) Progress(ctx, executionID, progress any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Progress", reflect.TypeOf((*MockExecutions)(nil).Progress), ctx, executionID, progress)
 }
 
 // Pulse mocks base method.

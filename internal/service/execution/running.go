@@ -69,11 +69,18 @@ func (s *executionsService) finish(
 		return s.park(ctx, execution, question)
 	}
 
-	if !result.Outcome.Finished() {
+	reported, announced := s.completion(execution.ID)
+
+	if !announced && !result.Outcome.Finished() {
 		return fmt.Errorf("%w: %s", entity.ErrDriverCrashed, ending(result))
 	}
 
-	if err := s.move(ctx, execution, channelv1.StateFinalizing, ending(result)); err != nil {
+	stopped := ending(result)
+	if announced {
+		stopped = "the coding agent finished and says: " + reported.Line()
+	}
+
+	if err := s.move(ctx, execution, channelv1.StateFinalizing, stopped); err != nil {
 		return err
 	}
 
@@ -102,7 +109,11 @@ func (s *executionsService) sessions(
 	snapshot entity.Snapshot,
 	setup entity.RunSetup,
 ) (entity.DriverResult, error) {
-	env := s.env(execution, snapshot, setup)
+	env, err := s.tooling(ctx, execution, snapshot, setup)
+	if err != nil {
+		return entity.DriverResult{}, failure{step: entity.StepDriver, err: err}
+	}
+
 	task := entity.ComposeTask(execution, snapshot, setup.Plan)
 
 	session, err := s.drivers.Start(ctx, env, task)
@@ -268,14 +279,18 @@ func (s *executionsService) env(
 	execution entity.Execution,
 	snapshot entity.Snapshot,
 	setup entity.RunSetup,
+	token string,
+	config string,
 ) entity.ExecEnv {
 	values := slices.Clone(os.Environ())
 	values = append(values, entity.ExecutionVariable+"="+execution.ID)
+	values = append(values, entity.ExecutionTokenVariable+"="+token)
 
 	return entity.ExecEnv{
 		ExecutionID: execution.ID,
 		Workspace:   workspaceOf(execution, snapshot),
 		Environment: values,
+		MCPConfig:   config,
 		Profile:     setup.Permissions.Profile,
 	}
 }

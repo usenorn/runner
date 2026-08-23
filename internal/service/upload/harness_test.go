@@ -2,6 +2,7 @@ package upload_test
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -10,7 +11,10 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/statedir"
+	"github.com/usenorn/runner/internal/repository"
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
+	runrepo "github.com/usenorn/runner/internal/repository/run"
 	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	"github.com/usenorn/runner/internal/service"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
@@ -18,6 +22,8 @@ import (
 )
 
 type harness struct {
+	dir       *statedir.Dir
+	runs      repository.Run
 	posts     *uploadrepo.MockUpload
 	dashboard *dashboardrepo.MockDashboard
 	sessions  *sessionsvc.MockSessions
@@ -38,7 +44,11 @@ func newHarness(t *testing.T, cfg config.Upload) *harness {
 
 	controller := gomock.NewController(t)
 
+	dir := newStateDir(t)
+
 	h := &harness{
+		dir:       dir,
+		runs:      runrepo.New(dir),
 		posts:     uploadrepo.NewMockUpload(controller),
 		dashboard: dashboardrepo.NewMockDashboard(controller),
 		sessions:  sessionsvc.NewMockSessions(controller),
@@ -71,18 +81,19 @@ func newHarness(t *testing.T, cfg config.Upload) *harness {
 		DoAndReturn(h.appendLogs).
 		AnyTimes()
 
-	h.service = uploadsvc.New(h.posts, h.dashboard, h.sessions, cfg)
+	h.service = uploadsvc.New(h.posts, h.runs, h.dashboard, h.sessions, cfg)
 
 	return h
 }
 
 func settings() config.Upload {
 	return config.Upload{
-		Enabled:       true,
-		Batch:         2,
-		Flush:         10 * time.Millisecond,
-		MaxChunkBytes: 1 << 20,
-		MaxPending:    4,
+		Enabled:          true,
+		Batch:            2,
+		Flush:            10 * time.Millisecond,
+		MaxChunkBytes:    1 << 20,
+		MaxPending:       4,
+		MaxArtifactBytes: 1 << 20,
 	}
 }
 
@@ -153,4 +164,22 @@ func said(text string) entity.DriverEvent {
 
 func used(tool string) entity.DriverEvent {
 	return entity.DriverEvent{Kind: entity.DriverEventToolCall, Tool: tool}
+}
+
+func newStateDir(t *testing.T) *statedir.Dir {
+	t.Helper()
+
+	root, err := os.MkdirTemp("/tmp", "nrn")
+	if err != nil {
+		t.Fatalf("create temporary root: %v", err)
+	}
+
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+
+	dir, err := statedir.New(config.State{Root: root})
+	if err != nil {
+		t.Fatalf("create state directory: %v", err)
+	}
+
+	return dir
 }

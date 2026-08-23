@@ -21,11 +21,13 @@ import (
 	diskrepo "github.com/usenorn/runner/internal/repository/disk"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
+	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	"github.com/usenorn/runner/internal/service"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
+	previewsvc "github.com/usenorn/runner/internal/service/preview"
 	questionsvc "github.com/usenorn/runner/internal/service/question"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
@@ -38,6 +40,8 @@ const patience = 5 * time.Second
 type harness struct {
 	dir         *statedir.Dir
 	runs        repository.Run
+	previews    service.Previews
+	tokens      repository.RunToken
 	spool       repository.Spool
 	disks       *diskrepo.MockDisk
 	settings    *settingsrepo.MockSettings
@@ -111,17 +115,21 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 
 	h.expect()
 
-	h.uploads = uploadsvc.New(h.posts, h.dashboard, h.sessions, config.Upload{
-		Enabled:       true,
-		Batch:         2,
-		Flush:         10 * time.Millisecond,
-		MaxChunkBytes: 1 << 20,
-		MaxPending:    8,
+	h.uploads = uploadsvc.New(h.posts, h.runs, h.dashboard, h.sessions, config.Upload{
+		Enabled:          true,
+		Batch:            2,
+		Flush:            10 * time.Millisecond,
+		MaxChunkBytes:    1 << 20,
+		MaxPending:       8,
+		MaxArtifactBytes: 1 << 20,
 	})
 
 	h.questions = questionsvc.New(
 		h.runs, h.spool, config.Questions{SoftWait: 20 * time.Millisecond, MaxWait: time.Second},
 	)
+
+	h.previews = previewsvc.New(h.runs, h.spool)
+	h.tokens = runtokenrepo.New()
 
 	h.service = executionsvc.New(
 		h.runs,
@@ -133,6 +141,8 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		h.services,
 		h.uploads,
 		h.questions,
+		h.previews,
+		h.tokens,
 		h.drivers,
 		dir,
 		config.Runner{Capacity: capacity},

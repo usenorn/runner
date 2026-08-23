@@ -34,6 +34,8 @@ type executionsService struct {
 	services    service.Services
 	uploads     service.Uploads
 	questions   service.Questions
+	previews    service.Previews
+	tokens      repository.RunToken
 	drivers     repository.Driver
 	dir         *statedir.Dir
 	runner      config.Runner
@@ -49,6 +51,7 @@ type executionsService struct {
 	held     map[string]entity.Execution
 	work     map[string]context.CancelFunc
 	owed     map[string]bool
+	done     map[string]entity.Completion
 	capacity int
 	paused   bool
 }
@@ -63,6 +66,8 @@ func New(
 	services service.Services,
 	uploads service.Uploads,
 	questions service.Questions,
+	previews service.Previews,
+	tokens repository.RunToken,
 	drivers repository.Driver,
 	dir *statedir.Dir,
 	runner config.Runner,
@@ -80,6 +85,8 @@ func New(
 		services:    services,
 		uploads:     uploads,
 		questions:   questions,
+		previews:    previews,
+		tokens:      tokens,
 		drivers:     drivers,
 		dir:         dir,
 		runner:      runner,
@@ -92,6 +99,7 @@ func New(
 		held:        map[string]entity.Execution{},
 		work:        map[string]context.CancelFunc{},
 		owed:        map[string]bool{},
+		done:        map[string]entity.Completion{},
 		capacity:    runner.Capacity,
 	}
 }
@@ -503,6 +511,9 @@ func (s *executionsService) record(
 
 func (s *executionsService) teardown(ctx context.Context, executionID string) error {
 	s.questions.Forget(executionID)
+	s.previews.Release(context.WithoutCancel(ctx), executionID)
+	s.tokens.Release(context.WithoutCancel(ctx), executionID)
+	s.forget(executionID)
 
 	if err := s.services.Release(context.WithoutCancel(ctx), executionID); err != nil {
 		logging.From(ctx).WarnContext(

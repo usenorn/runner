@@ -106,6 +106,21 @@ func (mr *MockUploadsMockRecorder) Open(ctx, executionID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockUploads)(nil).Open), ctx, executionID)
 }
 
+// Publish mocks base method.
+func (m *MockUploads) Publish(ctx context.Context, executionID string, artifact entity.Artifact) (entity.ArtifactReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Publish", ctx, executionID, artifact)
+	ret0, _ := ret[0].(entity.ArtifactReceipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Publish indicates an expected call of Publish.
+func (mr *MockUploadsMockRecorder) Publish(ctx, executionID, artifact any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockUploads)(nil).Publish), ctx, executionID, artifact)
+}
+
 // Run mocks base method.
 func (m *MockUploads) Run(ctx context.Context) {
 	m.ctrl.T.Helper()

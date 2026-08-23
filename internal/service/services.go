@@ -18,7 +18,13 @@ type Services interface {
 	Stop(ctx context.Context, executionID string, name string) (entity.ServiceRecord, error)
 	Restart(ctx context.Context, executionID string, name string) (entity.ServiceRecord, error)
 	List(ctx context.Context, executionID string) ([]entity.ServiceRecord, error)
-	Logs(ctx context.Context, executionID string, name string, tail int) ([]string, error)
+	Logs(
+		ctx context.Context,
+		executionID string,
+		name string,
+		query entity.LogQuery,
+	) ([]string, error)
 	Step(ctx context.Context, executionID string, step entity.Step) (entity.StepResult, error)
+	Port(ctx context.Context, executionID string, name string) (int, error)
 	Release(ctx context.Context, executionID string) error
 }

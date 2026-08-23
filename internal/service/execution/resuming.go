@@ -133,8 +133,13 @@ func (s *executionsService) carryOn(
 
 	defer s.uploads.Close(context.WithoutCancel(ctx), execution.ID)
 
+	env, err := s.tooling(ctx, execution, snapshot, setup)
+	if err != nil {
+		return failure{step: entity.StepDriver, err: err}
+	}
+
 	session, err := s.drivers.Resume(
-		ctx, s.env(execution, snapshot, setup), last, s.injection(ctx, execution.ID, instruction),
+		ctx, env, last, s.injection(ctx, execution.ID, instruction),
 	)
 	if err != nil {
 		return failure{step: entity.StepDriver, err: err}

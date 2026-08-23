@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -267,4 +269,46 @@ func named(value string) *string {
 	}
 
 	return &value
+}
+
+func (r *httpUpload) PublishArtifact(
+	ctx context.Context,
+	token string,
+	executionID string,
+	label string,
+	body io.Reader,
+) (entity.ArtifactReceipt, error) {
+	var packed bytes.Buffer
+
+	form := multipart.NewWriter(&packed)
+
+	part, err := form.CreateFormFile("file", label)
+	if err != nil {
+		return entity.ArtifactReceipt{}, fmt.Errorf("wrap %s for norn: %w", label, err)
+	}
+
+	if _, err := io.Copy(part, body); err != nil {
+		return entity.ArtifactReceipt{}, fmt.Errorf("read %s: %w", label, err)
+	}
+
+	if err := form.Close(); err != nil {
+		return entity.ArtifactReceipt{}, fmt.Errorf("wrap %s for norn: %w", label, err)
+	}
+
+	response, err := r.client.UploadExecutionArtifactWithBodyWithResponse(
+		ctx, executionID, form.FormDataContentType(), &packed, bearer(token),
+	)
+	if err != nil {
+		return entity.ArtifactReceipt{}, r.unreachable(err)
+	}
+
+	if response.JSON201 == nil {
+		return entity.ArtifactReceipt{}, r.refusal(response.HTTPResponse, response.Body)
+	}
+
+	return entity.ArtifactReceipt{
+		ID:    response.JSON201.Id.String(),
+		Label: response.JSON201.Name,
+		Bytes: response.JSON201.Bytes,
+	}, nil
 }

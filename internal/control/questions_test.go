@@ -15,7 +15,7 @@ func TestAQuestionNobodyAnswersComesBackTellingTheAgentToStop(t *testing.T) {
 
 	running(t, h, "exec-01ASK")
 
-	answered, err := h.client.Ask(context.Background(), "exec-01ASK", control.QuestionRequest{
+	answered, err := h.as(t, "exec-01ASK").Ask(context.Background(), "exec-01ASK", control.QuestionRequest{
 		Blocking:      true,
 		Message:       "Keep the old endpoint?",
 		Options:       []string{"Keep for 30 days", "Remove now"},
@@ -48,7 +48,7 @@ func TestAskingHoldsTheSocketOpenForAsLongAsTheDaemonHoldsTheQuestion(t *testing
 	impatient := settings()
 	impatient.RequestTimeout = 50 * time.Millisecond
 
-	client := control.NewClient(impatient, questionSettings(), h.dir)
+	client := control.NewClient(impatient, questionSettings(), h.dir, h.bearer(t, "exec-01PATIENT"))
 
 	began := time.Now()
 
@@ -78,7 +78,7 @@ func TestAskingHoldsTheSocketOpenForAsLongAsTheDaemonHoldsTheQuestion(t *testing
 func TestAQuestionAgainstARunThisMachineIsNotHoldingIsRefused(t *testing.T) {
 	h := newHarness(t, nil)
 
-	_, err := h.client.Ask(context.Background(), "exec-01NOSUCH", control.QuestionRequest{
+	_, err := h.as(t, "exec-01NOSUCH").Ask(context.Background(), "exec-01NOSUCH", control.QuestionRequest{
 		Blocking:      true,
 		Message:       "Keep the old endpoint?",
 		AllowFreeText: true,

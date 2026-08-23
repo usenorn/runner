@@ -9,6 +9,7 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
+	"github.com/usenorn/runner/internal/mcpserver"
 	"github.com/usenorn/runner/internal/observability/logging"
 	"github.com/usenorn/runner/internal/pkg/buildinfo"
 	"github.com/usenorn/runner/internal/pkg/dashboardclient"
@@ -29,6 +30,7 @@ import (
 	processrepo "github.com/usenorn/runner/internal/repository/process"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
+	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
@@ -39,6 +41,7 @@ import (
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
+	previewsvc "github.com/usenorn/runner/internal/service/preview"
 	questionsvc "github.com/usenorn/runner/internal/service/question"
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
@@ -77,6 +80,7 @@ var baseSet = wire.NewSet(
 	servicelogrepo.Set,
 	driverrepo.Set,
 	uploadrepo.Set,
+	runtokenrepo.Set,
 
 	sessionsvc.Set,
 	enrolmentsvc.Set,
@@ -86,10 +90,12 @@ var baseSet = wire.NewSet(
 	supervisorsvc.Set,
 	uploadsvc.Set,
 	questionsvc.Set,
+	previewsvc.Set,
 	executionsvc.Set,
 	channelsvc.Set,
 
 	control.Set,
+	mcpserver.Set,
 	wire.Bind(new(http.Handler), new(*control.Server)),
 
 	NewDaemon,
@@ -159,6 +165,15 @@ func InitServices(cfgFile string, overrides config.Overrides) (*Services, func()
 }
 
 func InitInstaller(cfgFile string, overrides config.Overrides) (*Installer, func(), error) {
+	wire.Build(baseSet)
+
+	return nil, nil, nil
+}
+
+func InitMCPServer(
+	cfgFile string,
+	overrides config.Overrides,
+) (*mcpserver.Server, func(), error) {
 	wire.Build(baseSet)
 
 	return nil, nil, nil

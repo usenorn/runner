@@ -43,7 +43,7 @@ func TestAServiceIsStartedListedAndStoppedOverTheSocket(t *testing.T) {
 
 	running(t, h, "exec-01SOCKET")
 
-	started, err := h.client.StartService(ctx, "exec-01SOCKET", control.ServiceRequest{
+	started, err := h.as(t, "exec-01SOCKET").StartService(ctx, "exec-01SOCKET", control.ServiceRequest{
 		Name:    "api",
 		Command: []string{"sh", "-c", "echo listening on $NORN_PORT_API; sleep 300"},
 		Health:  control.Health{Kind: string(entity.HealthLog), Pattern: "listening on"},
@@ -56,7 +56,7 @@ func TestAServiceIsStartedListedAndStoppedOverTheSocket(t *testing.T) {
 		t.Fatalf("the service came back as %+v", started)
 	}
 
-	services, err := h.client.Services(ctx, "exec-01SOCKET")
+	services, err := h.as(t, "exec-01SOCKET").Services(ctx, "exec-01SOCKET")
 	if err != nil {
 		t.Fatalf("list the services: %v", err)
 	}
@@ -66,12 +66,12 @@ func TestAServiceIsStartedListedAndStoppedOverTheSocket(t *testing.T) {
 	}
 
 	waitFor(t, func() bool {
-		held, err := h.client.ServiceLogs(ctx, "exec-01SOCKET", "api", 0)
+		held, err := h.as(t, "exec-01SOCKET").ServiceLogs(ctx, "exec-01SOCKET", "api", entity.LogQuery{})
 
 		return err == nil && strings.Contains(strings.Join(held.Lines, "\n"), "listening on")
 	})
 
-	stopped, err := h.client.StopService(ctx, "exec-01SOCKET", "api")
+	stopped, err := h.as(t, "exec-01SOCKET").StopService(ctx, "exec-01SOCKET", "api")
 	if err != nil {
 		t.Fatalf("stop the service: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestAStepRunsOverTheSocketAndHandsBackWhatItWrote(t *testing.T) {
 
 	running(t, h, "exec-01STEP")
 
-	result, err := h.client.RunStep(ctx, "exec-01STEP", control.StepRequest{
+	result, err := h.as(t, "exec-01STEP").RunStep(ctx, "exec-01STEP", control.StepRequest{
 		Name:    "deps",
 		Command: []string{"sh", "-c", "echo pulled 12 packages"},
 	})
@@ -106,12 +106,12 @@ func TestAskingAboutAServiceThisRunNeverStartedSaysSo(t *testing.T) {
 
 	running(t, h, "exec-01NOSERVICE")
 
-	if _, err := h.client.StopService(ctx, "exec-01NOSERVICE", "ghost"); err == nil ||
+	if _, err := h.as(t, "exec-01NOSERVICE").StopService(ctx, "exec-01NOSERVICE", "ghost"); err == nil ||
 		!strings.Contains(err.Error(), "no service by that name") {
 		t.Fatalf("stopping a service nothing started answered %v", err)
 	}
 
-	if _, err := h.client.Services(ctx, "exec-01GONE"); err == nil ||
+	if _, err := h.as(t, "exec-01GONE").Services(ctx, "exec-01GONE"); err == nil ||
 		!strings.Contains(err.Error(), "not holding that execution") {
 		t.Fatalf("listing the services of a run this machine never had answered %v", err)
 	}

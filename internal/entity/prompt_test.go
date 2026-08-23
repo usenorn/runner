@@ -69,11 +69,43 @@ func TestTheTaskTellsTheAgentToStayPutCommitAndLeaveTheRemoteAlone(t *testing.T)
 func TestTheTaskTellsTheAgentHowToAskAPersonRatherThanGuess(t *testing.T) {
 	task := entity.ComposeTask(delegated(), copied(), entity.RunPlan{Source: entity.PlanNone})
 
-	for _, wanted := range []string{"norn ask", "--option", "--meanwhile"} {
+	for _, wanted := range []string{"ask_human", "the answers you would accept", "norn ask"} {
 		if !strings.Contains(task.Prompt, wanted) {
 			t.Fatalf(
 				"the standing rules never say %q, so an agent that needs a decision has no way "+
 					"to know it can ask for one and will guess:\n%s",
+				wanted, task.Prompt,
+			)
+		}
+	}
+}
+
+func TestTheTaskNamesEveryToolTheAgentIsMeantToReachFor(t *testing.T) {
+	task := entity.ComposeTask(delegated(), copied(), entity.RunPlan{Source: entity.PlanNone})
+
+	for _, wanted := range []string{
+		"start_service", "run_step", "expose_preview", "ask_human",
+		"report_progress", "publish_artifact", "complete_task",
+	} {
+		if !strings.Contains(task.Prompt, wanted) {
+			t.Fatalf(
+				"the standing rules never name %q. A tool the agent is not told about is one it "+
+					"works around, and working around these means a daemonised process nobody "+
+					"cleans up or a decision it took on its own:\n%s",
+				wanted, task.Prompt,
+			)
+		}
+	}
+}
+
+func TestTheTaskTellsTheAgentNotToDaemoniseOrPickPorts(t *testing.T) {
+	task := entity.ComposeTask(delegated(), copied(), entity.RunPlan{Source: entity.PlanNone})
+
+	for _, wanted := range []string{"never yourself in the background", "Never choose a port"} {
+		if !strings.Contains(task.Prompt, wanted) {
+			t.Fatalf(
+				"the standing rules never say %q. That guidance only works where the model "+
+					"reads it, and a process it starts itself outlives the run:\n%s",
 				wanted, task.Prompt,
 			)
 		}

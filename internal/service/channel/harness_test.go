@@ -15,10 +15,12 @@ import (
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 	channelrepo "github.com/usenorn/runner/internal/repository/channel"
+	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	"github.com/usenorn/runner/internal/service"
 	channelsvc "github.com/usenorn/runner/internal/service/channel"
 	executionsvc "github.com/usenorn/runner/internal/service/execution"
+	previewsvc "github.com/usenorn/runner/internal/service/preview"
 	questionsvc "github.com/usenorn/runner/internal/service/question"
 )
 
@@ -215,6 +217,8 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		servicesStub{},
 		uploadStub{},
 		h.questions,
+		previewsvc.New(runStub{}, h.spool),
+		runtokenrepo.New(),
 		driverStub{},
 		dir,
 		config.Runner{Capacity: 2},

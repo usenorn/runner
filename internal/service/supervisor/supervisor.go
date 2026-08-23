@@ -305,7 +305,7 @@ func (s *servicesSupervisor) Logs(
 	ctx context.Context,
 	executionID string,
 	name string,
-	tail int,
+	query entity.LogQuery,
 ) ([]string, error) {
 	if _, err := s.runs.LoadTask(ctx, executionID); err != nil {
 		return nil, err
@@ -324,10 +324,35 @@ func (s *servicesSupervisor) Logs(
 	s.mu.Unlock()
 
 	if entry != nil && entry.record.State.Live() {
-		return entry.stream.Recent(tail), nil
+		return query.Select(entry.stream.Recent(query.Window()))
 	}
 
-	return s.logs.Tail(ctx, executionID, name, tail)
+	lines, err := s.logs.Tail(ctx, executionID, name, query.Window())
+	if err != nil {
+		return nil, err
+	}
+
+	return query.Select(lines)
+}
+
+func (s *servicesSupervisor) Port(
+	ctx context.Context,
+	executionID string,
+	name string,
+) (int, error) {
+	if _, err := s.claim(ctx, executionID); err != nil {
+		return 0, err
+	}
+
+	if !entity.ValidName(name) {
+		return 0, fmt.Errorf(
+			"%w: %q is not a name a port can be reserved under; use lower-case letters, "+
+				"digits, dashes and underscores",
+			entity.ErrServiceInvalid, name,
+		)
+	}
+
+	return s.ports.Reserve(ctx, executionID, name)
 }
 
 func (s *servicesSupervisor) settle(

@@ -12,7 +12,8 @@ const (
 	DriverPayloadMax = 16 << 10
 	DriverTruncated  = "… [cut here: the coding agent said more than norn keeps in one entry]"
 
-	ExecutionVariable = "NORN_EXEC_ID"
+	ExecutionVariable      = "NORN_EXEC_ID"
+	ExecutionTokenVariable = "NORN_EXEC_TOKEN"
 )
 
 var (
