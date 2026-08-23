@@ -97,3 +97,18 @@ func (mr *MockPreviewsMockRecorder) Release(ctx, executionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockPreviews)(nil).Release), ctx, executionID)
 }
+
+// Resolve mocks base method.
+func (m *MockPreviews) Resolve(ctx context.Context, executionID, name string) (entity.Preview, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Resolve", ctx, executionID, name)
+	ret0, _ := ret[0].(entity.Preview)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Resolve indicates an expected call of Resolve.
+func (mr *MockPreviewsMockRecorder) Resolve(ctx, executionID, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resolve", reflect.TypeOf((*MockPreviews)(nil).Resolve), ctx, executionID, name)
+}

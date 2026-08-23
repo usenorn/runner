@@ -115,6 +115,30 @@ func (s *previewsService) Close(
 	return closed, nil
 }
 
+func (s *previewsService) Resolve(
+	ctx context.Context,
+	executionID string,
+	name string,
+) (entity.Preview, error) {
+	s.mu.Lock()
+	held, standing := s.held[executionID][name]
+	s.mu.Unlock()
+
+	if !standing {
+		return entity.Preview{}, fmt.Errorf("%w: %s", entity.ErrPreviewUnknown, name)
+	}
+
+	serving, err := s.serving(ctx, executionID, held.Service)
+	if err != nil {
+		return entity.Preview{}, err
+	}
+
+	held.Port = serving.Port
+	held.URL = entity.PreviewURL(serving.Port, held.Path)
+
+	return held, nil
+}
+
 func (s *previewsService) List(
 	ctx context.Context,
 	executionID string,

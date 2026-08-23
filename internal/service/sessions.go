@@ -12,6 +12,8 @@ type Sessions interface {
 	Run(ctx context.Context)
 	Access(ctx context.Context) (string, error)
 	Ticket(ctx context.Context) (string, error)
+	TunnelTicket(ctx context.Context) (entity.TunnelTicket, error)
+	Previews() entity.PreviewService
 	Report() entity.SessionReport
 	Adopt(ctx context.Context, identity entity.Identity) entity.SessionReport
 	Forget()

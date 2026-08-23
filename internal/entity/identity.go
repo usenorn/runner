@@ -12,6 +12,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 )
 
 const (
@@ -47,6 +49,7 @@ var (
 	ErrEnrolmentInvalid     = errors.New("this machine cannot be described to norn")
 	ErrEnrolmentStranded    = errors.New("this machine enrolled but cannot keep its credential")
 	ErrTicketMissing        = errors.New("norn renewed this machine's session without a channel ticket")
+	ErrPreviewsUnserved     = errors.New("this norn serves no preview domain, so there is no gateway to reach")
 )
 
 type ClockSkewError struct {
@@ -215,8 +218,35 @@ type Session struct {
 	AccessExpiresAt time.Time
 	Ticket          string
 	TicketExpiresAt time.Time
+	TunnelTicket    string
+	TunnelExpiresAt time.Time
+	Previews        PreviewService
 	RunnerName      string
 	AgentName       string
+}
+
+type PreviewService struct {
+	Gateway string
+	Domain  string
+	Scheme  string
+}
+
+func (p PreviewService) Serving() bool {
+	return p.Gateway != "" && p.Domain != ""
+}
+
+func (p PreviewService) Address(name, executionID, path string) string {
+	if !p.Serving() {
+		return ""
+	}
+
+	scheme := p.Scheme
+	if scheme == "" {
+		scheme = "https"
+	}
+
+	return scheme + "://" +
+		channelv1.PreviewHost(name, executionID, channelv1.PreviewBySubdomain, p.Domain) + path
 }
 
 func (s Session) Live(now time.Time) bool {
@@ -225,6 +255,10 @@ func (s Session) Live(now time.Time) bool {
 
 func (s Session) TicketLive(now time.Time) bool {
 	return s.Ticket != "" && now.Before(s.TicketExpiresAt)
+}
+
+func (s Session) TunnelLive(now time.Time) bool {
+	return s.TunnelTicket != "" && now.Before(s.TunnelExpiresAt)
 }
 
 func (s Session) RefreshIn(now time.Time, lead time.Duration) time.Duration {
@@ -269,4 +303,9 @@ func ValidateEnrolment(name string, host Host) error {
 	}
 
 	return nil
+}
+
+type TunnelTicket struct {
+	Ticket   string
+	Previews PreviewService
 }

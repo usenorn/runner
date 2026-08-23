@@ -23,14 +23,16 @@ func (r *httpDashboard) ConnectCodebase(
 	shared := inventory.SharedFiles
 	runtimes := runtimesOf(inventory)
 	tools := toolsOf(inventory)
+	gateway := api.GatewayReach(inventory.Gateway)
 
 	response, err := r.client.ConnectCodebaseWithResponse(ctx, api.ConnectCodebaseJSONRequestBody{
-		Name:         &name,
-		RootPath:     inventory.RootPath,
-		Repositories: &repositories,
-		SharedFiles:  &shared,
-		Runtimes:     &runtimes,
-		Tools:        &tools,
+		Name:           &name,
+		RootPath:       inventory.RootPath,
+		Repositories:   &repositories,
+		SharedFiles:    &shared,
+		Runtimes:       &runtimes,
+		Tools:          &tools,
+		PreviewGateway: &gateway,
 	}, bearer(token))
 	if err != nil {
 		return repository.ConnectedCodebase{}, r.unreachable(err)

@@ -15,7 +15,7 @@ func (s *Server) runPreviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, r, http.StatusOK, previewsOf(open))
+	respond(w, r, http.StatusOK, s.previewsOf(r.PathValue("executionId"), open))
 }
 
 func (s *Server) exposePreview(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func (s *Server) exposePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, r, http.StatusOK, previewOf(exposed))
+	respond(w, r, http.StatusOK, s.previewOf(r.PathValue("executionId"), exposed))
 }
 
 func (s *Server) closePreview(w http.ResponseWriter, r *http.Request) {
@@ -53,26 +53,44 @@ func (s *Server) closePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, r, http.StatusOK, previewOf(closed))
+	respond(w, r, http.StatusOK, s.previewOf(r.PathValue("executionId"), closed))
 }
 
-func previewsOf(open []entity.Preview) []Preview {
+func (s *Server) previewsOf(executionID string, open []entity.Preview) []Preview {
 	previews := make([]Preview, 0, len(open))
 
 	for _, preview := range open {
-		previews = append(previews, previewOf(preview))
+		previews = append(previews, s.previewOf(executionID, preview))
 	}
 
 	return previews
 }
 
-func previewOf(preview entity.Preview) Preview {
+func (s *Server) previewOf(executionID string, preview entity.Preview) Preview {
+	serving := s.sessions.Previews()
+	shared := serving.Address(preview.Name, executionID, preview.Path)
+	live := s.tunnels.Report().State == entity.TunnelLive
+
 	return Preview{
 		Name:      preview.Name,
 		Service:   preview.Service,
 		Path:      preview.Path,
 		Port:      preview.Port,
 		URL:       preview.URL,
+		Shared:    shared,
+		Reach:     reachOf(shared, live),
 		ExposedAt: preview.ExposedAt,
+	}
+}
+
+func reachOf(shared string, live bool) string {
+	switch {
+	case shared == "":
+		return "this machine only; this norn serves no preview domain"
+	case !live:
+		return "this machine only until this machine's tunnel to norn's gateway is back; " +
+			shared + " will reach it then"
+	default:
+		return "anybody in the workspace who can see the issue, at " + shared
 	}
 }

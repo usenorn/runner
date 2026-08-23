@@ -37,8 +37,9 @@ func newPreviewExposeCommand() *cobra.Command {
 		Use:   "expose --service <name>",
 		Short: "Open a service of this execution",
 		Long: "Only a service norn is running for this execution and has found healthy can be " +
-			"opened. The address this answers with reaches this machine; the shared one arrives " +
-			"with norn's preview tunnel.",
+			"opened. What this answers with says how far the preview reaches: an address on " +
+			"this machine, and the shared one when norn serves a preview domain and this " +
+			"machine is holding its tunnel.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			request := control.PreviewRequest{Service: service, Name: name, Path: path}
 

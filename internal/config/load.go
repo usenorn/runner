@@ -50,6 +50,7 @@ const (
 	defaultRestartAttempts = 3
 	defaultSpoolMessages   = 10000
 	defaultSpoolBatch      = 32
+	defaultTunnelStreams   = 256
 
 	defaultResumeAttempts   = 1
 	defaultUploadBatch      = 200
@@ -175,7 +176,7 @@ func readConfigFile(v *viper.Viper, cfgFile, root string) (string, error) {
 
 func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("version", 1)
-	v.SetDefault("server", "https://api.norn.site")
+	v.SetDefault("server", "https://app.norn.so")
 	v.SetDefault("capacity", 2)
 	v.SetDefault("runtime", string(RuntimeAuto))
 	v.SetDefault("port_range", []int{43000, 44999})
@@ -226,6 +227,15 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("channel.retry_min", 2*time.Second)
 	v.SetDefault("channel.retry_max", 2*time.Minute)
 	v.SetDefault("channel.max_message_bytes", int64(defaultMaxMessageBytes))
+
+	v.SetDefault("tunnel.enabled", true)
+	v.SetDefault("tunnel.handshake_timeout", 10*time.Second)
+	v.SetDefault("tunnel.heartbeat", 15*time.Second)
+	v.SetDefault("tunnel.dial_timeout", 5*time.Second)
+	v.SetDefault("tunnel.write_timeout", 30*time.Second)
+	v.SetDefault("tunnel.retry_min", 2*time.Second)
+	v.SetDefault("tunnel.retry_max", 2*time.Minute)
+	v.SetDefault("tunnel.max_streams", defaultTunnelStreams)
 
 	v.SetDefault("spool.max_messages", defaultSpoolMessages)
 	v.SetDefault("spool.max_age", 24*time.Hour)
@@ -387,7 +397,7 @@ func validate(cfg Config) error {
 	server, err := url.Parse(cfg.Runner.Server)
 	if err != nil || server.Scheme == "" || server.Host == "" {
 		return fmt.Errorf(
-			"server (%q) must be an absolute url such as https://api.norn.site",
+			"server (%q) must be an absolute url such as https://app.norn.so",
 			cfg.Runner.Server,
 		)
 	}
@@ -456,6 +466,10 @@ func validate(cfg Config) error {
 	}
 
 	if err := validateChannel(cfg.Channel); err != nil {
+		return err
+	}
+
+	if err := validateTunnel(cfg.Tunnel); err != nil {
 		return err
 	}
 
@@ -554,6 +568,40 @@ func validateUpload(upload Upload) error {
 
 	if upload.MaxPending <= 0 {
 		return fmt.Errorf("upload.max_pending must be positive")
+	}
+
+	return nil
+}
+
+func validateTunnel(cfg Tunnel) error {
+	if !cfg.Enabled {
+		return nil
+	}
+
+	positive := map[string]time.Duration{
+		"tunnel.handshake_timeout": cfg.HandshakeTimeout,
+		"tunnel.heartbeat":         cfg.Heartbeat,
+		"tunnel.dial_timeout":      cfg.DialTimeout,
+		"tunnel.write_timeout":     cfg.WriteTimeout,
+		"tunnel.retry_min":         cfg.RetryMin,
+		"tunnel.retry_max":         cfg.RetryMax,
+	}
+
+	for name, value := range positive {
+		if value <= 0 {
+			return fmt.Errorf("%s must be positive", name)
+		}
+	}
+
+	if cfg.RetryMin > cfg.RetryMax {
+		return fmt.Errorf(
+			"tunnel.retry_min (%s) is longer than tunnel.retry_max (%s)",
+			cfg.RetryMin, cfg.RetryMax,
+		)
+	}
+
+	if cfg.MaxStreams <= 0 {
+		return fmt.Errorf("tunnel.max_streams must be positive")
 	}
 
 	return nil

@@ -11,8 +11,9 @@ import (
 type Capabilities struct {
 	Runtimes []entity.Runtime
 	Tools    []entity.Tool
+	Gateway  entity.GatewayReach
 }
 
 type Capability interface {
-	Detect(ctx context.Context) Capabilities
+	Detect(ctx context.Context, gateway string) Capabilities
 }

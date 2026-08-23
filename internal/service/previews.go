@@ -15,6 +15,7 @@ type Previews interface {
 		wanted entity.Preview,
 	) (entity.Preview, error)
 	Close(ctx context.Context, executionID string, name string) (entity.Preview, error)
+	Resolve(ctx context.Context, executionID string, name string) (entity.Preview, error)
 	List(ctx context.Context, executionID string) ([]entity.Preview, error)
 	Release(ctx context.Context, executionID string)
 }

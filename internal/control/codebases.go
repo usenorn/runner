@@ -134,6 +134,7 @@ func inventoryOf(inventory entity.Inventory) Inventory {
 		SharedFiles:  inventory.SharedFiles,
 		Runtimes:     runtimes,
 		Tools:        tools,
+		Gateway:      string(inventory.Gateway),
 		ScannedAt:    inventory.ScannedAt,
 	}
 }
@@ -193,6 +194,7 @@ func entityInventoryOf(inventory Inventory) entity.Inventory {
 		SharedFiles:  inventory.SharedFiles,
 		Runtimes:     runtimes,
 		Tools:        tools,
+		Gateway:      entity.GatewayReach(inventory.Gateway),
 		ScannedAt:    inventory.ScannedAt,
 	}
 }

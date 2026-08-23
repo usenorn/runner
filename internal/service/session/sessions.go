@@ -123,6 +123,48 @@ func (s *sessionsService) Ticket(ctx context.Context) (string, error) {
 	return s.session.Ticket, nil
 }
 
+func (s *sessionsService) TunnelTicket(ctx context.Context) (entity.TunnelTicket, error) {
+	s.mu.Lock()
+	report := s.report
+	s.mu.Unlock()
+
+	if report.State.Settled() {
+		return entity.TunnelTicket{}, failure(report)
+	}
+
+	identity, err := s.identities.Load(ctx)
+	if err != nil {
+		return entity.TunnelTicket{}, err
+	}
+
+	if renewed := s.exchange(ctx, identity); renewed.State != entity.SessionLive {
+		return entity.TunnelTicket{}, failure(renewed)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.session.Previews.Serving() {
+		return entity.TunnelTicket{}, entity.ErrPreviewsUnserved
+	}
+
+	if !s.session.TunnelLive(s.now()) {
+		return entity.TunnelTicket{}, entity.ErrTicketMissing
+	}
+
+	return entity.TunnelTicket{
+		Ticket:   s.session.TunnelTicket,
+		Previews: s.session.Previews,
+	}, nil
+}
+
+func (s *sessionsService) Previews() entity.PreviewService {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.session.Previews
+}
+
 func failure(report entity.SessionReport) error {
 	switch report.State {
 	case entity.SessionRevoked:

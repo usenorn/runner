@@ -64,9 +64,10 @@ func (s *codebasesService) Scan(ctx context.Context, root string) (service.Scan,
 		return service.Scan{}, err
 	}
 
-	capabilities := s.capabilities.Detect(ctx)
+	capabilities := s.capabilities.Detect(ctx, s.sessions.Previews().Gateway)
 	inventory.Runtimes = capabilities.Runtimes
 	inventory.Tools = capabilities.Tools
+	inventory.Gateway = capabilities.Gateway
 
 	scan := service.Scan{Inventory: inventory, Warnings: folder.Warnings}
 

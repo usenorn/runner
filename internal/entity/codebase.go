@@ -151,6 +151,7 @@ type Inventory struct {
 	SharedFiles  []string
 	Runtimes     []Runtime
 	Tools        []Tool
+	Gateway      GatewayReach
 	ScannedAt    time.Time
 }
 

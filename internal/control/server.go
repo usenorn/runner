@@ -26,6 +26,7 @@ type Server struct {
 	updates    service.Updates
 	codebases  service.Codebases
 	channels   service.Channels
+	tunnels    service.Tunnels
 	executions service.Executions
 	services   service.Services
 	questions  service.Questions
@@ -47,6 +48,7 @@ func NewServer(
 	updates service.Updates,
 	codebases service.Codebases,
 	channels service.Channels,
+	tunnels service.Tunnels,
 	executions service.Executions,
 	services service.Services,
 	questions service.Questions,
@@ -65,6 +67,7 @@ func NewServer(
 		updates:    updates,
 		codebases:  codebases,
 		channels:   channels,
+		tunnels:    tunnels,
 		executions: executions,
 		services:   services,
 		questions:  questions,
@@ -132,6 +135,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 
 	status.Codebases = s.heldCodebases(r)
 	status.Channel = channelOf(s.channels.Report(r.Context()))
+	status.Tunnel = tunnelOf(s.tunnels.Report())
 	status.Scheduler = s.schedulerOf(s.executions.Report(r.Context()))
 	status.Driver = driverOf(s.executions.Driver(r.Context()))
 
@@ -164,6 +168,7 @@ func (s *Server) pause(w http.ResponseWriter, r *http.Request) {
 func (s *Server) resume(w http.ResponseWriter, r *http.Request) {
 	s.executions.Resume(r.Context())
 	s.channels.Wake()
+	s.tunnels.Wake()
 
 	respond(w, r, http.StatusOK, Paused{Paused: false})
 }
@@ -175,6 +180,16 @@ func channelOf(report entity.ChannelReport) Channel {
 		ConnectedAt: optionalTime(report.ConnectedAt),
 		LastHeard:   optionalTime(report.LastHeard),
 		Waiting:     report.Waiting,
+	}
+}
+
+func tunnelOf(report entity.TunnelReport) Tunnel {
+	return Tunnel{
+		State:       string(report.State),
+		Detail:      report.Detail,
+		Gateway:     report.Gateway,
+		ConnectedAt: optionalTime(report.ConnectedAt),
+		Streams:     report.Streams,
 	}
 }
 

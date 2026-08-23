@@ -37,6 +37,7 @@ import (
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
+	tunnelrepo "github.com/usenorn/runner/internal/repository/tunnel"
 	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
 	changesetsvc "github.com/usenorn/runner/internal/service/changeset"
@@ -49,6 +50,7 @@ import (
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
+	tunnelsvc "github.com/usenorn/runner/internal/service/tunnel"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
 	uploadsvc "github.com/usenorn/runner/internal/service/upload"
 )
@@ -78,6 +80,7 @@ var baseSet = wire.NewSet(
 	schedulingrepo.Set,
 	spoolrepo.Set,
 	channelrepo.Set,
+	tunnelrepo.Set,
 	diskrepo.Set,
 	processrepo.Set,
 	portrepo.Set,
@@ -99,6 +102,7 @@ var baseSet = wire.NewSet(
 	changesetsvc.Set,
 	executionsvc.Set,
 	channelsvc.Set,
+	tunnelsvc.Set,
 
 	control.Set,
 	mcpserver.Set,

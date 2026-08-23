@@ -2,6 +2,8 @@ package capability
 
 import (
 	"context"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
@@ -12,7 +14,12 @@ import (
 	"github.com/usenorn/runner/internal/repository"
 )
 
-const kvmDevice = "/dev/kvm"
+const (
+	kvmDevice = "/dev/kvm"
+
+	gatewayHealthPath = "/__norn/healthz"
+	probeLimit        = 4 << 10
+)
 
 var version = regexp.MustCompile(`\d+(\.\d+)+(-[0-9A-Za-z.]+)?`)
 
@@ -28,11 +35,39 @@ func New(cfg config.Codebase) repository.Capability {
 	return &hostCapability{cfg: cfg}
 }
 
-func (r *hostCapability) Detect(ctx context.Context) repository.Capabilities {
+func (r *hostCapability) Detect(ctx context.Context, gateway string) repository.Capabilities {
 	return repository.Capabilities{
 		Runtimes: r.runtimes(ctx),
 		Tools:    r.tools(ctx),
+		Gateway:  r.reaches(ctx, gateway),
 	}
+}
+
+func (r *hostCapability) reaches(ctx context.Context, gateway string) entity.GatewayReach {
+	if gateway == "" {
+		return entity.GatewayUnconfigured
+	}
+
+	probing, settled := context.WithTimeout(ctx, r.cfg.ProbeTimeout)
+	defer settled()
+
+	request, err := http.NewRequestWithContext(
+		probing, http.MethodGet, strings.TrimSuffix(gateway, "/")+gatewayHealthPath, nil,
+	)
+	if err != nil {
+		return entity.GatewayUnreachable
+	}
+
+	response, err := (&http.Client{Timeout: r.cfg.ProbeTimeout}).Do(request)
+	if err != nil {
+		return entity.GatewayUnreachable
+	}
+
+	defer func() { _ = response.Body.Close() }()
+
+	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, probeLimit))
+
+	return entity.GatewayReachable
 }
 
 func (r *hostCapability) runtimes(ctx context.Context) []entity.Runtime {

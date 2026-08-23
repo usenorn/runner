@@ -87,14 +87,47 @@ func (r *httpDashboard) Exchange(
 	now := time.Now().UTC()
 	session := response.JSON200
 
-	return entity.Session{
+	held := entity.Session{
 		AccessToken:     session.AccessToken,
 		AccessExpiresAt: now.Add(time.Duration(session.ExpiresIn) * time.Second),
 		Ticket:          session.Ticket,
 		TicketExpiresAt: now.Add(time.Duration(session.TicketExpiresIn) * time.Second),
+		Previews:        previewsOf(session),
 		RunnerName:      session.Runner.Name,
 		AgentName:       session.Runner.AgentName,
-	}, nil
+	}
+
+	if session.TunnelTicket != nil {
+		held.TunnelTicket = *session.TunnelTicket
+		held.TunnelExpiresAt = now.Add(
+			time.Duration(deref(session.TunnelTicketExpiresIn)) * time.Second,
+		)
+	}
+
+	return held, nil
+}
+
+func previewsOf(session *api.RunnerSession) entity.PreviewService {
+	serving := entity.PreviewService{
+		Gateway: deref(session.PreviewGateway),
+		Domain:  deref(session.PreviewDomain),
+	}
+
+	if session.PreviewScheme != nil {
+		serving.Scheme = string(*session.PreviewScheme)
+	}
+
+	return serving
+}
+
+func deref[T any](held *T) T {
+	var absent T
+
+	if held == nil {
+		return absent
+	}
+
+	return *held
 }
 
 func (r *httpDashboard) enrolmentRefusal(response *api.EnrolRunnerResponse) error {

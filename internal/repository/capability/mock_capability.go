@@ -42,15 +42,15 @@ func (m *MockCapability) EXPECT() *MockCapabilityMockRecorder {
 }
 
 // Detect mocks base method.
-func (m *MockCapability) Detect(ctx context.Context) repository.Capabilities {
+func (m *MockCapability) Detect(ctx context.Context, gateway string) repository.Capabilities {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Detect", ctx)
+	ret := m.ctrl.Call(m, "Detect", ctx, gateway)
 	ret0, _ := ret[0].(repository.Capabilities)
 	return ret0
 }
 
 // Detect indicates an expected call of Detect.
-func (mr *MockCapabilityMockRecorder) Detect(ctx any) *gomock.Call {
+func (mr *MockCapabilityMockRecorder) Detect(ctx, gateway any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Detect", reflect.TypeOf((*MockCapability)(nil).Detect), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Detect", reflect.TypeOf((*MockCapability)(nil).Detect), ctx, gateway)
 }

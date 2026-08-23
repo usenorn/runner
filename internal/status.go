@@ -74,6 +74,7 @@ func (s *Status) table(status control.Status) error {
 
 	rows = append(rows, [2]string{"session", s.session(status)})
 	rows = append(rows, [2]string{"channel", channelLine(status.Channel)})
+	rows = append(rows, [2]string{"previews", tunnelLine(status.Tunnel)})
 	rows = append(rows, [2]string{"coding agent", driverLine(status.Driver)})
 	rows = append(rows, schedulerRows(status.Scheduler, s.now().UTC())...)
 	rows = append(rows, codebaseRows(status.Codebases)...)
@@ -99,6 +100,28 @@ func channelLine(channel control.Channel) string {
 
 	if channel.Waiting > 0 {
 		line += fmt.Sprintf(", %d waiting to reach norn", channel.Waiting)
+	}
+
+	return line
+}
+
+func tunnelLine(tunnel control.Tunnel) string {
+	if tunnel.State == string(entity.TunnelUnserved) {
+		return "this norn serves no preview domain, so nothing shared reaches this machine"
+	}
+
+	line := tunnel.State
+
+	if tunnel.Gateway != "" {
+		line += " — " + tunnel.Gateway
+	}
+
+	if tunnel.Detail != "" {
+		line += " — " + tunnel.Detail
+	}
+
+	if tunnel.Streams > 0 {
+		line += fmt.Sprintf(", %d carrying", tunnel.Streams)
 	}
 
 	return line

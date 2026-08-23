@@ -118,7 +118,9 @@ func (r *websocketChannel) unreachable(err error) error {
 		return err
 	}
 
-	return fmt.Errorf("%w at %s: %w", entity.ErrServerUnreachable, r.server, err)
+	return fmt.Errorf(
+		"%w at %s: %s", entity.ErrServerUnreachable, r.server, entity.Redacted(err.Error()),
+	)
 }
 
 type connection struct {

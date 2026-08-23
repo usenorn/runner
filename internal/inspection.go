@@ -225,6 +225,17 @@ func noteOf(repository control.Repository) string {
 	}
 }
 
+func gatewayLine(reach string) string {
+	switch entity.GatewayReach(reach) {
+	case entity.GatewayReachable:
+		return "this machine can reach norn's preview gateway"
+	case entity.GatewayUnreachable:
+		return "this machine cannot reach norn's preview gateway, so nothing shared will open"
+	default:
+		return "this norn serves no preview domain"
+	}
+}
+
 func (i *Inspection) summary(scan control.Scan) error {
 	writer := tabwriter.NewWriter(i.out, 0, 0, 3, ' ', 0)
 
@@ -232,6 +243,7 @@ func (i *Inspection) summary(scan control.Scan) error {
 		{"shared", listed(scan.Inventory.SharedFiles, "none found")},
 		{"tools", toolLine(scan.Inventory.Tools)},
 		{"runtimes", listed(scan.Inventory.Runtimes, "process")},
+		{"previews", gatewayLine(scan.Inventory.Gateway)},
 	}
 
 	if scan.Connected {
