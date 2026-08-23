@@ -3,12 +3,16 @@ package supervisor_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"go.uber.org/mock/gomock"
 
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
@@ -23,6 +27,7 @@ import (
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	"github.com/usenorn/runner/internal/service"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
+	uploadsvc "github.com/usenorn/runner/internal/service/upload"
 )
 
 const patience = 15 * time.Second
@@ -33,6 +38,9 @@ type harness struct {
 	spool   repository.Spool
 	ports   repository.Port
 	service service.Services
+
+	mu       sync.Mutex
+	uploaded []entity.LogLine
 }
 
 func newHarness(t *testing.T, lowest int, highest int) *harness {
@@ -58,16 +66,43 @@ func over(t *testing.T, dir *statedir.Dir, lowest int, highest int) *harness {
 		ports: portrepo.New(config.Runner{PortRange: [2]int{lowest, highest}}),
 	}
 
+	uploads := uploadsvc.NewMockUploads(gomock.NewController(t))
+	uploads.EXPECT().
+		Line(gomock.Any(), gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, _ string, line entity.LogLine) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			h.uploaded = append(h.uploaded, line)
+		}).
+		AnyTimes()
+
 	h.service = supervisorsvc.New(
 		processrepo.New(),
 		h.ports,
 		servicelogrepo.New(dir),
 		h.runs,
 		h.spool,
+		uploads,
 		settings(),
 	)
 
 	return h
+}
+
+func (h *harness) lines(source string) []entity.LogLine {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	held := []entity.LogLine{}
+
+	for _, line := range h.uploaded {
+		if line.Source == source {
+			held = append(held, line)
+		}
+	}
+
+	return held
 }
 
 func settings() config.Supervisor {
@@ -240,7 +275,25 @@ func (h *harness) reported(t *testing.T, executionID string) []string {
 	said := []string{}
 
 	for _, message := range waiting {
-		if message.Type != channelv1.ExecutionEvent || message.ExecutionID != executionID {
+		if message.ExecutionID != executionID {
+			continue
+		}
+
+		if message.Type == channelv1.ServiceState {
+			var running channelv1.Service
+
+			if err := json.Unmarshal(message.Payload, &running); err != nil {
+				t.Fatalf("read a service report: %v", err)
+			}
+
+			said = append(said, fmt.Sprintf(
+				"%s is %s: %s", running.Name, running.State, running.Reason,
+			))
+
+			continue
+		}
+
+		if message.Type != channelv1.ExecutionEvent {
 			continue
 		}
 
