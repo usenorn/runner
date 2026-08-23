@@ -54,6 +54,10 @@ func (p PermissionProfile) Valid() bool {
 	return slices.Contains(PermissionProfiles(), p)
 }
 
+func (p PermissionProfile) Exceeds(ceiling PermissionProfile) bool {
+	return slices.Index(PermissionProfiles(), p) > slices.Index(PermissionProfiles(), ceiling)
+}
+
 type DriverKind string
 
 const (

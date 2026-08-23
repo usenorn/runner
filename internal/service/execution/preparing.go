@@ -243,11 +243,13 @@ func (s *executionsService) fill(
 	}
 
 	snapshot, err := s.snapshots.Take(ctx, service.TakeRequest{
-		Path:     codebase.RootPath,
-		IssueKey: execution.IssueKey,
-		Attempt:  execution.Attempt,
-		Run:      execution.ID,
-		Branches: s.reused(ctx, execution),
+		Path:         codebase.RootPath,
+		IssueKey:     execution.IssueKey,
+		Attempt:      execution.Attempt,
+		Run:          execution.ID,
+		LocalChanges: localChangesFor(execution),
+		Base:         entity.BasePolicy(execution.BaseRef),
+		Branches:     s.reused(ctx, execution),
 	})
 	if err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSnapshot, err: err}
@@ -295,7 +297,7 @@ func (s *executionsService) setup(
 	}
 
 	setup := entity.RunSetup{
-		Permissions: profileFor(s.driver.Profile),
+		Permissions: profileFor(execution, s.driver.Profile),
 		Plan:        plan,
 		Driver:      driverFor(execution, codebase),
 		Services:    runtimeFor(execution, s.runner.Runtime),
@@ -317,16 +319,42 @@ func (s *executionsService) plan(ctx context.Context, root string) (entity.RunPl
 	return entity.RunPlan{Source: entity.PlanCodebase, Path: path}, nil
 }
 
-func profileFor(asked config.Profile) entity.RunPermissions {
-	profile := entity.PermissionProfile(asked)
-	if !profile.Valid() {
-		profile = entity.ProfileStandard
+func profileFor(execution entity.Execution, allowed config.Profile) entity.RunPermissions {
+	ceiling := entity.PermissionProfile(allowed)
+	if !ceiling.Valid() {
+		ceiling = entity.ProfileStandard
 	}
 
-	return entity.RunPermissions{
-		Profile: profile,
-		Chosen:  "the delegation named no profile, so this machine took its own default",
+	asked := entity.PermissionProfile(execution.Profile)
+
+	switch {
+	case !asked.Valid():
+		return entity.RunPermissions{
+			Profile: ceiling,
+			Chosen:  "the delegation named no profile, so this machine took its own default",
+		}
+	case asked.Exceeds(ceiling):
+		return entity.RunPermissions{
+			Profile: ceiling,
+			Chosen: fmt.Sprintf(
+				"the delegation asked for %s, and this machine goes no further than %s",
+				asked, ceiling,
+			),
+		}
+	default:
+		return entity.RunPermissions{
+			Profile: asked,
+			Chosen:  "the delegation asked for it",
+		}
 	}
+}
+
+func localChangesFor(execution entity.Execution) entity.LocalChanges {
+	if execution.IncludeDirty {
+		return entity.LocalChangesInclude
+	}
+
+	return ""
 }
 
 func driverFor(execution entity.Execution, codebase entity.Codebase) entity.RunDriver {

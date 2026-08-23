@@ -13,6 +13,7 @@ type TakeRequest struct {
 	IssueKey     string
 	Attempt      int
 	LocalChanges entity.LocalChanges
+	Base         entity.BasePolicy
 	Run          string
 	Branches     map[string]string
 }

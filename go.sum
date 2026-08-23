@@ -893,6 +893,8 @@ github.com/usenorn/norn v1.0.1-0.20260823142348-3643fabe5484 h1:JIfF9A8st4q+RE4P
 github.com/usenorn/norn v1.0.1-0.20260823142348-3643fabe5484/go.mod h1:qzgSE6n9eaQbElsgdQguNFBJREmPQYm+xeQTxJglFvk=
 github.com/usenorn/norn v1.0.1-0.20260823171617-68e712090e95 h1:PUcTyLlmMbgw9tLRB1fSNtmjXN4Mwxb80mVk7xqhal8=
 github.com/usenorn/norn v1.0.1-0.20260823171617-68e712090e95/go.mod h1:zupfMq6IorB2fOaRg4dRtdhDhXS6jRrkUVs3/y0WLZo=
+github.com/usenorn/norn v1.1.2-0.20260823223115-97c34f4e1379 h1:Q7D3NsJ1Ew4jVfARSe9ZF7OwSba1v7xdQTFvxZ8DM6k=
+github.com/usenorn/norn v1.1.2-0.20260823223115-97c34f4e1379/go.mod h1:zupfMq6IorB2fOaRg4dRtdhDhXS6jRrkUVs3/y0WLZo=
 github.com/uudashr/gocognit v1.2.1 h1:CSJynt5txTnORn/DkhiB4mZjwPuifyASC8/6Q0I/QS4=
 github.com/uudashr/gocognit v1.2.1/go.mod h1:acaubQc6xYlXFEMb9nWX2dYBzJ/bIjEkc1zzvyIZg5Q=
 github.com/uudashr/iface v1.4.2 h1:06Vq5RKVYThBsj0Bnw4oasMjD1r+7CE/bcKOA8dVSvg=
