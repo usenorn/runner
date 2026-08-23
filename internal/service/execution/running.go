@@ -71,11 +71,10 @@ func (s *executionsService) finish(
 	}
 
 	stopped := ending(result)
+
 	if announced {
 		stopped = "the coding agent finished and says: " + reported.Line()
-	}
-
-	if !announced {
+	} else {
 		reported = entity.Completion{Summary: result.Summary}
 	}
 

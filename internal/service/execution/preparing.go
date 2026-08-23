@@ -77,6 +77,20 @@ func (s *executionsService) reclaim(ctx context.Context) error {
 			continue
 		}
 
+		if execution.State == channelv1.StateAwaitingReview {
+			s.mu.Lock()
+			s.held[execution.ID] = execution
+			s.mu.Unlock()
+
+			logging.From(ctx).InfoContext(
+				ctx,
+				"a run was waiting for somebody to review it when this machine last stopped",
+				slog.String("execution_id", execution.ID),
+			)
+
+			continue
+		}
+
 		logging.From(ctx).InfoContext(
 			ctx,
 			"a run was still under way when this machine last stopped",

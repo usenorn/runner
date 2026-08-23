@@ -320,19 +320,7 @@ func TestAMachineThatRestartedMidRunSaysTheRunWasInterruptedAndGivesTheBranchesB
 	h := newHarness(t, 2, 0)
 	ctx := context.Background()
 
-	stop := h.start(t)
-
-	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
-		t.Fatalf("offer: %v", err)
-	}
-
-	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
-		t.Fatalf("start: %v", err)
-	}
-
-	h.awaitNote(t, "workspace for this run is ready")
-
-	stop()
+	fabricate(t, h, "exec-01ABC", channelv1.StateRunning)
 
 	restarted := newHarnessOver(t, h, 2, 0)
 	settled := restarted.start(t)
@@ -371,18 +359,7 @@ func TestARunNornStillExpectsAfterARestartIsFailedSoItCanBeStartedAgain(t *testi
 	h := newHarness(t, 2, 0)
 	ctx := context.Background()
 
-	stop := h.start(t)
-
-	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
-		t.Fatalf("offer: %v", err)
-	}
-
-	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
-		t.Fatalf("start: %v", err)
-	}
-
-	h.awaitNote(t, "workspace for this run is ready")
-	stop()
+	fabricate(t, h, "exec-01ABC", channelv1.StateRunning)
 
 	restarted := newHarnessOver(t, h, 2, 0)
 	settled := restarted.start(t)

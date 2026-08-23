@@ -132,6 +132,8 @@ func (s *executionsService) carryOn(
 		return err
 	}
 
+	s.restarting(execution.ID)
+
 	execution, err = s.queued(ctx, execution)
 	if err != nil {
 		return err
