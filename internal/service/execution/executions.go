@@ -35,6 +35,7 @@ type executionsService struct {
 	uploads     service.Uploads
 	questions   service.Questions
 	previews    service.Previews
+	changesets  service.ChangeSets
 	tokens      repository.RunToken
 	drivers     repository.Driver
 	dir         *statedir.Dir
@@ -52,6 +53,7 @@ type executionsService struct {
 	work     map[string]context.CancelFunc
 	owed     map[string]bool
 	done     map[string]entity.Completion
+	commits  map[string]bool
 	capacity int
 	paused   bool
 }
@@ -67,6 +69,7 @@ func New(
 	uploads service.Uploads,
 	questions service.Questions,
 	previews service.Previews,
+	changesets service.ChangeSets,
 	tokens repository.RunToken,
 	drivers repository.Driver,
 	dir *statedir.Dir,
@@ -86,6 +89,7 @@ func New(
 		uploads:     uploads,
 		questions:   questions,
 		previews:    previews,
+		changesets:  changesets,
 		tokens:      tokens,
 		drivers:     drivers,
 		dir:         dir,
@@ -100,6 +104,7 @@ func New(
 		work:        map[string]context.CancelFunc{},
 		owed:        map[string]bool{},
 		done:        map[string]entity.Completion{},
+		commits:     map[string]bool{},
 		capacity:    runner.Capacity,
 	}
 }

@@ -1,6 +1,10 @@
 package repository
 
-import "context"
+import (
+	"context"
+
+	"github.com/usenorn/runner/internal/entity"
+)
 
 //go:generate go tool mockgen -source=worktree.go -destination=worktree/mock_worktree.go -package=worktree -mock_names=Worktree=MockWorktree
 
@@ -18,5 +22,10 @@ type Worktree interface {
 	Apply(ctx context.Context, dest string, patch []byte) error
 	Stage(ctx context.Context, dest string, paths []string) error
 	Commit(ctx context.Context, dest, message string) (string, error)
+	Remote(ctx context.Context, repository string) (string, error)
+	Commits(ctx context.Context, dest, base string) (int, error)
+	Diffstat(ctx context.Context, dest, base string) (entity.Diffstat, error)
+	Patch(ctx context.Context, dest, base string) ([]byte, error)
+	Push(ctx context.Context, dest, url, branch string) error
 	Remove(ctx context.Context, repository, dest string) error
 }

@@ -20,11 +20,6 @@ import (
 
 const timelineToolMax = 500
 
-const finishedNote = "the coding agent has finished. Turning what it did into commits on a " +
-	"branch, pull requests and a change set is not built into this release, so the run waits " +
-	"here until it is cancelled. Its work is on the branches this machine made, in the " +
-	"workspace for this run"
-
 func (s *executionsService) Driver(ctx context.Context) entity.DriverHealth {
 	return s.drivers.Preflight(ctx, entity.DriverClaude)
 }
@@ -76,8 +71,11 @@ func (s *executionsService) finish(
 	}
 
 	stopped := ending(result)
+
 	if announced {
 		stopped = "the coding agent finished and says: " + reported.Line()
+	} else {
+		reported = entity.Completion{Summary: result.Summary}
 	}
 
 	if err := s.move(ctx, execution, channelv1.StateFinalizing, stopped); err != nil {
@@ -86,7 +84,7 @@ func (s *executionsService) finish(
 
 	execution.State = channelv1.StateFinalizing
 
-	return s.note(ctx, execution.ID, channelv1.EventPhase, finishedNote)
+	return s.finalise(ctx, execution, reported)
 }
 
 func (s *executionsService) park(

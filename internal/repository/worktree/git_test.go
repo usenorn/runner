@@ -103,7 +103,7 @@ func origin(t *testing.T) (string, string) {
 func maker(t *testing.T) repository.Worktree {
 	t.Helper()
 
-	return worktreerepo.New(settings())
+	return worktreerepo.New(settings(), results())
 }
 
 func TestAWorktreeStartsAtTheBaseCommitOnABranchOfItsOwn(t *testing.T) {
@@ -398,5 +398,15 @@ func TestCloneModeProducesTheSameStartingPointAsAWorktree(t *testing.T) {
 
 	if body, err := os.ReadFile(filepath.Join(into, "a.txt")); err != nil || string(body) != "one\n" {
 		t.Fatalf("the clone does not carry the repository's files: %q, %v", body, err)
+	}
+}
+
+func results() config.Results {
+	return config.Results{
+		CreatePRs:    config.PullRequestsAuto,
+		Attribution:  config.AttributionNone,
+		PushTimeout:  60 * time.Second,
+		ForgeTimeout: 30 * time.Second,
+		MaxDiffBytes: 3 << 20,
 	}
 }

@@ -90,9 +90,18 @@ func (s *executionsService) completion(executionID string) (entity.Completion, b
 	return said, told
 }
 
+func (s *executionsService) restarting(executionID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.done, executionID)
+	delete(s.commits, executionID)
+}
+
 func (s *executionsService) forget(executionID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	delete(s.done, executionID)
+	delete(s.commits, executionID)
 }

@@ -31,3 +31,5 @@ func NewDriver(cfg Config) Driver { return cfg.Driver }
 func NewQuestions(cfg Config) Questions { return cfg.Questions }
 
 func NewUpload(cfg Config) Upload { return cfg.Upload }
+
+func NewResults(cfg Config) Results { return cfg.Results }

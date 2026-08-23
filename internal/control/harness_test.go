@@ -211,7 +211,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		settingsrepo.New(),
 		inventoryrepo.New(dir),
 		snapshotsvc.New(
-			worktreerepo.New(snapshotSettings()),
+			worktreerepo.New(snapshotSettings(), results()),
 			materialiserrepo.New(),
 			settingsrepo.New(),
 			inventoryrepo.New(dir),
@@ -222,6 +222,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		uploadStub{},
 		questions,
 		previews,
+		changesetStub{},
 		tokens,
 		driverStub{},
 		dir,
@@ -364,4 +365,37 @@ func (driverStub) Resume(
 
 func questionSettings() config.Questions {
 	return config.Questions{SoftWait: 300 * time.Millisecond, MaxWait: time.Second}
+}
+
+func results() config.Results {
+	return config.Results{
+		CreatePRs:    config.PullRequestsAuto,
+		Attribution:  config.AttributionNone,
+		PushTimeout:  60 * time.Second,
+		ForgeTimeout: 30 * time.Second,
+		MaxDiffBytes: 3 << 20,
+	}
+}
+
+type changesetStub struct{}
+
+func (changesetStub) Uncommitted(
+	context.Context, entity.Snapshot,
+) ([]entity.UncommittedWork, error) {
+	return nil, nil
+}
+
+func (changesetStub) Publish(
+	context.Context, entity.Execution, entity.Snapshot, entity.Completion,
+) (entity.ChangeSet, error) {
+	return entity.ChangeSet{}, nil
+}
+
+func (uploadStub) Attach(
+	context.Context,
+	string,
+	string,
+	[]byte,
+) (entity.ArtifactReceipt, error) {
+	return entity.ArtifactReceipt{}, nil
 }

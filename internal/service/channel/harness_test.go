@@ -12,6 +12,7 @@ import (
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
 	"github.com/usenorn/runner/internal/config"
+	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 	channelrepo "github.com/usenorn/runner/internal/repository/channel"
@@ -218,6 +219,7 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		uploadStub{},
 		h.questions,
 		previewsvc.New(runStub{}, h.spool),
+		changesetStub{},
 		runtokenrepo.New(),
 		driverStub{},
 		dir,
@@ -384,4 +386,18 @@ func (h *harness) queueAged(t *testing.T, count int, age time.Duration) []string
 	}
 
 	return written
+}
+
+type changesetStub struct{}
+
+func (changesetStub) Uncommitted(
+	context.Context, entity.Snapshot,
+) ([]entity.UncommittedWork, error) {
+	return nil, nil
+}
+
+func (changesetStub) Publish(
+	context.Context, entity.Execution, entity.Snapshot, entity.Completion,
+) (entity.ChangeSet, error) {
+	return entity.ChangeSet{}, nil
 }

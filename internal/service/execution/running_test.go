@@ -35,7 +35,7 @@ func TestARunGoesFromPreparingThroughRunningToFinalizingAndSaysWhatIsLeft(t *tes
 
 	begun(t, h, "exec-01ABC")
 
-	h.awaitNote(t, "not built into this release")
+	h.awaitReview(t, "exec-01ABC")
 
 	states := []string{}
 
@@ -47,6 +47,7 @@ func TestARunGoesFromPreparingThroughRunningToFinalizingAndSaysWhatIsLeft(t *tes
 		string(channelv1.StatePreparing),
 		string(channelv1.StateRunning),
 		string(channelv1.StateFinalizing),
+		string(channelv1.StateAwaitingReview),
 	} {
 		if !slices.Contains(states, wanted) {
 			t.Fatalf("a run that worked reported %v, without %s", states, wanted)
@@ -62,7 +63,7 @@ func TestTheAgentIsToldAboutTheIssueAndPutInTheWorkspaceMadeForTheRun(t *testing
 
 	begun(t, h, "exec-01ABC")
 
-	h.awaitNote(t, "not built into this release")
+	h.awaitReview(t, "exec-01ABC")
 
 	tasks := h.drivers.began()
 
@@ -109,7 +110,7 @@ func TestWhatTheAgentSaysAndDoesIsSentToNornAsItGoes(t *testing.T) {
 
 	begun(t, h, "exec-01ABC")
 
-	h.awaitNote(t, "not built into this release")
+	h.awaitReview(t, "exec-01ABC")
 
 	h.await(t, "waited for the transcript to reach norn", func() bool {
 		return len(h.sent()) == 3
@@ -136,7 +137,7 @@ func TestTheSessionARunUsedIsWrittenDownSoItCanBeCarriedOnLater(t *testing.T) {
 
 	begun(t, h, "exec-01ABC")
 
-	h.awaitNote(t, "not built into this release")
+	h.awaitReview(t, "exec-01ABC")
 
 	driver, err := h.runs.LoadDriver(context.Background(), "exec-01ABC")
 	if err != nil {
@@ -167,7 +168,7 @@ func TestAnAgentThatStopsWithoutFinishingIsAskedToCarryOnFromWhereItLeftOff(t *t
 
 	begun(t, h, "exec-01ABC")
 
-	h.awaitNote(t, "not built into this release")
+	h.awaitReview(t, "exec-01ABC")
 
 	carried := h.drivers.carried()
 
@@ -279,7 +280,7 @@ func TestWhatTheMachineDecidedAboutPermissionsIsWrittenDownWithTheRun(t *testing
 
 	begun(t, h, "exec-01ABC")
 
-	h.awaitNote(t, "not built into this release")
+	h.awaitReview(t, "exec-01ABC")
 
 	setup, err := h.runs.LoadSetup(context.Background(), "exec-01ABC")
 	if err != nil {

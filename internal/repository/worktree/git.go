@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/usenorn/runner/internal/config"
@@ -18,11 +19,12 @@ const (
 )
 
 type gitWorktree struct {
-	cfg config.Snapshot
+	cfg     config.Snapshot
+	results config.Results
 }
 
-func New(cfg config.Snapshot) repository.Worktree {
-	return &gitWorktree{cfg: cfg}
+func New(cfg config.Snapshot, results config.Results) repository.Worktree {
+	return &gitWorktree{cfg: cfg, results: results}
 }
 
 func (r *gitWorktree) Head(ctx context.Context, repository string) (string, error) {
@@ -171,6 +173,76 @@ func (r *gitWorktree) Commit(ctx context.Context, dest, message string) (string,
 	}
 
 	return r.Head(ctx, dest)
+}
+
+func (r *gitWorktree) Remote(ctx context.Context, repository string) (string, error) {
+	url, err := r.run(ctx, repository, "config", "--get", "remote.origin.url")
+	if err != nil || strings.TrimSpace(url) == "" {
+		return "", fmt.Errorf("%w: %s", entity.ErrPushNowhere, repository)
+	}
+
+	return strings.TrimSpace(url), nil
+}
+
+func (r *gitWorktree) Commits(ctx context.Context, dest, base string) (int, error) {
+	counted, err := r.run(ctx, dest, "rev-list", "--count", base+"..HEAD")
+	if err != nil {
+		return 0, err
+	}
+
+	count, err := strconv.Atoi(strings.TrimSpace(counted))
+	if err != nil {
+		return 0, fmt.Errorf("read how many commits %s has: %w", dest, err)
+	}
+
+	return count, nil
+}
+
+func (r *gitWorktree) Diffstat(
+	ctx context.Context,
+	dest, base string,
+) (entity.Diffstat, error) {
+	lines, err := gitcmd.Lines(ctx, dest, "diff", "--numstat", "--no-color", base+"..HEAD")
+	if err != nil {
+		return entity.Diffstat{}, err
+	}
+
+	stat := entity.Diffstat{}
+
+	for _, line := range lines {
+		columns := strings.SplitN(line, "\t", 3)
+		if len(columns) != 3 {
+			continue
+		}
+
+		stat.Files++
+		stat.Additions += counted(columns[0])
+		stat.Deletions += counted(columns[1])
+	}
+
+	return stat, nil
+}
+
+func (r *gitWorktree) Patch(ctx context.Context, dest, base string) ([]byte, error) {
+	return r.raw(ctx, dest, "diff", "--binary", "--no-color", base+"..HEAD")
+}
+
+func (r *gitWorktree) Push(ctx context.Context, dest, url, branch string) error {
+	ctx, cancel := context.WithTimeout(ctx, r.results.PushTimeout)
+	defer cancel()
+
+	_, err := gitcmd.Run(ctx, dest, "push", "--quiet", url, "HEAD:refs/heads/"+branch)
+
+	return err
+}
+
+func counted(column string) int {
+	value, err := strconv.Atoi(column)
+	if err != nil {
+		return 0
+	}
+
+	return value
 }
 
 func (r *gitWorktree) Remove(ctx context.Context, repository, dest string) error {

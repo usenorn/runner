@@ -30,10 +30,10 @@ func (s *executionsService) Continue(
 		return nil
 	}
 
-	if execution.State != channelv1.StateWaitingForInput {
+	if !execution.State.Parked() {
 		logging.From(ctx).InfoContext(
 			ctx,
-			"norn asked this machine to carry on with a run that is not waiting for anything",
+			"norn asked this machine to carry on with a run that is not parked",
 			slog.String("execution_id", executionID),
 			slog.String("state", string(execution.State)),
 			slog.String("reason", instruction.Reason),
@@ -89,30 +89,50 @@ func (s *executionsService) resume(base context.Context, held resumption) {
 	}
 }
 
+type resumable struct {
+	snapshot entity.Snapshot
+	setup    entity.RunSetup
+	session  entity.DriverSession
+}
+
+func (s *executionsService) resumable(
+	ctx context.Context,
+	executionID string,
+) (resumable, error) {
+	snapshot, err := s.runs.Load(ctx, executionID)
+	if err != nil {
+		return resumable{}, failure{step: entity.StepSnapshot, err: err}
+	}
+
+	setup, err := s.runs.LoadSetup(ctx, executionID)
+	if err != nil {
+		return resumable{}, failure{step: entity.StepSetup, err: err}
+	}
+
+	driver, err := s.runs.LoadDriver(ctx, executionID)
+	if err != nil {
+		return resumable{}, failure{step: entity.StepDriver, err: err}
+	}
+
+	last, held := driver.Latest()
+	if !held || last.ID == "" {
+		return resumable{}, failure{step: entity.StepDriver, err: entity.ErrDriverSessionUnknown}
+	}
+
+	return resumable{snapshot: snapshot, setup: setup, session: last}, nil
+}
+
 func (s *executionsService) carryOn(
 	ctx context.Context,
 	execution entity.Execution,
 	instruction channelv1.Instruction,
 ) error {
-	snapshot, err := s.runs.Load(ctx, execution.ID)
+	held, err := s.resumable(ctx, execution.ID)
 	if err != nil {
-		return failure{step: entity.StepSnapshot, err: err}
+		return err
 	}
 
-	setup, err := s.runs.LoadSetup(ctx, execution.ID)
-	if err != nil {
-		return failure{step: entity.StepSetup, err: err}
-	}
-
-	driver, err := s.runs.LoadDriver(ctx, execution.ID)
-	if err != nil {
-		return failure{step: entity.StepDriver, err: err}
-	}
-
-	last, held := driver.Latest()
-	if !held || last.ID == "" {
-		return failure{step: entity.StepDriver, err: entity.ErrDriverSessionUnknown}
-	}
+	s.restarting(execution.ID)
 
 	execution, err = s.queued(ctx, execution)
 	if err != nil {
@@ -133,14 +153,21 @@ func (s *executionsService) carryOn(
 
 	defer s.uploads.Close(context.WithoutCancel(ctx), execution.ID)
 
-	env, err := s.tooling(ctx, execution, snapshot, setup)
+	return s.again(ctx, execution, held, s.injection(ctx, execution.ID, instruction))
+}
+
+func (s *executionsService) again(
+	ctx context.Context,
+	execution entity.Execution,
+	held resumable,
+	injected string,
+) error {
+	env, err := s.tooling(ctx, execution, held.snapshot, held.setup)
 	if err != nil {
 		return failure{step: entity.StepDriver, err: err}
 	}
 
-	session, err := s.drivers.Resume(
-		ctx, env, last, s.injection(ctx, execution.ID, instruction),
-	)
+	session, err := s.drivers.Resume(ctx, env, held.session, injected)
 	if err != nil {
 		return failure{step: entity.StepDriver, err: err}
 	}

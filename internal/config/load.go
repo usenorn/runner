@@ -59,6 +59,8 @@ const (
 	serverMaxChunkBytes     = 1 << 20
 	serverMaxChunkEntries   = 5000
 
+	defaultMaxDiffBytes = 3 << 20
+
 	channelLeaseTTL = time.Minute
 )
 
@@ -242,6 +244,12 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("driver.session_timeout", 4*time.Hour)
 	v.SetDefault("driver.stop_grace", 15*time.Second)
 	v.SetDefault("driver.resume_attempts", defaultResumeAttempts)
+	v.SetDefault("results.create_prs", string(PullRequestsAuto))
+	v.SetDefault("results.attribution", string(AttributionNone))
+	v.SetDefault("results.push_timeout", 2*time.Minute)
+	v.SetDefault("results.forge_timeout", time.Minute)
+	v.SetDefault("results.max_diff_bytes", int64(defaultMaxDiffBytes))
+
 	v.SetDefault("questions.soft_wait", time.Minute)
 	v.SetDefault("questions.max_wait", 10*time.Minute)
 
@@ -470,6 +478,10 @@ func validate(cfg Config) error {
 		return err
 	}
 
+	if err := validateResults(cfg.Results); err != nil {
+		return err
+	}
+
 	if err := validateQuestions(cfg.Questions); err != nil {
 		return err
 	}
@@ -637,6 +649,33 @@ func validateSupervisor(supervisor Supervisor) error {
 		return fmt.Errorf(
 			"supervisor.restart_backoff (%s) and supervisor.step_timeout (%s) must both be positive",
 			supervisor.RestartBackoff, supervisor.StepTimeout,
+		)
+	}
+
+	return nil
+}
+
+func validateResults(results Results) error {
+	if !slices.Contains(PullRequestChoices(), results.CreatePRs) {
+		return fmt.Errorf(
+			"results.create_prs is %q and must be %q or %q. It decides whether a finished run "+
+				"opens a pull request for each branch it pushed, or only pushes",
+			results.CreatePRs, PullRequestsAuto, PullRequestsPushOnly,
+		)
+	}
+
+	if !slices.Contains(Attributions(), results.Attribution) {
+		return fmt.Errorf(
+			"results.attribution is %q and must be %q or %q. Plenty of projects forbid assistant "+
+				"trailers, so norn leaves its name out unless a machine asks for it",
+			results.Attribution, AttributionNone, AttributionStandard,
+		)
+	}
+
+	if results.PushTimeout <= 0 || results.ForgeTimeout <= 0 || results.MaxDiffBytes <= 0 {
+		return fmt.Errorf(
+			"results.push_timeout, results.forge_timeout and results.max_diff_bytes must all be " +
+				"positive",
 		)
 	}
 

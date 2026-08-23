@@ -29,6 +29,7 @@ const (
 	StepSnapshot PrepareStep = "copy that folder into a workspace of its own"
 	StepRecord   PrepareStep = "write down what it prepared"
 	StepDriver   PrepareStep = "start the coding agent"
+	StepFinalise PrepareStep = "collect what the run changed"
 )
 
 func Failure(step PrepareStep, err error) string {

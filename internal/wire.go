@@ -23,6 +23,7 @@ import (
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
 	diskrepo "github.com/usenorn/runner/internal/repository/disk"
 	driverrepo "github.com/usenorn/runner/internal/repository/driver"
+	forgerepo "github.com/usenorn/runner/internal/repository/forge"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
@@ -37,6 +38,7 @@ import (
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
+	changesetsvc "github.com/usenorn/runner/internal/service/changeset"
 	channelsvc "github.com/usenorn/runner/internal/service/channel"
 	codebasesvc "github.com/usenorn/runner/internal/service/codebase"
 	enrolmentsvc "github.com/usenorn/runner/internal/service/enrolment"
@@ -81,6 +83,7 @@ var baseSet = wire.NewSet(
 	driverrepo.Set,
 	uploadrepo.Set,
 	runtokenrepo.Set,
+	forgerepo.Set,
 
 	sessionsvc.Set,
 	enrolmentsvc.Set,
@@ -91,6 +94,7 @@ var baseSet = wire.NewSet(
 	uploadsvc.Set,
 	questionsvc.Set,
 	previewsvc.Set,
+	changesetsvc.Set,
 	executionsvc.Set,
 	channelsvc.Set,
 
