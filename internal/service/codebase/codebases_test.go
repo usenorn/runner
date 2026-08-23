@@ -216,3 +216,45 @@ func TestAScanOfAConnectedFolderSaysWhichCodebaseItIs(t *testing.T) {
 		t.Fatalf("a scan of an unchanged connected folder reports something to do: %+v", scan)
 	}
 }
+
+func TestConnectingAFolderSaysWhetherThisMachineCanCarryAPreview(t *testing.T) {
+	h := newHarness(t)
+	h.previews = entity.PreviewService{
+		Gateway: "https://tunnel.norn.ink",
+		Domain:  "norn.ink",
+		Scheme:  "https",
+	}
+
+	h.connect()
+
+	if h.probed != "https://tunnel.norn.ink" {
+		t.Fatalf(
+			"the scan probed %q; a machine that never tries the gateway cannot tell anybody "+
+				"why a preview link does not open",
+			h.probed,
+		)
+	}
+
+	if h.norn.gateway != entity.GatewayReachable {
+		t.Fatalf(
+			"norn was told the gateway is %q, want %q; the answer has to travel with the "+
+				"folder or nobody sees it",
+			h.norn.gateway, entity.GatewayReachable,
+		)
+	}
+}
+
+func TestAnInstanceServingNoPreviewDomainIsNotCalledUnreachable(t *testing.T) {
+	h := newHarness(t)
+
+	h.connect()
+
+	if h.norn.gateway != entity.GatewayUnconfigured {
+		t.Fatalf(
+			"norn was told the gateway is %q, want %q; nothing to reach is not the same as "+
+				"something this machine cannot reach, and reading it as a fault would send "+
+				"people looking for a network problem that is not there",
+			h.norn.gateway, entity.GatewayUnconfigured,
+		)
+	}
+}

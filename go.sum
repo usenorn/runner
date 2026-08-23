@@ -535,6 +535,8 @@ github.com/hashicorp/memberlist v0.2.2/go.mod h1:MS2lj3INKhZjWNqd3N0m3J+Jxf3DAOn
 github.com/hashicorp/memberlist v0.3.0/go.mod h1:MS2lj3INKhZjWNqd3N0m3J+Jxf3DAOnAH9VT3Sh9MUE=
 github.com/hashicorp/serf v0.9.5/go.mod h1:UWDWwZeL5cuWDJdl0C6wrvrUwEqtQ4ZKBKKENpqIUyk=
 github.com/hashicorp/serf v0.9.6/go.mod h1:TXZNMjZQijwlDvp+r0b63xZ45H7JmCmgg4gpTwn9UV4=
+github.com/hashicorp/yamux v0.1.2 h1:XtB8kyFOyHXYVFnwT5C3+Bdo8gArse7j2AQ0DA0Uey8=
+github.com/hashicorp/yamux v0.1.2/go.mod h1:C+zze2n6e/7wshOZep2A70/aQU6QBRWJO/G6FT1wIns=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/hibiken/asynq v0.26.0 h1:1Zxr92MlDnb1Zt/QR5g2vSCqUS03i95lUfqx5X7/wrw=
@@ -889,6 +891,8 @@ github.com/usenorn/norn v1.0.1-0.20260823024920-16d6956b5d99 h1:a2PeGsJPvkgqLz4L
 github.com/usenorn/norn v1.0.1-0.20260823024920-16d6956b5d99/go.mod h1:qzgSE6n9eaQbElsgdQguNFBJREmPQYm+xeQTxJglFvk=
 github.com/usenorn/norn v1.0.1-0.20260823142348-3643fabe5484 h1:JIfF9A8st4q+RE4PDLwBhRhfNNiZl/QriB+jXb4EQkA=
 github.com/usenorn/norn v1.0.1-0.20260823142348-3643fabe5484/go.mod h1:qzgSE6n9eaQbElsgdQguNFBJREmPQYm+xeQTxJglFvk=
+github.com/usenorn/norn v1.0.1-0.20260823171617-68e712090e95 h1:PUcTyLlmMbgw9tLRB1fSNtmjXN4Mwxb80mVk7xqhal8=
+github.com/usenorn/norn v1.0.1-0.20260823171617-68e712090e95/go.mod h1:zupfMq6IorB2fOaRg4dRtdhDhXS6jRrkUVs3/y0WLZo=
 github.com/uudashr/gocognit v1.2.1 h1:CSJynt5txTnORn/DkhiB4mZjwPuifyASC8/6Q0I/QS4=
 github.com/uudashr/gocognit v1.2.1/go.mod h1:acaubQc6xYlXFEMb9nWX2dYBzJ/bIjEkc1zzvyIZg5Q=
 github.com/uudashr/iface v1.4.2 h1:06Vq5RKVYThBsj0Bnw4oasMjD1r+7CE/bcKOA8dVSvg=

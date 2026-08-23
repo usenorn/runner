@@ -194,6 +194,8 @@ func TestExposingAPreviewSaysHowFarTheAddressActuallyReaches(t *testing.T) {
 		Service: "web",
 		Port:    43111,
 		URL:     "http://127.0.0.1:43111",
+		Shared:  "https://web-exec-01abc.norn.ink",
+		Reach:   "anybody in the workspace who can see the issue, at https://web-exec-01abc.norn.ink",
 	}
 
 	h := newHarness(t, made)
@@ -202,8 +204,9 @@ func TestExposingAPreviewSaysHowFarTheAddressActuallyReaches(t *testing.T) {
 
 	var exposed struct {
 		Preview struct {
-			URL   string `json:"url"`
-			Reach string `json:"reach"`
+			URL    string `json:"url"`
+			Shared string `json:"shared"`
+			Reach  string `json:"reach"`
 		} `json:"preview"`
 	}
 
@@ -214,6 +217,14 @@ func TestExposingAPreviewSaysHowFarTheAddressActuallyReaches(t *testing.T) {
 			"the agent was handed %q with nothing saying who can open it. It will put that "+
 				"link in front of a person who is not on this machine, and it will not resolve",
 			exposed.Preview.URL,
+		)
+	}
+
+	if exposed.Preview.Shared != "https://web-exec-01abc.norn.ink" {
+		t.Fatalf(
+			"the agent was handed shared address %q; the daemon composed the address that "+
+				"actually reaches a reviewer and the tool has to pass it on unchanged",
+			exposed.Preview.Shared,
 		)
 	}
 }

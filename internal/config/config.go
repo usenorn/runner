@@ -14,6 +14,7 @@ type Config struct {
 	Codebase   Codebase   `mapstructure:"codebase"`
 	Snapshot   Snapshot   `mapstructure:"snapshot"`
 	Channel    Channel    `mapstructure:"channel"`
+	Tunnel     Tunnel     `mapstructure:"tunnel"`
 	Spool      Spool      `mapstructure:"spool"`
 	Scheduler  Scheduler  `mapstructure:"scheduler"`
 	Supervisor Supervisor `mapstructure:"supervisor"`
@@ -62,6 +63,17 @@ type Channel struct {
 	RetryMin         time.Duration `mapstructure:"retry_min"`
 	RetryMax         time.Duration `mapstructure:"retry_max"`
 	MaxMessageBytes  int64         `mapstructure:"max_message_bytes"`
+}
+
+type Tunnel struct {
+	Enabled          bool          `mapstructure:"enabled"`
+	HandshakeTimeout time.Duration `mapstructure:"handshake_timeout"`
+	Heartbeat        time.Duration `mapstructure:"heartbeat"`
+	DialTimeout      time.Duration `mapstructure:"dial_timeout"`
+	WriteTimeout     time.Duration `mapstructure:"write_timeout"`
+	RetryMin         time.Duration `mapstructure:"retry_min"`
+	RetryMax         time.Duration `mapstructure:"retry_max"`
+	MaxStreams       int           `mapstructure:"max_streams"`
 }
 
 type Spool struct {

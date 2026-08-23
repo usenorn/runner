@@ -82,6 +82,20 @@ func (mr *MockSessionsMockRecorder) Forget() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forget", reflect.TypeOf((*MockSessions)(nil).Forget))
 }
 
+// Previews mocks base method.
+func (m *MockSessions) Previews() entity.PreviewService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Previews")
+	ret0, _ := ret[0].(entity.PreviewService)
+	return ret0
+}
+
+// Previews indicates an expected call of Previews.
+func (mr *MockSessionsMockRecorder) Previews() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Previews", reflect.TypeOf((*MockSessions)(nil).Previews))
+}
+
 // Report mocks base method.
 func (m *MockSessions) Report() entity.SessionReport {
 	m.ctrl.T.Helper()
@@ -121,4 +135,19 @@ func (m *MockSessions) Ticket(ctx context.Context) (string, error) {
 func (mr *MockSessionsMockRecorder) Ticket(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ticket", reflect.TypeOf((*MockSessions)(nil).Ticket), ctx)
+}
+
+// TunnelTicket mocks base method.
+func (m *MockSessions) TunnelTicket(ctx context.Context) (entity.TunnelTicket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TunnelTicket", ctx)
+	ret0, _ := ret[0].(entity.TunnelTicket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TunnelTicket indicates an expected call of TunnelTicket.
+func (mr *MockSessionsMockRecorder) TunnelTicket(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TunnelTicket", reflect.TypeOf((*MockSessions)(nil).TunnelTicket), ctx)
 }

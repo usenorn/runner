@@ -23,6 +23,7 @@ type Daemon struct {
 	updates   service.Updates
 	codebases service.Codebases
 	channels  service.Channels
+	tunnels   service.Tunnels
 	runs      service.Executions
 	services  service.Services
 	uploads   service.Uploads
@@ -37,6 +38,7 @@ func NewDaemon(
 	updates service.Updates,
 	codebases service.Codebases,
 	channels service.Channels,
+	tunnels service.Tunnels,
 	runs service.Executions,
 	services service.Services,
 	uploads service.Uploads,
@@ -50,6 +52,7 @@ func NewDaemon(
 		updates:   updates,
 		codebases: codebases,
 		channels:  channels,
+		tunnels:   tunnels,
 		runs:      runs,
 		services:  services,
 		uploads:   uploads,
@@ -96,6 +99,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 		defer close(connecting)
 
 		d.channels.Run(ctx)
+	}()
+
+	carrying := make(chan struct{})
+
+	go func() {
+		defer close(carrying)
+
+		d.tunnels.Run(ctx)
 	}()
 
 	preparing := make(chan struct{})
@@ -170,6 +181,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	<-watching
 	<-rescanning
 	<-connecting
+	<-carrying
 	<-preparing
 	<-supervising
 	<-sending

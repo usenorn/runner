@@ -72,6 +72,7 @@ type Status struct {
 	Expires       *time.Time       `json:"expires,omitempty"`
 	Codebases     []StatusCodebase `json:"codebases,omitempty"`
 	Channel       Channel          `json:"channel"`
+	Tunnel        Tunnel           `json:"tunnel"`
 	Scheduler     Scheduler        `json:"scheduler"`
 	Driver        Driver           `json:"driver"`
 	Update        Update           `json:"update"`
@@ -83,6 +84,14 @@ type Channel struct {
 	ConnectedAt *time.Time `json:"connectedAt,omitempty"`
 	LastHeard   *time.Time `json:"lastHeard,omitempty"`
 	Waiting     int        `json:"waiting"`
+}
+
+type Tunnel struct {
+	State       string     `json:"state"`
+	Detail      string     `json:"detail,omitempty"`
+	Gateway     string     `json:"gateway,omitempty"`
+	ConnectedAt *time.Time `json:"connectedAt,omitempty"`
+	Streams     int        `json:"streams"`
 }
 
 type Scheduler struct {
@@ -218,6 +227,8 @@ type Preview struct {
 	Path      string    `json:"path,omitempty"`
 	Port      int       `json:"port"`
 	URL       string    `json:"url"`
+	Shared    string    `json:"shared,omitempty"`
+	Reach     string    `json:"reach"`
 	ExposedAt time.Time `json:"exposedAt"`
 }
 
@@ -294,6 +305,7 @@ type Inventory struct {
 	SharedFiles  []string     `json:"sharedFiles"`
 	Runtimes     []string     `json:"runtimes"`
 	Tools        []Tool       `json:"tools"`
+	Gateway      string       `json:"previewGateway"`
 	ScannedAt    time.Time    `json:"scannedAt"`
 }
 

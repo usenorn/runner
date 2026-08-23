@@ -20,6 +20,8 @@ func NewSnapshot(cfg Config) Snapshot { return cfg.Snapshot }
 
 func NewChannel(cfg Config) Channel { return cfg.Channel }
 
+func NewTunnel(cfg Config) Tunnel { return cfg.Tunnel }
+
 func NewSpool(cfg Config) Spool { return cfg.Spool }
 
 func NewScheduler(cfg Config) Scheduler { return cfg.Scheduler }

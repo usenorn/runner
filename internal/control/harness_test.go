@@ -270,6 +270,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			updates,
 			codebases,
 			channels,
+			tunnelStub{},
 			executions,
 			services,
 			questions,
@@ -315,6 +316,16 @@ func (h *harness) as(t *testing.T, executionID string) *control.Client {
 	t.Helper()
 
 	return control.NewClient(settings(), questionSettings(), h.dir, h.bearer(t, executionID))
+}
+
+type tunnelStub struct{}
+
+func (tunnelStub) Run(context.Context) {}
+
+func (tunnelStub) Wake() {}
+
+func (tunnelStub) Report() entity.TunnelReport {
+	return entity.TunnelReport{State: entity.TunnelOff}
 }
 
 type uploadStub struct{}

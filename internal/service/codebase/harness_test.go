@@ -24,6 +24,7 @@ import (
 const root = "/w"
 
 type norn struct {
+	gateway   entity.GatewayReach
 	connected bool
 	id        uuid.UUID
 	stored    []entity.Repository
@@ -34,6 +35,7 @@ type norn struct {
 
 func (n *norn) connect(inventory entity.Inventory) repository.ConnectedCodebase {
 	n.connects++
+	n.gateway = inventory.Gateway
 
 	if !n.connected {
 		n.connected = true
@@ -67,12 +69,14 @@ func (n *norn) confirm() (repository.ConnectedCodebase, error) {
 }
 
 type harness struct {
-	t       *testing.T
-	service service.Codebases
-	norn    *norn
-	held    []entity.Codebase
-	finds   []string
-	failing error
+	t        *testing.T
+	service  service.Codebases
+	norn     *norn
+	held     []entity.Codebase
+	finds    []string
+	probed   string
+	previews entity.PreviewService
+	failing  error
 }
 
 func newHarness(t *testing.T) *harness {
@@ -100,8 +104,20 @@ func newHarness(t *testing.T) *harness {
 
 	capabilities := capabilityrepo.NewMockCapability(ctrl)
 	capabilities.EXPECT().
-		Detect(gomock.Any()).
-		Return(repository.Capabilities{Runtimes: []entity.Runtime{entity.RuntimeProcess}}).
+		Detect(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, gateway string) repository.Capabilities {
+			h.probed = gateway
+
+			reach := entity.GatewayUnconfigured
+			if gateway != "" {
+				reach = entity.GatewayReachable
+			}
+
+			return repository.Capabilities{
+				Runtimes: []entity.Runtime{entity.RuntimeProcess},
+				Gateway:  reach,
+			}
+		}).
 		AnyTimes()
 
 	inventories := inventoryrepo.NewMockInventory(ctrl)
@@ -154,6 +170,10 @@ func newHarness(t *testing.T) *harness {
 
 	sessions := sessionsvc.NewMockSessions(ctrl)
 	sessions.EXPECT().Access(gomock.Any()).Return("nrs_token", nil).AnyTimes()
+	sessions.EXPECT().
+		Previews().
+		DoAndReturn(func() entity.PreviewService { return h.previews }).
+		AnyTimes()
 
 	h.service = codebasesvc.New(scanner, capabilities, inventories, dashboard, sessions, settings())
 

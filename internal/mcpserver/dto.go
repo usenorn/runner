@@ -36,10 +36,9 @@ type previewDTO struct {
 	Path    string `json:"path,omitempty"`
 	Port    int    `json:"port"`
 	URL     string `json:"url"`
+	Shared  string `json:"shared,omitempty"`
 	Reach   string `json:"reach"`
 }
-
-const localReach = "this machine only; the shared address arrives with norn's preview tunnel"
 
 func previewDTOFrom(preview control.Preview) previewDTO {
 	return previewDTO{
@@ -48,6 +47,7 @@ func previewDTOFrom(preview control.Preview) previewDTO {
 		Path:    preview.Path,
 		Port:    preview.Port,
 		URL:     preview.URL,
-		Reach:   localReach,
+		Shared:  preview.Shared,
+		Reach:   preview.Reach,
 	}
 }
