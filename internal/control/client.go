@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
@@ -21,12 +22,13 @@ import (
 )
 
 type Client struct {
-	http *http.Client
-	cfg  config.Control
-	path string
+	http      *http.Client
+	cfg       config.Control
+	questions config.Questions
+	path      string
 }
 
-func NewClient(cfg config.Control, dir *statedir.Dir) *Client {
+func NewClient(cfg config.Control, questions config.Questions, dir *statedir.Dir) *Client {
 	path := dir.Socket()
 
 	return &Client{
@@ -39,8 +41,9 @@ func NewClient(cfg config.Control, dir *statedir.Dir) *Client {
 				},
 			},
 		},
-		cfg:  cfg,
-		path: path,
+		cfg:       cfg,
+		questions: questions,
+		path:      path,
 	}
 }
 
@@ -93,8 +96,15 @@ func ask[T any](
 ) (T, error) {
 	var answer T
 
-	ctx, cancel := context.WithTimeout(ctx, c.cfg.RequestTimeout)
-	defer cancel()
+	// A caller that has already set a deadline meant it: asking a question is allowed to hold the
+	// socket open for as long as the daemon holds the question, and the ordinary request timeout
+	// would cut that short.
+	if _, set := ctx.Deadline(); !set {
+		patient, cancel := context.WithTimeout(ctx, c.cfg.RequestTimeout)
+		defer cancel()
+
+		ctx = patient
+	}
 
 	var body io.Reader
 
@@ -212,6 +222,36 @@ func (c *Client) RunStep(
 	request StepRequest,
 ) (StepResult, error) {
 	return ask[StepResult](ctx, c, http.MethodPost, forRun(StepsPath, executionID), request)
+}
+
+// Ask holds the socket open for as long as the daemon will hold the question open, plus the time
+// any other request is allowed. Giving up at the ordinary timeout would answer the caller with a
+// deadline it could do nothing about, and an agent told that reasonably asks again.
+func (c *Client) Ask(
+	ctx context.Context,
+	executionID string,
+	request QuestionRequest,
+) (QuestionAnswer, error) {
+	patient, done := context.WithTimeout(ctx, c.waiting(request))
+	defer done()
+
+	return ask[QuestionAnswer](
+		patient, c, http.MethodPost, forRun(QuestionsPath, executionID), request,
+	)
+}
+
+func (c *Client) waiting(request QuestionRequest) time.Duration {
+	if !request.Blocking {
+		return c.cfg.RequestTimeout
+	}
+
+	held := c.questions.SoftWait
+
+	if asked := time.Duration(request.WaitSeconds) * time.Second; asked > 0 && asked < c.questions.MaxWait {
+		held = asked
+	}
+
+	return held + c.cfg.RequestTimeout
 }
 
 func forRun(path string, executionID string) string {

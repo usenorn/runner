@@ -68,6 +68,20 @@ func (mr *MockExecutionsMockRecorder) Configure(configuration any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Configure", reflect.TypeOf((*MockExecutions)(nil).Configure), configuration)
 }
 
+// Continue mocks base method.
+func (m *MockExecutions) Continue(ctx context.Context, executionID string, instruction channelv1.Instruction) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Continue", ctx, executionID, instruction)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Continue indicates an expected call of Continue.
+func (mr *MockExecutionsMockRecorder) Continue(ctx, executionID, instruction any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Continue", reflect.TypeOf((*MockExecutions)(nil).Continue), ctx, executionID, instruction)
+}
+
 // Driver mocks base method.
 func (m *MockExecutions) Driver(ctx context.Context) entity.DriverHealth {
 	m.ctrl.T.Helper()

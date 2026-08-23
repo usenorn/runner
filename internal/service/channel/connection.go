@@ -9,6 +9,7 @@ import (
 
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
+	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/observability/logging"
 	"github.com/usenorn/runner/internal/repository"
 )
@@ -147,6 +148,28 @@ func (c *connection) act(ctx context.Context, message channelv1.Message) error {
 		}
 
 		return c.service.executions.Cancel(ctx, message.ExecutionID, cancellation.Reason)
+	case channelv1.ExecutionResume:
+		var instruction channelv1.Instruction
+
+		if err := json.Unmarshal(message.Payload, &instruction); err != nil {
+			return c.unreadable(ctx, message, err)
+		}
+
+		return c.service.executions.Continue(ctx, message.ExecutionID, instruction)
+	case channelv1.QuestionAnswered:
+		var answer channelv1.Answer
+
+		if err := json.Unmarshal(message.Payload, &answer); err != nil {
+			return c.unreadable(ctx, message, err)
+		}
+
+		return c.service.questions.Answered(ctx, message.ExecutionID, entity.Answer{
+			QuestionID: answer.QuestionID,
+			Ref:        answer.Ref,
+			Answer:     answer.Answer,
+			AnsweredBy: answer.AnsweredBy,
+			AnsweredAt: answer.AnsweredAt,
+		})
 	case channelv1.RunnerPause:
 		c.service.executions.Pause()
 

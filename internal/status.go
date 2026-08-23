@@ -146,9 +146,13 @@ func schedulerRows(scheduler control.Scheduler) [][2]string {
 	}
 
 	for _, execution := range scheduler.Executions {
-		rows = append(rows, [2]string{
-			"run", fmt.Sprintf("%s %s, %s", execution.Reference, execution.State, execution.ID),
-		})
+		line := fmt.Sprintf("%s %s, %s", execution.Reference, execution.State, execution.ID)
+
+		if execution.Waiting != "" {
+			line += " — waiting on an answer to: " + execution.Waiting
+		}
+
+		rows = append(rows, [2]string{"run", line})
 	}
 
 	return rows

@@ -33,6 +33,7 @@ type executionsService struct {
 	snapshots   service.Snapshots
 	services    service.Services
 	uploads     service.Uploads
+	questions   service.Questions
 	drivers     repository.Driver
 	dir         *statedir.Dir
 	runner      config.Runner
@@ -42,6 +43,7 @@ type executionsService struct {
 	now         func() time.Time
 
 	preparing chan string
+	resuming  chan resumption
 
 	mu       sync.Mutex
 	held     map[string]entity.Execution
@@ -60,6 +62,7 @@ func New(
 	snapshots service.Snapshots,
 	services service.Services,
 	uploads service.Uploads,
+	questions service.Questions,
 	drivers repository.Driver,
 	dir *statedir.Dir,
 	runner config.Runner,
@@ -76,6 +79,7 @@ func New(
 		snapshots:   snapshots,
 		services:    services,
 		uploads:     uploads,
+		questions:   questions,
 		drivers:     drivers,
 		dir:         dir,
 		runner:      runner,
@@ -84,6 +88,7 @@ func New(
 		driver:      driver,
 		now:         func() time.Time { return time.Now().UTC() },
 		preparing:   make(chan string, waitingToPrepare),
+		resuming:    make(chan resumption, waitingToPrepare),
 		held:        map[string]entity.Execution{},
 		work:        map[string]context.CancelFunc{},
 		owed:        map[string]bool{},
@@ -497,6 +502,8 @@ func (s *executionsService) record(
 }
 
 func (s *executionsService) teardown(ctx context.Context, executionID string) error {
+	s.questions.Forget(executionID)
+
 	if err := s.services.Release(context.WithoutCancel(ctx), executionID); err != nil {
 		logging.From(ctx).WarnContext(
 			ctx,

@@ -164,6 +164,17 @@ func adviceFor(err error) (int, string, string) {
 		return http.StatusConflict, ReasonRefused,
 			err.Error()
 
+	case errors.Is(err, entity.ErrQuestionUnknownRun):
+		return http.StatusNotFound, ReasonRefused,
+			err.Error()
+
+	case errors.Is(err, entity.ErrQuestionEmpty),
+		errors.Is(err, entity.ErrQuestionCrowded),
+		errors.Is(err, entity.ErrQuestionUnreachable),
+		errors.Is(err, entity.ErrQuestionUndeclared):
+		return http.StatusUnprocessableEntity, ReasonRefused,
+			err.Error()
+
 	case errors.Is(err, entity.ErrServiceUnknown):
 		return http.StatusNotFound, ReasonRefused,
 			err.Error()

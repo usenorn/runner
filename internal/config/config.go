@@ -19,6 +19,7 @@ type Config struct {
 	Supervisor Supervisor `mapstructure:"supervisor"`
 	Driver     Driver     `mapstructure:"driver"`
 	Upload     Upload     `mapstructure:"upload"`
+	Questions  Questions  `mapstructure:"questions"`
 }
 
 type Driver struct {
@@ -27,6 +28,11 @@ type Driver struct {
 	SessionTimeout time.Duration `mapstructure:"session_timeout"`
 	StopGrace      time.Duration `mapstructure:"stop_grace"`
 	ResumeAttempts int           `mapstructure:"resume_attempts"`
+}
+
+type Questions struct {
+	SoftWait time.Duration `mapstructure:"soft_wait"`
+	MaxWait  time.Duration `mapstructure:"max_wait"`
 }
 
 type Upload struct {

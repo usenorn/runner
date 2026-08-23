@@ -236,6 +236,8 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("driver.session_timeout", 4*time.Hour)
 	v.SetDefault("driver.stop_grace", 15*time.Second)
 	v.SetDefault("driver.resume_attempts", defaultResumeAttempts)
+	v.SetDefault("questions.soft_wait", time.Minute)
+	v.SetDefault("questions.max_wait", 10*time.Minute)
 
 	v.SetDefault("upload.enabled", true)
 	v.SetDefault("upload.batch", defaultUploadBatch)
@@ -461,6 +463,10 @@ func validate(cfg Config) error {
 		return err
 	}
 
+	if err := validateQuestions(cfg.Questions); err != nil {
+		return err
+	}
+
 	return validateUpdate(cfg.Update)
 }
 
@@ -480,6 +486,23 @@ func validateDriver(driver Driver) error {
 
 	if driver.ResumeAttempts < 0 {
 		return fmt.Errorf("driver.resume_attempts cannot be negative")
+	}
+
+	return nil
+}
+
+func validateQuestions(questions Questions) error {
+	if questions.SoftWait <= 0 || questions.MaxWait <= 0 {
+		return fmt.Errorf("questions.soft_wait and questions.max_wait must both be positive")
+	}
+
+	if questions.SoftWait > questions.MaxWait {
+		return fmt.Errorf(
+			"questions.soft_wait (%s) is longer than questions.max_wait (%s), so the ceiling on "+
+				"how long a coding agent may hold a turn open would sit below the wait every "+
+				"question gets by default",
+			questions.SoftWait, questions.MaxWait,
+		)
 	}
 
 	return nil

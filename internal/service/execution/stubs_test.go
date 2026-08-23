@@ -53,10 +53,12 @@ type driverStub struct {
 	resumed  []entity.DriverSession
 	injected []string
 	stopped  int
+	played   chan struct{}
 }
 
 func newDriverStub() *driverStub {
 	return &driverStub{
+		played:  make(chan struct{}, 8),
 		scripts: []script{finishes("session-01", "the work is committed")},
 		health: entity.DriverHealth{
 			Kind:      entity.DriverClaude,
@@ -120,7 +122,25 @@ func (d *driverStub) play() (repository.Session, error) {
 		return nil, next.err
 	}
 
-	return newSessionStub(d, next), nil
+	held := newSessionStub(d, next)
+
+	select {
+	case d.played <- struct{}{}:
+	default:
+	}
+
+	return held, nil
+}
+
+func (d *driverStub) playing() <-chan struct{} {
+	return d.played
+}
+
+func (d *driverStub) injections() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	return append([]string(nil), d.injected...)
 }
 
 func (d *driverStub) began() []entity.Task {

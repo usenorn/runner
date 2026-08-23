@@ -66,6 +66,20 @@ func TestTheTaskTellsTheAgentToStayPutCommitAndLeaveTheRemoteAlone(t *testing.T)
 	}
 }
 
+func TestTheTaskTellsTheAgentHowToAskAPersonRatherThanGuess(t *testing.T) {
+	task := entity.ComposeTask(delegated(), copied(), entity.RunPlan{Source: entity.PlanNone})
+
+	for _, wanted := range []string{"norn ask", "--option", "--meanwhile"} {
+		if !strings.Contains(task.Prompt, wanted) {
+			t.Fatalf(
+				"the standing rules never say %q, so an agent that needs a decision has no way "+
+					"to know it can ask for one and will guess:\n%s",
+				wanted, task.Prompt,
+			)
+		}
+	}
+}
+
 func TestARunPlanIsPointedAtOnlyWhenTheCodebaseHasOne(t *testing.T) {
 	without := entity.ComposeTask(delegated(), copied(), entity.RunPlan{
 		Source: entity.PlanNone,

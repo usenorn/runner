@@ -179,6 +179,42 @@ func (s *Services) Step(
 	return s.line(fmt.Sprintf("%s finished in %s", result.Name, result.Took))
 }
 
+func (s *Services) Ask(
+	ctx context.Context,
+	executionID string,
+	request control.QuestionRequest,
+	asJSON bool,
+) error {
+	run, err := s.run(executionID)
+	if err != nil {
+		return err
+	}
+
+	answered, err := s.client.Ask(ctx, run, request)
+	if err != nil {
+		return err
+	}
+
+	if asJSON {
+		return s.encode(answered)
+	}
+
+	switch answered.Status {
+	case string(entity.AskAnswered):
+		return s.line(said(answered) + "\n\n" + answered.Answer)
+	default:
+		return s.line(answered.Advice)
+	}
+}
+
+func said(answered control.QuestionAnswer) string {
+	if answered.AnsweredBy == "" {
+		return "Somebody answered:"
+	}
+
+	return answered.AnsweredBy + " answered:"
+}
+
 func (s *Services) run(executionID string) (string, error) {
 	if executionID != "" {
 		return executionID, nil

@@ -27,6 +27,7 @@ type Server struct {
 	channels   service.Channels
 	executions service.Executions
 	services   service.Services
+	questions  service.Questions
 	build      entity.Build
 	startedAt  time.Time
 	handler    http.Handler
@@ -44,6 +45,7 @@ func NewServer(
 	channels service.Channels,
 	executions service.Executions,
 	services service.Services,
+	questions service.Questions,
 	build entity.Build,
 ) *Server {
 	server := &Server{
@@ -58,6 +60,7 @@ func NewServer(
 		channels:   channels,
 		executions: executions,
 		services:   services,
+		questions:  questions,
 		build:      build,
 		startedAt:  time.Now().UTC(),
 	}
@@ -79,6 +82,7 @@ func NewServer(
 	mux.HandleFunc("POST "+ServiceRestartPath, server.restartService)
 	mux.HandleFunc("GET "+ServiceLogsPath, server.serviceLogs)
 	mux.HandleFunc("POST "+StepsPath, server.step)
+	mux.HandleFunc("POST "+QuestionsPath, server.ask)
 
 	server.handler = recovering(mux)
 
@@ -111,7 +115,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 
 	status.Codebases = s.heldCodebases(r)
 	status.Channel = channelOf(s.channels.Report(r.Context()))
-	status.Scheduler = schedulerOf(s.executions.Report(r.Context()))
+	status.Scheduler = s.schedulerOf(s.executions.Report(r.Context()))
 	status.Driver = driverOf(s.executions.Driver(r.Context()))
 
 	identity, err := s.enrolments.Current(r.Context())
@@ -168,7 +172,7 @@ func driverOf(health entity.DriverHealth) Driver {
 	}
 }
 
-func schedulerOf(report entity.SchedulerReport) Scheduler {
+func (s *Server) schedulerOf(report entity.SchedulerReport) Scheduler {
 	held := Scheduler{
 		Capacity:   report.Capacity,
 		Used:       report.Used,
@@ -183,13 +187,19 @@ func schedulerOf(report entity.SchedulerReport) Scheduler {
 	}
 
 	for _, execution := range report.Executions {
-		held.Executions = append(held.Executions, executionOf(execution, true))
+		held.Executions = append(held.Executions, s.executionOf(execution, true))
 	}
 
 	return held
 }
 
-func executionOf(execution entity.Execution, held bool) Execution {
+func (s *Server) executionOf(execution entity.Execution, held bool) Execution {
+	waiting := ""
+
+	if question, stopped := s.questions.Waiting(execution.ID); stopped {
+		waiting = question.Message
+	}
+
 	return Execution{
 		ID:         execution.ID,
 		Reference:  execution.Reference,
@@ -202,6 +212,7 @@ func executionOf(execution entity.Execution, held bool) Execution {
 		AcceptedAt: execution.AcceptedAt,
 		StartedAt:  optionalTime(execution.StartedAt),
 		Lease:      optionalTime(execution.Lease),
+		Waiting:    waiting,
 	}
 }
 
@@ -223,7 +234,7 @@ func (s *Server) runs(w http.ResponseWriter, r *http.Request) {
 	executions := make([]Execution, 0, len(found))
 
 	for _, execution := range found {
-		executions = append(executions, executionOf(execution, holding[execution.ID]))
+		executions = append(executions, s.executionOf(execution, holding[execution.ID]))
 	}
 
 	respond(w, r, http.StatusOK, executions)
