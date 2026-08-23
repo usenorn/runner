@@ -19,6 +19,8 @@ const (
 	RunDriverFile      = "driver.json"
 	RunServicesFile    = "services.json"
 	RunMCPFile         = "mcp.json"
+
+	RunTimelineLine = 1 << 20
 )
 
 type PrepareStep string

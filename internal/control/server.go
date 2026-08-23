@@ -156,13 +156,13 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pause(w http.ResponseWriter, r *http.Request) {
-	s.executions.Pause()
+	s.executions.Pause(r.Context())
 
 	respond(w, r, http.StatusOK, Paused{Paused: true})
 }
 
 func (s *Server) resume(w http.ResponseWriter, r *http.Request) {
-	s.executions.Resume()
+	s.executions.Resume(r.Context())
 	s.channels.Wake()
 
 	respond(w, r, http.StatusOK, Paused{Paused: false})
@@ -195,6 +195,7 @@ func (s *Server) schedulerOf(report entity.SchedulerReport) Scheduler {
 		Used:       report.Used,
 		Paused:     report.Paused,
 		Watermark:  report.Room.Watermark,
+		Retention:  retentionOf(report.Runs, s.runner.Retention),
 		Executions: make([]Execution, 0, len(report.Executions)),
 	}
 
@@ -208,6 +209,17 @@ func (s *Server) schedulerOf(report entity.SchedulerReport) Scheduler {
 	}
 
 	return held
+}
+
+func retentionOf(report entity.RunsReport, keeping config.Retention) Retention {
+	return Retention{
+		Runs:               report.Runs,
+		Bytes:              report.Bytes,
+		Budget:             keeping.RunsMaxDisk,
+		WorkspaceAfterDone: keeping.WorkspaceAfterDone.String(),
+		RunsMaxAge:         keeping.RunsMaxAge.String(),
+		SweptAt:            optionalTime(report.SweptAt),
+	}
 }
 
 func (s *Server) executionOf(execution entity.Execution, held bool) Execution {

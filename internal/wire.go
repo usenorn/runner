@@ -33,6 +33,7 @@ import (
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
+	schedulingrepo "github.com/usenorn/runner/internal/repository/scheduling"
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
@@ -74,6 +75,7 @@ var baseSet = wire.NewSet(
 	materialiserrepo.Set,
 	settingsrepo.Set,
 	runrepo.Set,
+	schedulingrepo.Set,
 	spoolrepo.Set,
 	channelrepo.Set,
 	diskrepo.Set,

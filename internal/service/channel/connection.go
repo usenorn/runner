@@ -171,11 +171,11 @@ func (c *connection) act(ctx context.Context, message channelv1.Message) error {
 			AnsweredAt: answer.AnsweredAt,
 		})
 	case channelv1.RunnerPause:
-		c.service.executions.Pause()
+		c.service.executions.Pause(ctx)
 
 		return nil
 	case channelv1.RunnerResume:
-		c.service.executions.Resume()
+		c.service.executions.Resume(ctx)
 
 		return nil
 	case channelv1.RunnerConfigure:

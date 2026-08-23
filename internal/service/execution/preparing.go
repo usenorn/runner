@@ -30,6 +30,8 @@ func (f failure) Unwrap() error {
 }
 
 func (s *executionsService) Run(ctx context.Context) {
+	s.standing(ctx)
+
 	if err := s.reclaim(ctx); err != nil {
 		logging.From(ctx).WarnContext(
 			ctx,
@@ -39,6 +41,14 @@ func (s *executionsService) Run(ctx context.Context) {
 	}
 
 	var working sync.WaitGroup
+
+	working.Add(1)
+
+	go func() {
+		defer working.Done()
+
+		s.collect(ctx)
+	}()
 
 	for {
 		select {
@@ -64,6 +74,32 @@ func (s *executionsService) Run(ctx context.Context) {
 			}()
 		}
 	}
+}
+
+func (s *executionsService) standing(ctx context.Context) {
+	paused, err := s.scheduling.Paused(ctx)
+	if err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not read back whether it was paused, so it is taking work",
+			slog.String("error", err.Error()),
+		)
+
+		return
+	}
+
+	if !paused {
+		return
+	}
+
+	s.mu.Lock()
+	s.paused = true
+	s.mu.Unlock()
+
+	logging.From(ctx).InfoContext(
+		ctx,
+		"this machine was paused when it last stopped and is still not taking work",
+	)
 }
 
 func (s *executionsService) reclaim(ctx context.Context) error {
@@ -143,14 +179,14 @@ func (s *executionsService) prepare(base context.Context, executionID string) {
 
 	switch {
 	case owed:
-		s.complain(settled, executionID, s.teardown(settled, executionID))
+		s.complain(settled, executionID, s.finished(settled, executionID))
 	case base.Err() != nil:
 		// The machine is stopping, not the run. It stays written down as it was, and the reclaim
 		// on the way back in is what says it was interrupted; failing it here would settle a run
 		// against a lease norn may still hold.
 	case err != nil:
 		s.complain(settled, executionID, s.fail(settled, execution, err.Error()))
-		s.complain(settled, executionID, s.teardown(settled, executionID))
+		s.complain(settled, executionID, s.finished(settled, executionID))
 	}
 }
 

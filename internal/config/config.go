@@ -97,6 +97,7 @@ type Retention struct {
 	WorkspaceAfterDone time.Duration `mapstructure:"workspace_after_done"`
 	RunsMaxAge         time.Duration `mapstructure:"runs_max_age"`
 	RunsMaxDisk        int64         `mapstructure:"runs_max_disk"`
+	SweepInterval      time.Duration `mapstructure:"sweep_interval"`
 }
 
 type App struct {

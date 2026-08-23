@@ -43,6 +43,7 @@ type Execution struct {
 	Lease       time.Time
 	AcceptedAt  time.Time
 	StartedAt   time.Time
+	SettledAt   time.Time
 }
 
 func ExecutionOf(offer channelv1.Offer, root string, acceptedAt time.Time) Execution {
@@ -76,6 +77,10 @@ func (e Execution) Finished() bool {
 	return e.State.Terminal()
 }
 
+func (e Execution) Reported() bool {
+	return e.Finished() && e.State.RunnerDriven()
+}
+
 func (e Execution) CanReport(state ExecutionState) bool {
 	return state.RunnerDriven() && e.State.CanTransitionTo(state)
 }
@@ -95,6 +100,7 @@ type SchedulerReport struct {
 	Used       int
 	Paused     bool
 	Room       Room
+	Runs       RunsReport
 	Executions []Execution
 }
 

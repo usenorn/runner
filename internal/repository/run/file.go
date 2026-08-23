@@ -50,6 +50,7 @@ type storedTask struct {
 	Lease       time.Time `json:"leaseExpiresAt,omitzero"`
 	AcceptedAt  time.Time `json:"acceptedAt"`
 	StartedAt   time.Time `json:"startedAt,omitzero"`
+	SettledAt   time.Time `json:"settledAt,omitzero"`
 }
 
 type storedPatch struct {
@@ -122,6 +123,24 @@ func (r *fileRun) Open(_ context.Context, name string) (string, error) {
 	}
 
 	return path, nil
+}
+
+func (r *fileRun) Retire(_ context.Context, name string) error {
+	path := r.dir.Run(name)
+
+	leaving := []string{
+		filepath.Join(path, entity.RunWorkspaceDir),
+		filepath.Join(path, entity.RunArtifactsDir),
+		filepath.Join(path, entity.RunMetadataDir, entity.RunMCPFile),
+	}
+
+	for _, child := range leaving {
+		if err := os.RemoveAll(child); err != nil {
+			return fmt.Errorf("remove %s: %w", child, err)
+		}
+	}
+
+	return nil
 }
 
 func (r *fileRun) Prune(_ context.Context, name string) error {
@@ -304,6 +323,7 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 		Lease:       held.Lease,
 		AcceptedAt:  held.AcceptedAt,
 		StartedAt:   held.StartedAt,
+		SettledAt:   held.SettledAt,
 	}, nil
 }
 
@@ -325,6 +345,7 @@ func storedTaskOf(execution entity.Execution) storedTask {
 		Lease:       execution.Lease,
 		AcceptedAt:  execution.AcceptedAt,
 		StartedAt:   execution.StartedAt,
+		SettledAt:   execution.SettledAt,
 	}
 }
 
@@ -465,4 +486,105 @@ func repositoryOf(held storedRepository) entity.SnapshotRepository {
 	}
 
 	return repository
+}
+
+func (r *fileRun) Usage(_ context.Context) ([]entity.RunUsage, error) {
+	entries, err := os.ReadDir(r.dir.Runs())
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("read %s: %w", r.dir.Runs(), err)
+	}
+
+	usage := make([]entity.RunUsage, 0, len(entries))
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		held, err := r.usageOf(entry.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		usage = append(usage, held)
+	}
+
+	return usage, nil
+}
+
+func (r *fileRun) usageOf(name string) (entity.RunUsage, error) {
+	path := r.dir.Run(name)
+
+	held := entity.RunUsage{Name: name, Workspace: kept(path)}
+
+	execution, err := r.readTask(name)
+	if err != nil {
+		return entity.RunUsage{}, err
+	}
+
+	if execution.ID != "" {
+		held.Finished = execution.Finished()
+		held.Settled = execution.SettledAt
+	}
+
+	bytes, err := occupied(path)
+	if err != nil {
+		return entity.RunUsage{}, err
+	}
+
+	held.Bytes = bytes
+
+	return held, nil
+}
+
+func kept(path string) bool {
+	for _, child := range []string{entity.RunWorkspaceDir, entity.RunArtifactsDir} {
+		if _, err := os.Stat(filepath.Join(path, child)); err == nil {
+			return true
+		}
+	}
+
+	return false
+}
+
+func occupied(path string) (int64, error) {
+	var held int64
+
+	err := filepath.WalkDir(path, func(_ string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+
+			return err
+		}
+
+		if entry.IsDir() {
+			return nil
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+
+			return err
+		}
+
+		if info.Mode().IsRegular() {
+			held += info.Size()
+		}
+
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("measure %s: %w", path, err)
+	}
+
+	return held, nil
 }

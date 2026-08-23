@@ -34,6 +34,7 @@ import (
 	"github.com/usenorn/runner/internal/repository/run"
 	"github.com/usenorn/runner/internal/repository/runtoken"
 	"github.com/usenorn/runner/internal/repository/scanner"
+	"github.com/usenorn/runner/internal/repository/scheduling"
 	"github.com/usenorn/runner/internal/repository/servicelog"
 	"github.com/usenorn/runner/internal/repository/settings"
 	"github.com/usenorn/runner/internal/repository/spool"
@@ -97,6 +98,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	repositorySpool := spool.New(dir)
 	repositoryRun := run.New(dir)
 	repositoryDisk := disk.New()
+	repositoryScheduling := scheduling.New(dir)
 	repositorySettings := settings.New()
 	configSnapshot := config.NewSnapshot(configConfig)
 	results := config.NewResults(configConfig)
@@ -120,7 +122,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	configDriver := config.NewDriver(configConfig)
 	repositoryDriver := driver.New(repositoryProcess, configDriver)
 	scheduler := config.NewScheduler(configConfig)
-	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, dir, runner, app, scheduler, configDriver)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, dir, runner, app, scheduler, configDriver)
 	configSpool := config.NewSpool(configConfig)
 	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, serviceQuestions, configChannel, configSpool, app)
 	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, executions, services, serviceQuestions, previews, uploads, runToken, build)
@@ -259,8 +261,8 @@ func InitScheduling(cfgFile string, overrides config.Overrides) (*Scheduling, fu
 	}
 	bearer := control.NewBearer()
 	client := control.NewClient(configControl, questions, dir, bearer)
-	scheduling := NewScheduling(client)
-	return scheduling, func() {
+	internalScheduling := NewScheduling(client)
+	return internalScheduling, func() {
 	}, nil
 }
 
@@ -340,7 +342,7 @@ func InitMCPServer(cfgFile string, overrides config.Overrides) (*mcpserver.Serve
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, spool.Set, channel.Set, disk.Set, process.Set, port.Set, servicelog.Set, driver.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, control.Set, mcpserver.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, disk.Set, process.Set, port.Set, servicelog.Set, driver.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, control.Set, mcpserver.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,

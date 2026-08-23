@@ -218,6 +218,20 @@ func (mr *MockRunMockRecorder) Remove(ctx, name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockRun)(nil).Remove), ctx, name)
 }
 
+// Retire mocks base method.
+func (m *MockRun) Retire(ctx context.Context, name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Retire", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Retire indicates an expected call of Retire.
+func (mr *MockRunMockRecorder) Retire(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retire", reflect.TypeOf((*MockRun)(nil).Retire), ctx, name)
+}
+
 // Save mocks base method.
 func (m *MockRun) Save(ctx context.Context, snapshot entity.Snapshot) error {
 	m.ctrl.T.Helper()
@@ -301,4 +315,19 @@ func (m *MockRun) Timeline(ctx context.Context, name string) ([]entity.TimelineE
 func (mr *MockRunMockRecorder) Timeline(ctx, name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Timeline", reflect.TypeOf((*MockRun)(nil).Timeline), ctx, name)
+}
+
+// Usage mocks base method.
+func (m *MockRun) Usage(ctx context.Context) ([]entity.RunUsage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Usage", ctx)
+	ret0, _ := ret[0].([]entity.RunUsage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Usage indicates an expected call of Usage.
+func (mr *MockRunMockRecorder) Usage(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Usage", reflect.TypeOf((*MockRun)(nil).Usage), ctx)
 }

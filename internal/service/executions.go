@@ -17,8 +17,8 @@ type Executions interface {
 	Cancel(ctx context.Context, executionID string, reason string) error
 	Continue(ctx context.Context, executionID string, instruction channelv1.Instruction) error
 	Reconcile(ctx context.Context, leased []string) error
-	Pause()
-	Resume()
+	Pause(ctx context.Context)
+	Resume(ctx context.Context)
 	Configure(configuration channelv1.Configuration)
 	Greeting() channelv1.Hello
 	Pulse(ctx context.Context) channelv1.Pulse

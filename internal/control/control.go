@@ -91,7 +91,17 @@ type Scheduler struct {
 	Paused     bool        `json:"paused"`
 	FreeDisk   *int64      `json:"freeDisk,omitempty"`
 	Watermark  int64       `json:"watermark"`
+	Retention  Retention   `json:"retention"`
 	Executions []Execution `json:"executions,omitempty"`
+}
+
+type Retention struct {
+	Runs               int        `json:"runs"`
+	Bytes              int64      `json:"bytes"`
+	Budget             int64      `json:"budget"`
+	WorkspaceAfterDone string     `json:"workspaceAfterDone"`
+	RunsMaxAge         string     `json:"runsMaxAge"`
+	SweptAt            *time.Time `json:"sweptAt,omitempty"`
 }
 
 type Driver struct {

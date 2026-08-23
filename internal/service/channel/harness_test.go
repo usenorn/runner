@@ -212,6 +212,7 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		runStub{},
 		h.spool,
 		diskStub{},
+		schedulingStub{},
 		settingsStub{},
 		inventoryStub{},
 		snapshotStub{},

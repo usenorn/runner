@@ -29,6 +29,7 @@ import (
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
+	schedulingrepo "github.com/usenorn/runner/internal/repository/scheduling"
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
@@ -208,6 +209,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		runrepo.New(dir),
 		spool,
 		disks,
+		schedulingrepo.New(dir),
 		settingsrepo.New(),
 		inventoryrepo.New(dir),
 		snapshotsvc.New(
@@ -226,7 +228,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		tokens,
 		driverStub{},
 		dir,
-		config.Runner{Capacity: 2},
+		config.Runner{Capacity: 2, Retention: keeping()},
 		config.App{Version: "test"},
 		config.Scheduler{},
 		config.Driver{
@@ -254,7 +256,12 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 
 	if handler == nil {
 		handler = control.NewServer(
-			config.Runner{Server: "https://norn.example", Capacity: 4, Runtime: config.RuntimeAuto},
+			config.Runner{
+				Server:    "https://norn.example",
+				Capacity:  4,
+				Runtime:   config.RuntimeAuto,
+				Retention: keeping(),
+			},
 			config.State{Root: dir.Root(), ConfigFile: dir.Config()},
 			config.App{Version: "test"},
 			dir,
@@ -365,6 +372,15 @@ func (driverStub) Resume(
 
 func questionSettings() config.Questions {
 	return config.Questions{SoftWait: 300 * time.Millisecond, MaxWait: time.Second}
+}
+
+func keeping() config.Retention {
+	return config.Retention{
+		WorkspaceAfterDone: 30 * time.Minute,
+		RunsMaxAge:         14 * 24 * time.Hour,
+		RunsMaxDisk:        20 << 30,
+		SweepInterval:      time.Hour,
+	}
 }
 
 func results() config.Results {

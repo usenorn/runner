@@ -23,6 +23,7 @@ import (
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
+	schedulingrepo "github.com/usenorn/runner/internal/repository/scheduling"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
@@ -100,16 +101,42 @@ func newHarness(t *testing.T, capacity int, watermark int64) *harness {
 		t.Fatalf("make a state directory: %v", err)
 	}
 
-	return build(t, dir, capacity, watermark, 100<<30)
+	return build(t, dir, capacity, watermark, 100<<30, keeping())
+}
+
+func newHarnessKeeping(t *testing.T, retention config.Retention) *harness {
+	t.Helper()
+
+	dir, err := statedir.New(config.State{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("make a state directory: %v", err)
+	}
+
+	return build(t, dir, 2, 0, 100<<30, retention)
+}
+
+func keeping() config.Retention {
+	return config.Retention{
+		WorkspaceAfterDone: 30 * time.Minute,
+		RunsMaxAge:         14 * 24 * time.Hour,
+		RunsMaxDisk:        20 << 30,
+		SweepInterval:      time.Hour,
+	}
 }
 
 func newHarnessOver(t *testing.T, first *harness, capacity int, watermark int64) *harness {
 	t.Helper()
 
-	return build(t, first.dir, capacity, watermark, first.free)
+	return build(t, first.dir, capacity, watermark, first.free, keeping())
 }
 
-func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64) *harness {
+func build(
+	t *testing.T,
+	dir *statedir.Dir,
+	capacity int,
+	watermark, free int64,
+	retention config.Retention,
+) *harness {
 	t.Helper()
 
 	controller := gomock.NewController(t)
@@ -163,6 +190,7 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		h.runs,
 		h.spool,
 		h.disks,
+		schedulingrepo.New(dir),
 		h.settings,
 		h.inventories,
 		h.snapshots,
@@ -174,7 +202,7 @@ func build(t *testing.T, dir *statedir.Dir, capacity int, watermark, free int64)
 		h.tokens,
 		h.drivers,
 		dir,
-		config.Runner{Capacity: capacity},
+		config.Runner{Capacity: capacity, Retention: retention},
 		config.App{Version: "1.4.0"},
 		config.Scheduler{MinFreeDisk: watermark},
 		config.Driver{

@@ -382,6 +382,8 @@ func (r *fileRun) Timeline(_ context.Context, name string) ([]entity.TimelineEnt
 	entries := []entity.TimelineEntry{}
 	lines := bufio.NewScanner(file)
 
+	lines.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), entity.RunTimelineLine)
+
 	for lines.Scan() {
 		var held storedEntry
 

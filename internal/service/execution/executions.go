@@ -28,6 +28,7 @@ type executionsService struct {
 	runs        repository.Run
 	spool       repository.Spool
 	disks       repository.Disk
+	scheduling  repository.Scheduling
 	settings    repository.Settings
 	inventories repository.Inventory
 	snapshots   service.Snapshots
@@ -56,12 +57,14 @@ type executionsService struct {
 	commits  map[string]bool
 	capacity int
 	paused   bool
+	usage    entity.RunsReport
 }
 
 func New(
 	runs repository.Run,
 	spool repository.Spool,
 	disks repository.Disk,
+	scheduling repository.Scheduling,
 	settings repository.Settings,
 	inventories repository.Inventory,
 	snapshots service.Snapshots,
@@ -82,6 +85,7 @@ func New(
 		runs:        runs,
 		spool:       spool,
 		disks:       disks,
+		scheduling:  scheduling,
 		settings:    settings,
 		inventories: inventories,
 		snapshots:   snapshots,
@@ -221,7 +225,7 @@ func (s *executionsService) Cancel(ctx context.Context, executionID, reason stri
 		return nil
 	}
 
-	return s.teardown(ctx, executionID)
+	return s.finished(ctx, executionID)
 }
 
 func (s *executionsService) Reconcile(ctx context.Context, leased []string) error {
@@ -272,18 +276,28 @@ func (s *executionsService) Reconcile(ctx context.Context, leased []string) erro
 	return nil
 }
 
-func (s *executionsService) Pause() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.paused = true
+func (s *executionsService) Pause(ctx context.Context) {
+	s.standby(ctx, true)
 }
 
-func (s *executionsService) Resume() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *executionsService) Resume(ctx context.Context) {
+	s.standby(ctx, false)
+}
 
-	s.paused = false
+func (s *executionsService) standby(ctx context.Context, paused bool) {
+	s.mu.Lock()
+	s.paused = paused
+	s.mu.Unlock()
+
+	if err := s.scheduling.Pause(context.WithoutCancel(ctx), paused); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not write down whether it is taking work, so a restart will "+
+				"forget it",
+			slog.Bool("paused", paused),
+			slog.String("error", err.Error()),
+		)
+	}
 }
 
 func (s *executionsService) Configure(configuration channelv1.Configuration) {
@@ -344,6 +358,7 @@ func (s *executionsService) Report(ctx context.Context) entity.SchedulerReport {
 	report := entity.SchedulerReport{
 		Capacity:   s.capacity,
 		Paused:     s.paused,
+		Runs:       s.usage,
 		Executions: make([]entity.Execution, 0, len(s.held)),
 	}
 
@@ -386,6 +401,10 @@ func (s *executionsService) room(ctx context.Context) entity.Room {
 }
 
 func (s *executionsService) stranded(ctx context.Context, executionID string) error {
+	if held, err := s.runs.LoadTask(ctx, executionID); err == nil && held.Reported() {
+		return nil
+	}
+
 	logging.From(ctx).WarnContext(
 		ctx,
 		"norn believes this machine holds a run it cannot find",
@@ -429,6 +448,10 @@ func (s *executionsService) settle(
 
 	execution.State = state
 
+	if state.Terminal() {
+		execution.SettledAt = s.now()
+	}
+
 	if err := s.runs.SaveTask(context.WithoutCancel(ctx), execution); err != nil {
 		logging.From(ctx).WarnContext(
 			ctx,
@@ -456,7 +479,19 @@ func (s *executionsService) move(
 		return fmt.Errorf("%w: %s to %s", entity.ErrExecutionRefused, execution.State, state)
 	}
 
+	s.mu.Lock()
+	_, holding := s.held[execution.ID]
+	s.mu.Unlock()
+
+	if !holding {
+		return fmt.Errorf("%w: %s", entity.ErrExecutionUnknown, execution.ID)
+	}
+
 	execution.State = state
+
+	if state.Terminal() {
+		execution.SettledAt = s.now()
+	}
 
 	if err := s.runs.SaveTask(ctx, execution); err != nil {
 		return err

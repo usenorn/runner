@@ -45,6 +45,14 @@ func TestDefaultsProduceAUsableConfigWithoutAnyFile(t *testing.T) {
 		t.Fatalf("runs_max_age defaulted to %s, want 336h", cfg.Runner.Retention.RunsMaxAge)
 	}
 
+	if cfg.Runner.Retention.SweepInterval != 5*time.Minute {
+		t.Fatalf(
+			"retention.sweep_interval defaulted to %s, want 5m. Without a sweep nothing this "+
+				"machine finishes is ever cleared away",
+			cfg.Runner.Retention.SweepInterval,
+		)
+	}
+
 	if cfg.Session.RefreshLead != 2*time.Minute {
 		t.Fatalf("session.refresh_lead defaulted to %s, want 2m", cfg.Session.RefreshLead)
 	}
