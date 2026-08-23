@@ -43,6 +43,7 @@ type Execution struct {
 	Lease       time.Time
 	AcceptedAt  time.Time
 	StartedAt   time.Time
+	SettledAt   time.Time
 }
 
 func ExecutionOf(offer channelv1.Offer, root string, acceptedAt time.Time) Execution {
@@ -95,6 +96,7 @@ type SchedulerReport struct {
 	Used       int
 	Paused     bool
 	Room       Room
+	Runs       RunsReport
 	Executions []Execution
 }
 

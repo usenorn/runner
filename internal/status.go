@@ -75,7 +75,7 @@ func (s *Status) table(status control.Status) error {
 	rows = append(rows, [2]string{"session", s.session(status)})
 	rows = append(rows, [2]string{"channel", channelLine(status.Channel)})
 	rows = append(rows, [2]string{"coding agent", driverLine(status.Driver)})
-	rows = append(rows, schedulerRows(status.Scheduler)...)
+	rows = append(rows, schedulerRows(status.Scheduler, s.now().UTC())...)
 	rows = append(rows, codebaseRows(status.Codebases)...)
 	rows = append(rows, [2]string{"update", updateLine(status.Update)})
 
@@ -122,7 +122,39 @@ func driverLine(driver control.Driver) string {
 	return line + ", signed in"
 }
 
-func schedulerRows(scheduler control.Scheduler) [][2]string {
+func span(written string) string {
+	held, err := time.ParseDuration(written)
+	if err != nil {
+		return written
+	}
+
+	return entity.Span(held)
+}
+
+func runsLine(retention control.Retention, now time.Time) string {
+	line := fmt.Sprintf(
+		"%d kept, %s of %s, workspaces given back after %s, runs kept %s",
+		retention.Runs,
+		entity.ByteSize(retention.Bytes),
+		entity.ByteSize(retention.Budget),
+		span(retention.WorkspaceAfterDone),
+		span(retention.RunsMaxAge),
+	)
+
+	if retention.SweptAt == nil {
+		return line + " — not looked at yet"
+	}
+
+	line += fmt.Sprintf(", last looked at %s ago", now.Sub(*retention.SweptAt).Round(time.Second))
+
+	if retention.Bytes > retention.Budget {
+		line += " — everything over that is still working"
+	}
+
+	return line
+}
+
+func schedulerRows(scheduler control.Scheduler, now time.Time) [][2]string {
 	slots := fmt.Sprintf("%d of %d in use", scheduler.Used, scheduler.Capacity)
 
 	if scheduler.Paused {
@@ -144,6 +176,8 @@ func schedulerRows(scheduler control.Scheduler) [][2]string {
 
 		rows = append(rows, [2]string{"disk", room})
 	}
+
+	rows = append(rows, [2]string{"runs", runsLine(scheduler.Retention, now)})
 
 	for _, execution := range scheduler.Executions {
 		line := fmt.Sprintf("%s %s, %s", execution.Reference, execution.State, execution.ID)

@@ -14,7 +14,9 @@ type Run interface {
 	Save(ctx context.Context, snapshot entity.Snapshot) error
 	Load(ctx context.Context, name string) (entity.Snapshot, error)
 	List(ctx context.Context) ([]entity.Snapshot, error)
+	Usage(ctx context.Context) ([]entity.RunUsage, error)
 	Remove(ctx context.Context, name string) error
+	Retire(ctx context.Context, name string) error
 	Prune(ctx context.Context, name string) error
 	SaveTask(ctx context.Context, execution entity.Execution) error
 	LoadTask(ctx context.Context, name string) (entity.Execution, error)

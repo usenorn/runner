@@ -154,15 +154,15 @@ func (mr *MockExecutionsMockRecorder) Offer(ctx, offer any) *gomock.Call {
 }
 
 // Pause mocks base method.
-func (m *MockExecutions) Pause() {
+func (m *MockExecutions) Pause(ctx context.Context) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Pause")
+	m.ctrl.Call(m, "Pause", ctx)
 }
 
 // Pause indicates an expected call of Pause.
-func (mr *MockExecutionsMockRecorder) Pause() *gomock.Call {
+func (mr *MockExecutionsMockRecorder) Pause(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pause", reflect.TypeOf((*MockExecutions)(nil).Pause))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pause", reflect.TypeOf((*MockExecutions)(nil).Pause), ctx)
 }
 
 // Progress mocks base method.
@@ -222,15 +222,15 @@ func (mr *MockExecutionsMockRecorder) Report(ctx any) *gomock.Call {
 }
 
 // Resume mocks base method.
-func (m *MockExecutions) Resume() {
+func (m *MockExecutions) Resume(ctx context.Context) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Resume")
+	m.ctrl.Call(m, "Resume", ctx)
 }
 
 // Resume indicates an expected call of Resume.
-func (mr *MockExecutionsMockRecorder) Resume() *gomock.Call {
+func (mr *MockExecutionsMockRecorder) Resume(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resume", reflect.TypeOf((*MockExecutions)(nil).Resume))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resume", reflect.TypeOf((*MockExecutions)(nil).Resume), ctx)
 }
 
 // Run mocks base method.

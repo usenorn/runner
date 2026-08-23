@@ -234,7 +234,7 @@ func TestACodingAgentThatIsNotSignedInFailsTheRunBeforeAWorkspaceIsCopied(t *tes
 	}
 }
 
-func TestCancellingARunStopsTheAgentAndGivesTheWorkspaceBack(t *testing.T) {
+func TestCancellingARunStopsTheAgentAndKeepsItsWorkspaceForAWhile(t *testing.T) {
 	h := newHarness(t, 2, 0)
 
 	h.drivers.scripts = []script{holds("session-01")}
@@ -265,11 +265,17 @@ func TestCancellingARunStopsTheAgentAndGivesTheWorkspaceBack(t *testing.T) {
 		return h.drivers.stopped > 0
 	})
 
-	h.await(t, "waited for the workspace to be given back", func() bool {
-		_, err := os.Stat(filepath.Join(h.dir.Run("exec-01ABC"), entity.RunWorkspaceDir))
+	h.awaitNote(t, "kept here for 30m0s")
 
-		return os.IsNotExist(err)
-	})
+	if _, err := os.Stat(
+		filepath.Join(h.dir.Run("exec-01ABC"), entity.RunWorkspaceDir),
+	); err != nil {
+		t.Fatalf(
+			"the workspace of a cancelled run was deleted straight away, so there is nothing "+
+				"left for a person to look at: %v",
+			err,
+		)
+	}
 }
 
 func TestWhatTheMachineDecidedAboutPermissionsIsWrittenDownWithTheRun(t *testing.T) {

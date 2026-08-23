@@ -30,6 +30,10 @@ func (s *executionsService) Continue(
 		return nil
 	}
 
+	if instruction.Reason == channelv1.ResumeApproved && execution.State.Parked() {
+		return s.approve(ctx, execution)
+	}
+
 	if !execution.State.Parked() {
 		logging.From(ctx).InfoContext(
 			ctx,
@@ -81,11 +85,11 @@ func (s *executionsService) resume(base context.Context, held resumption) {
 
 	switch {
 	case owed:
-		s.complain(settled, held.executionID, s.teardown(settled, held.executionID))
+		s.complain(settled, held.executionID, s.finished(settled, held.executionID))
 	case base.Err() != nil:
 	case err != nil:
 		s.complain(settled, held.executionID, s.fail(settled, execution, err.Error()))
-		s.complain(settled, held.executionID, s.teardown(settled, held.executionID))
+		s.complain(settled, held.executionID, s.finished(settled, held.executionID))
 	}
 }
 

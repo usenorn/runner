@@ -184,6 +184,7 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("retention.workspace_after_done", 30*time.Minute)
 	v.SetDefault("retention.runs_max_age", 14*24*time.Hour)
 	v.SetDefault("retention.runs_max_disk", int64(20)<<30)
+	v.SetDefault("retention.sweep_interval", 5*time.Minute)
 
 	v.SetDefault("app.version", defaultVersion)
 	v.SetDefault("app.log_level", "info")
@@ -781,6 +782,10 @@ func validateRetention(retention Retention) error {
 
 	if retention.RunsMaxDisk <= 0 {
 		return fmt.Errorf("retention.runs_max_disk must be positive")
+	}
+
+	if retention.SweepInterval <= 0 {
+		return fmt.Errorf("retention.sweep_interval must be positive")
 	}
 
 	return nil

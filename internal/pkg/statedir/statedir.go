@@ -12,12 +12,13 @@ const (
 	dirMode  = 0o700
 	fileMode = 0o600
 
-	configFile   = "runner.yaml"
-	identityFile = "identity.json"
-	secretsFile  = "credentials.enc"
-	socketFile   = "runner.sock"
-	lockFile     = "runner.lock"
-	logFile      = "runner.log"
+	configFile     = "runner.yaml"
+	identityFile   = "identity.json"
+	secretsFile    = "credentials.enc"
+	socketFile     = "runner.sock"
+	schedulingFile = "scheduling.json"
+	lockFile       = "runner.lock"
+	logFile        = "runner.log"
 
 	codebasesDir = "codebases"
 	runsDir      = "runs"
@@ -66,6 +67,8 @@ func (d *Dir) Credentials() string { return filepath.Join(d.root, secretsFile) }
 func (d *Dir) Socket() string { return filepath.Join(d.root, socketFile) }
 
 func (d *Dir) Lock() string { return filepath.Join(d.root, lockFile) }
+
+func (d *Dir) Scheduling() string { return filepath.Join(d.root, schedulingFile) }
 
 func (d *Dir) Codebases() string { return filepath.Join(d.root, codebasesDir) }
 

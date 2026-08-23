@@ -28,6 +28,10 @@ func (runStub) List(context.Context) ([]entity.Snapshot, error) { return nil, ni
 
 func (runStub) Remove(context.Context, string) error { return nil }
 
+func (runStub) Retire(context.Context, string) error { return nil }
+
+func (runStub) Usage(context.Context) ([]entity.RunUsage, error) { return nil, nil }
+
 func (runStub) SaveTask(context.Context, entity.Execution) error { return nil }
 
 func (runStub) LoadTask(context.Context, string) (entity.Execution, error) {
@@ -199,3 +203,9 @@ func (uploadStub) Attach(
 ) (entity.ArtifactReceipt, error) {
 	return entity.ArtifactReceipt{}, nil
 }
+
+type schedulingStub struct{}
+
+func (schedulingStub) Paused(context.Context) (bool, error) { return false, nil }
+
+func (schedulingStub) Pause(context.Context, bool) error { return nil }

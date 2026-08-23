@@ -15,6 +15,7 @@ import (
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/entity"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
+	schedulingrepo "github.com/usenorn/runner/internal/repository/scheduling"
 )
 
 func TestStatusAnswersOverTheSocketWithWhatTheRunnerIs(t *testing.T) {
@@ -188,6 +189,33 @@ func TestStatusSaysWhetherThisMachineIsTalkingToNornAndHowFullItIs(t *testing.T)
 	}
 }
 
+func TestStatusSaysWhatThisMachineKeepsAndForHowLong(t *testing.T) {
+	h := newHarness(t, nil)
+
+	status, err := h.client.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	keeping := status.Scheduler.Retention
+
+	if keeping.Budget != 20<<30 {
+		t.Fatalf(
+			"status reports a budget of %d bytes; without it somebody debugging a machine that "+
+				"is filling its disk cannot see what it keeps back",
+			keeping.Budget,
+		)
+	}
+
+	if keeping.WorkspaceAfterDone != "30m0s" || keeping.RunsMaxAge != "336h0m0s" {
+		t.Fatalf(
+			"status says workspaces are kept %q and runs %q, so a person cannot tell when their "+
+				"workspace is going to disappear",
+			keeping.WorkspaceAfterDone, keeping.RunsMaxAge,
+		)
+	}
+}
+
 func TestPausingAndResumingThisMachineTakesEffectWithoutARestart(t *testing.T) {
 	h := newHarness(t, nil)
 	ctx := context.Background()
@@ -226,6 +254,27 @@ func TestPausingAndResumingThisMachineTakesEffectWithoutARestart(t *testing.T) {
 
 	if status.Scheduler.Paused {
 		t.Fatalf("status still reports the machine as paused")
+	}
+}
+
+func TestAMachineSomebodyPausedIsStillPausedWhenTheDaemonComesBack(t *testing.T) {
+	h := newHarness(t, nil)
+	ctx := context.Background()
+
+	if _, err := h.client.Pause(ctx); err != nil {
+		t.Fatalf("pause: %v", err)
+	}
+
+	paused, err := schedulingrepo.New(h.dir).Paused(ctx)
+	if err != nil {
+		t.Fatalf("read back whether the machine is paused: %v", err)
+	}
+
+	if !paused {
+		t.Fatalf(
+			"pausing over the socket wrote nothing down, so a machine restarted by launchd or " +
+				"systemd would quietly start taking work again",
+		)
 	}
 }
 

@@ -189,7 +189,7 @@ func TestAPausedMachineTakesNoWorkUntilItIsResumed(t *testing.T) {
 	h := newHarness(t, 4, 0)
 	ctx := context.Background()
 
-	h.service.Pause()
+	h.service.Pause(context.Background())
 
 	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
 		t.Fatalf("offer: %v", err)
@@ -205,7 +205,7 @@ func TestAPausedMachineTakesNoWorkUntilItIsResumed(t *testing.T) {
 		t.Fatalf("the machine does not say it is paused")
 	}
 
-	h.service.Resume()
+	h.service.Resume(context.Background())
 
 	if err := h.service.Offer(ctx, h.offer("exec-01DEF")); err != nil {
 		t.Fatalf("second offer: %v", err)
