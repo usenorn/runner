@@ -249,6 +249,7 @@ func (s *executionsService) fill(
 		Run:          execution.ID,
 		LocalChanges: localChangesFor(execution),
 		Base:         entity.BasePolicy(execution.BaseRef),
+		Branch:       execution.Branch,
 		Branches:     s.reused(ctx, execution),
 	})
 	if err != nil {

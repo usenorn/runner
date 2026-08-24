@@ -127,6 +127,7 @@ type Snapshot struct {
 	Run          string
 	Workspace    string
 	IssueKey     string
+	Branch       string
 	Attempt      int
 	CodebaseID   uuid.UUID
 	CodebaseRoot string

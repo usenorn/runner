@@ -124,7 +124,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	configDriver := config.NewDriver(configConfig)
 	repositoryDriver := driver.New(repositoryProcess, configDriver)
 	scheduler := config.NewScheduler(configConfig)
-	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, dir, runner, app, scheduler, configDriver)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, sessions, changeSets, runToken, repositoryDriver, dir, runner, app, scheduler, configDriver)
 	configSpool := config.NewSpool(configConfig)
 	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, serviceQuestions, configChannel, configSpool, app)
 	configTunnel := config.NewTunnel(configConfig)

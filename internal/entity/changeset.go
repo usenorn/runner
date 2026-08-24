@@ -24,6 +24,9 @@ var (
 	)
 	ErrPushNowhere = errors.New("that repository has no remote to push to")
 	ErrForgeAbsent = errors.New("no pull request tool on this machine is signed in")
+	ErrBranchMoved = errors.New(
+		"the branch this repository is on is not the one the snapshot put it on",
+	)
 )
 
 type ForgeKind string
@@ -168,10 +171,16 @@ func PullRequestTitle(issueKey, title string) string {
 	return clip(named, ChangeSetRepositoryMax)
 }
 
+type PreviewLink struct {
+	Name    string
+	Address string
+}
+
 func PullRequestBody(
 	issueKey, issueTitle string,
 	completion Completion,
 	change RepositoryChange,
+	previews []PreviewLink,
 	attributed bool,
 ) string {
 	var said strings.Builder
@@ -188,6 +197,14 @@ func PullRequestBody(
 		&said, "Issue: %s %s\nBranch: %s\nChanges: %s\n",
 		issueKey, strings.TrimSpace(issueTitle), change.Branch, change.Rendered(),
 	)
+
+	for _, preview := range previews {
+		if preview.Address == "" {
+			continue
+		}
+
+		fmt.Fprintf(&said, "Preview: %s %s\n", preview.Name, preview.Address)
+	}
 
 	if attributed {
 		said.WriteString("\n" + attributionLine + "\n")

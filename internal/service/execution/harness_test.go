@@ -45,6 +45,7 @@ type harness struct {
 	dir         *statedir.Dir
 	runs        repository.Run
 	previews    service.Previews
+	serving     service.Sessions
 	tokens      repository.RunToken
 	spool       repository.Spool
 	disks       *diskrepo.MockDisk
@@ -203,6 +204,7 @@ func build(
 	)
 
 	h.previews = previewsvc.New(h.runs, h.spool)
+	h.serving = servingStub{}
 	h.changesets = changesetsvc.New(
 		h.runs, h.spool, h.worktrees, h.forges, h.uploads, results(),
 	)
@@ -220,6 +222,7 @@ func build(
 		h.uploads,
 		h.questions,
 		h.previews,
+		h.serving,
 		h.changesets,
 		h.tokens,
 		h.drivers,
@@ -737,3 +740,31 @@ func results() config.Results {
 		MaxDiffBytes: 1 << 20,
 	}
 }
+
+type servingStub struct{}
+
+func (servingStub) Run(context.Context) {}
+
+func (servingStub) Access(context.Context) (string, error) { return "", nil }
+
+func (servingStub) Ticket(context.Context) (string, error) { return "", nil }
+
+func (servingStub) TunnelTicket(context.Context) (entity.TunnelTicket, error) {
+	return entity.TunnelTicket{}, nil
+}
+
+func (servingStub) Previews() entity.PreviewService {
+	return entity.PreviewService{
+		Gateway: "gateway.norn.ink",
+		Domain:  "norn.ink",
+		Scheme:  "https",
+	}
+}
+
+func (servingStub) Report() entity.SessionReport { return entity.SessionReport{} }
+
+func (servingStub) Adopt(context.Context, entity.Identity) entity.SessionReport {
+	return entity.SessionReport{}
+}
+
+func (servingStub) Forget() {}

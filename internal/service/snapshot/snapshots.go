@@ -82,6 +82,7 @@ func (s *snapshotsService) Take(
 	snapshot := entity.Snapshot{
 		Name:         nameFor(request),
 		IssueKey:     request.IssueKey,
+		Branch:       request.Branch,
 		Attempt:      max(request.Attempt, 1),
 		CodebaseID:   codebase.ID,
 		CodebaseRoot: codebase.RootPath,
@@ -382,6 +383,10 @@ func (s *snapshotsService) codebaseFor(
 func branchFor(reused string, snapshot entity.Snapshot, held entity.Repository) string {
 	if reused != "" {
 		return reused
+	}
+
+	if snapshot.Branch != "" {
+		return snapshot.Branch
 	}
 
 	return entity.BranchFor(snapshot.IssueKey, held.Name, snapshot.Attempt)

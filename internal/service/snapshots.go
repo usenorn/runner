@@ -15,6 +15,7 @@ type TakeRequest struct {
 	LocalChanges entity.LocalChanges
 	Base         entity.BasePolicy
 	Run          string
+	Branch       string
 	Branches     map[string]string
 }
 

@@ -36,6 +36,7 @@ type executionsService struct {
 	uploads     service.Uploads
 	questions   service.Questions
 	previews    service.Previews
+	serving     service.Sessions
 	changesets  service.ChangeSets
 	tokens      repository.RunToken
 	drivers     repository.Driver
@@ -72,6 +73,7 @@ func New(
 	uploads service.Uploads,
 	questions service.Questions,
 	previews service.Previews,
+	serving service.Sessions,
 	changesets service.ChangeSets,
 	tokens repository.RunToken,
 	drivers repository.Driver,
@@ -93,6 +95,7 @@ func New(
 		uploads:     uploads,
 		questions:   questions,
 		previews:    previews,
+		serving:     serving,
 		changesets:  changesets,
 		tokens:      tokens,
 		drivers:     drivers,

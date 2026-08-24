@@ -143,7 +143,7 @@ func TestAPullRequestBodySaysWhatChangedAndWhichIssueItIsFor(t *testing.T) {
 			Branch:   "norn/NORN-54/backend",
 			Commits:  3,
 			Diffstat: entity.Diffstat{Additions: 412, Deletions: 77, Files: 9},
-		},
+		}, nil,
 		false,
 	)
 
@@ -161,7 +161,7 @@ func TestNornKeepsItsNameOutOfAPullRequestUnlessItIsAskedFor(t *testing.T) {
 	change := entity.RepositoryChange{Branch: "norn/NORN-54/backend"}
 
 	quiet := entity.PullRequestBody(
-		"NORN-54", "Finalising", entity.Completion{Summary: "a change"}, change, false,
+		"NORN-54", "Finalising", entity.Completion{Summary: "a change"}, change, nil, false,
 	)
 
 	if strings.Contains(quiet, "Opened by norn") {
@@ -173,7 +173,7 @@ func TestNornKeepsItsNameOutOfAPullRequestUnlessItIsAskedFor(t *testing.T) {
 	}
 
 	signed := entity.PullRequestBody(
-		"NORN-54", "Finalising", entity.Completion{Summary: "a change"}, change, true,
+		"NORN-54", "Finalising", entity.Completion{Summary: "a change"}, change, nil, true,
 	)
 
 	if !strings.Contains(signed, "Opened by norn") {

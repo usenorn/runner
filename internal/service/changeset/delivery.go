@@ -15,6 +15,7 @@ func (s *changeSetsService) deliver(
 	snapshot entity.Snapshot,
 	changes entity.ChangeSet,
 	completion entity.Completion,
+	previews []entity.PreviewLink,
 ) entity.ChangeSet {
 	sources := make(map[string]entity.SnapshotRepository, len(snapshot.Repositories))
 
@@ -37,7 +38,7 @@ func (s *changeSetsService) deliver(
 		}
 
 		changes.Repositories[index].PullRequest = s.request(
-			ctx, execution, held, change, completion,
+			ctx, execution, held, change, completion, previews,
 		)
 	}
 
@@ -50,6 +51,12 @@ func (s *changeSetsService) push(
 	held entity.SnapshotRepository,
 	change entity.RepositoryChange,
 ) bool {
+	if change.Branch != held.Branch {
+		s.tell(ctx, execution.ID, entity.PushRefused(held.Name, change.Branch, entity.ErrBranchMoved))
+
+		return false
+	}
+
 	url, err := s.worktrees.Remote(ctx, held.Source)
 	if err != nil {
 		s.tell(ctx, execution.ID, entity.PushSkipped(held.Name, err))
@@ -74,6 +81,7 @@ func (s *changeSetsService) request(
 	held entity.SnapshotRepository,
 	change entity.RepositoryChange,
 	completion entity.Completion,
+	previews []entity.PreviewLink,
 ) string {
 	if _, available := s.forges.Available(ctx, held.Path); !available {
 		s.tell(ctx, execution.ID, entity.PullRequestSkipped(held.Name))
@@ -87,12 +95,22 @@ func (s *changeSetsService) request(
 		return already
 	}
 
+	title, fromTitle := entity.ScrubbedForForge(
+		entity.PullRequestTitle(execution.IssueKey, execution.Title),
+	)
+
+	body, fromBody := entity.ScrubbedForForge(entity.PullRequestBody(
+		execution.IssueKey, execution.Title, completion, change, previews,
+		s.results.Attribution == config.AttributionStandard,
+	))
+
+	if scrubbed := entity.Scrubs(fromTitle, fromBody); len(scrubbed) > 0 {
+		s.tell(ctx, execution.ID, entity.PullRequestScrubbed(held.Name, scrubbed))
+	}
+
 	address, err := s.forges.Open(ctx, held.Path, entity.PullRequest{
-		Title: entity.PullRequestTitle(execution.IssueKey, execution.Title),
-		Body: entity.PullRequestBody(
-			execution.IssueKey, execution.Title, completion, change,
-			s.results.Attribution == config.AttributionStandard,
-		),
+		Title:  title,
+		Body:   body,
 		Branch: change.Branch,
 	})
 	if err != nil {

@@ -3,6 +3,7 @@ package changeset_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ type harness struct {
 	spool     repository.Spool
 	worktrees *worktreerepo.MockWorktree
 	forges    *forgerepo.MockForge
+	previews  []entity.PreviewLink
 	uploads   *uploadsvc.MockUploads
 	service   service.ChangeSets
 
@@ -157,6 +159,7 @@ func (h *harness) publish(t *testing.T, summary string) entity.ChangeSet {
 
 	changes, err := h.service.Publish(
 		context.Background(), h.execution, h.snapshot, entity.Completion{Summary: summary},
+		h.previews,
 	)
 	if err != nil {
 		t.Fatalf("publish what the run changed: %v", err)
@@ -194,4 +197,21 @@ func decodeInto[T any](t *testing.T, message channelv1.Message) T {
 	}
 
 	return held
+}
+
+func (h *harness) noted(t *testing.T, fragment string) bool {
+	t.Helper()
+
+	timeline, err := h.runs.Timeline(context.Background(), h.execution.ID)
+	if err != nil {
+		t.Fatalf("read the run's timeline: %v", err)
+	}
+
+	for _, entry := range timeline {
+		if strings.Contains(entry.Reason, fragment) {
+			return true
+		}
+	}
+
+	return false
 }
