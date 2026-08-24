@@ -111,6 +111,21 @@ func (mr *MockExecutionsMockRecorder) Driver(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Driver", reflect.TypeOf((*MockExecutions)(nil).Driver), ctx)
 }
 
+// Get mocks base method.
+func (m *MockExecutions) Get(ctx context.Context, executionID string) (entity.Execution, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", ctx, executionID)
+	ret0, _ := ret[0].(entity.Execution)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockExecutionsMockRecorder) Get(ctx, executionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockExecutions)(nil).Get), ctx, executionID)
+}
+
 // Greeting mocks base method.
 func (m *MockExecutions) Greeting() channelv1.Hello {
 	m.ctrl.T.Helper()

@@ -283,6 +283,14 @@ func TestOpeningAPreviewRegistersThePairNornWillLetPeopleThrough(t *testing.T) {
 	if registered[0].State != channelv1.PreviewOpen {
 		t.Fatalf("the preview was registered as %q, want open", registered[0].State)
 	}
+
+	if registered[0].Port != 43111 {
+		t.Fatalf(
+			"the registration carries port %d, want 43111. Norn derives the address from the "+
+				"port, so a registration without one leaves the preview with no address at all",
+			registered[0].Port,
+		)
+	}
 }
 
 func TestClosingAPreviewTellsNornToStopLettingPeopleThrough(t *testing.T) {
@@ -344,5 +352,80 @@ func TestGivingARunBackClosesEveryPreviewItStillHeldWithNorn(t *testing.T) {
 				name,
 			)
 		}
+	}
+}
+
+func TestOnePortHoldsOnePreviewHoweverManyNamesAreAskedForIt(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+
+	h.running(t, "exec-01ONCE", serving("web", 43111, entity.ServiceHealthy))
+
+	for _, name := range []string{"issue-description", "web"} {
+		if _, err := h.service.Expose(ctx, "exec-01ONCE", entity.Preview{
+			Name:    name,
+			Service: "web",
+		}); err != nil {
+			t.Fatalf("open the %s preview: %v", name, err)
+		}
+	}
+
+	open, err := h.service.List(ctx, "exec-01ONCE")
+	if err != nil {
+		t.Fatalf("list what is open: %v", err)
+	}
+
+	if len(open) != 1 || open[0].Name != "web" {
+		t.Fatalf(
+			"one port came back as %+v. Norn derives one address from a port, so a second name "+
+				"on it is the same preview under another label, not another preview",
+			open,
+		)
+	}
+
+	for _, registered := range h.registered(t) {
+		if registered.State == channelv1.PreviewClosed {
+			t.Fatal(
+				"norn was told a preview closed when it was only renamed. That is the one row " +
+					"the address still points at, so every link already shared would go dead",
+			)
+		}
+	}
+}
+
+func TestMovingANameToAnotherPortClosesThePortItLeft(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+
+	h.running(
+		t, "exec-01MOVE",
+		serving("web", 43111, entity.ServiceHealthy),
+		serving("api", 43112, entity.ServiceHealthy),
+	)
+
+	for _, service := range []string{"web", "api"} {
+		if _, err := h.service.Expose(ctx, "exec-01MOVE", entity.Preview{
+			Name:    "preview",
+			Service: service,
+		}); err != nil {
+			t.Fatalf("open the %s preview: %v", service, err)
+		}
+	}
+
+	closed := map[int]bool{}
+
+	for _, registered := range h.registered(t) {
+		closed[registered.Port] = registered.State == channelv1.PreviewClosed
+	}
+
+	if !closed[43111] {
+		t.Fatal(
+			"the name moved to another port and norn was never told the first one closed. Its " +
+				"address stays open against a service nobody is pointing at any more",
+		)
+	}
+
+	if closed[43112] {
+		t.Fatal("the port the name moved to was registered as closed")
 	}
 }

@@ -71,21 +71,40 @@ func (s *previewsService) Expose(
 		s.held[executionID] = holding
 	}
 
-	if _, standing := holding[exposed.Name]; !standing && len(holding) >= entity.PreviewsMax {
+	replaced, standing := holding[exposed.Name]
+	sharing := heldOnPort(holding, exposed.Port)
+
+	if !standing && sharing == "" && len(holding) >= entity.PreviewsMax {
 		s.mu.Unlock()
 
 		return entity.Preview{}, fmt.Errorf("%w: %d", entity.ErrPreviewCrowded, entity.PreviewsMax)
 	}
 
+	delete(holding, sharing)
+
 	holding[exposed.Name] = exposed
 
 	s.mu.Unlock()
+
+	if standing && replaced.Port != exposed.Port {
+		s.tell(ctx, executionID, replaced, channelv1.PreviewClosed, replaced.Name+" is closed")
+	}
 
 	s.tell(ctx, executionID, exposed, channelv1.PreviewOpen, fmt.Sprintf(
 		"%s is open at %s, on the service %s", exposed.Name, exposed.URL, exposed.Service,
 	))
 
 	return exposed, nil
+}
+
+func heldOnPort(holding map[string]entity.Preview, port int) string {
+	for name, preview := range holding {
+		if preview.Port == port {
+			return name
+		}
+	}
+
+	return ""
 }
 
 func (s *previewsService) Close(
@@ -277,6 +296,7 @@ func (s *previewsService) register(
 		Name:     preview.Name,
 		Service:  preview.Service,
 		Path:     preview.Path,
+		Port:     preview.Port,
 		State:    state,
 		Occurred: occurred,
 	})
