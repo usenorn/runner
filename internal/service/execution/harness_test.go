@@ -203,8 +203,8 @@ func build(
 		h.runs, h.spool, config.Questions{SoftWait: 20 * time.Millisecond, MaxWait: time.Second},
 	)
 
-	h.previews = previewsvc.New(h.runs, h.spool)
 	h.serving = servingStub{}
+	h.previews = previewsvc.New(h.runs, h.spool, h.serving)
 	h.changesets = changesetsvc.New(
 		h.runs, h.spool, h.worktrees, h.forges, h.uploads, results(),
 	)
@@ -222,7 +222,6 @@ func build(
 		h.uploads,
 		h.questions,
 		h.previews,
-		h.serving,
 		h.changesets,
 		h.tokens,
 		h.drivers,

@@ -10,7 +10,7 @@ import (
 
 type exposePreviewInput struct {
 	Service string `json:"service" jsonschema:"the service to open; it has to be one norn is running for this run"`
-	Name    string `json:"name,omitempty" jsonschema:"what to call this preview; defaults to the service's name"`
+	Name    string `json:"name,omitempty" jsonschema:"what to call this preview where a person reads it; it is a label and never part of the address, which norn derives from the issue, the run and the port; defaults to the service's name"`
 	Path    string `json:"path,omitempty" jsonschema:"the path to open at, like /admin"`
 }
 

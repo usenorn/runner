@@ -43,8 +43,40 @@ func newHarness(t *testing.T) *harness {
 	runs := runrepo.New(dir)
 	spool := spoolrepo.New(dir)
 
-	return &harness{runs: runs, spool: spool, service: previewsvc.New(runs, spool)}
+	return &harness{
+		runs:    runs,
+		spool:   spool,
+		service: previewsvc.New(runs, spool, sessionStub{}),
+	}
 }
+
+type sessionStub struct{}
+
+func (sessionStub) Run(context.Context) {}
+
+func (sessionStub) Access(context.Context) (string, error) { return "", nil }
+
+func (sessionStub) Ticket(context.Context) (string, error) { return "", nil }
+
+func (sessionStub) TunnelTicket(context.Context) (entity.TunnelTicket, error) {
+	return entity.TunnelTicket{}, nil
+}
+
+func (sessionStub) Previews() entity.PreviewService {
+	return entity.PreviewService{
+		Gateway: "gateway.norn.ink",
+		Domain:  "norn.ink",
+		Scheme:  "https",
+	}
+}
+
+func (sessionStub) Report() entity.SessionReport { return entity.SessionReport{} }
+
+func (sessionStub) Adopt(context.Context, entity.Identity) entity.SessionReport {
+	return entity.SessionReport{}
+}
+
+func (sessionStub) Forget() {}
 
 func (h *harness) running(t *testing.T, executionID string, records ...entity.ServiceRecord) {
 	t.Helper()

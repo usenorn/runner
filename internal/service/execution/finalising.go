@@ -105,17 +105,14 @@ func (s *executionsService) previewLinks(
 		return nil
 	}
 
-	serving := s.serving.Previews()
-
 	links := make([]entity.PreviewLink, 0, len(open))
 
 	for _, preview := range open {
-		address := serving.Address(preview.Name, executionID, preview.Path)
-		if address == "" {
+		if preview.Shared == "" {
 			continue
 		}
 
-		links = append(links, entity.PreviewLink{Name: preview.Name, Address: address})
+		links = append(links, entity.PreviewLink{Name: preview.Name, Address: preview.Shared})
 	}
 
 	return links

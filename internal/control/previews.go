@@ -15,7 +15,7 @@ func (s *Server) runPreviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, r, http.StatusOK, s.previewsOf(r.PathValue("executionId"), open))
+	respond(w, r, http.StatusOK, s.previewsOf(open))
 }
 
 func (s *Server) exposePreview(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func (s *Server) exposePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, r, http.StatusOK, s.previewOf(r.PathValue("executionId"), exposed))
+	respond(w, r, http.StatusOK, s.previewOf(exposed))
 }
 
 func (s *Server) closePreview(w http.ResponseWriter, r *http.Request) {
@@ -53,22 +53,20 @@ func (s *Server) closePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, r, http.StatusOK, s.previewOf(r.PathValue("executionId"), closed))
+	respond(w, r, http.StatusOK, s.previewOf(closed))
 }
 
-func (s *Server) previewsOf(executionID string, open []entity.Preview) []Preview {
+func (s *Server) previewsOf(open []entity.Preview) []Preview {
 	previews := make([]Preview, 0, len(open))
 
 	for _, preview := range open {
-		previews = append(previews, s.previewOf(executionID, preview))
+		previews = append(previews, s.previewOf(preview))
 	}
 
 	return previews
 }
 
-func (s *Server) previewOf(executionID string, preview entity.Preview) Preview {
-	serving := s.sessions.Previews()
-	shared := serving.Address(preview.Name, executionID, preview.Path)
+func (s *Server) previewOf(preview entity.Preview) Preview {
 	live := s.tunnels.Report().State == entity.TunnelLive
 
 	return Preview{
@@ -77,8 +75,8 @@ func (s *Server) previewOf(executionID string, preview entity.Preview) Preview {
 		Path:      preview.Path,
 		Port:      preview.Port,
 		URL:       preview.URL,
-		Shared:    shared,
-		Reach:     reachOf(shared, live),
+		Shared:    preview.Shared,
+		Reach:     reachOf(preview.Shared, live),
 		ExposedAt: preview.ExposedAt,
 	}
 }

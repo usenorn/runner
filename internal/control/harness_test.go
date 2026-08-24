@@ -209,7 +209,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		supervisorSettings(),
 	)
 
-	previews := previewsvc.New(runrepo.New(dir), spool)
+	previews := previewsvc.New(runrepo.New(dir), spool, sessionStub{})
 	tokens := runtokenrepo.New()
 
 	executions := executionsvc.New(
@@ -231,7 +231,6 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		uploadStub{},
 		questions,
 		previews,
-		sessionStub{},
 		changesetStub{},
 		tokens,
 		driverStub{},
