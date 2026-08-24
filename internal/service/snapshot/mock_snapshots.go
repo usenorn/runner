@@ -71,6 +71,20 @@ func (mr *MockSnapshotsMockRecorder) List(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSnapshots)(nil).List), ctx)
 }
 
+// PruneWorktrees mocks base method.
+func (m *MockSnapshots) PruneWorktrees(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PruneWorktrees", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PruneWorktrees indicates an expected call of PruneWorktrees.
+func (mr *MockSnapshotsMockRecorder) PruneWorktrees(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PruneWorktrees", reflect.TypeOf((*MockSnapshots)(nil).PruneWorktrees), ctx)
+}
+
 // Release mocks base method.
 func (m *MockSnapshots) Release(ctx context.Context, name string) error {
 	m.ctrl.T.Helper()

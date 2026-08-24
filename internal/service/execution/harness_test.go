@@ -278,6 +278,11 @@ func (h *harness) expect() {
 		DoAndReturn(h.release).
 		AnyTimes()
 
+	h.snapshots.EXPECT().
+		PruneWorktrees(gomock.Any()).
+		Return(nil).
+		AnyTimes()
+
 	h.services.EXPECT().
 		Release(gomock.Any(), gomock.Any()).
 		Return(nil).

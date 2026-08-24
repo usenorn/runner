@@ -401,6 +401,44 @@ func TestCloneModeProducesTheSameStartingPointAsAWorktree(t *testing.T) {
 	}
 }
 
+func TestPruningStaleWorktreesLetsANewExecutionTakeTheBranch(t *testing.T) {
+	source, _ := origin(t)
+	worktrees := maker(t)
+	base := git(t, source, "rev-parse", "HEAD")
+
+	left := filepath.Join(t.TempDir(), "left")
+
+	if err := worktrees.Add(context.Background(), source, left, base); err != nil {
+		t.Fatalf("add a worktree at %s: %v", left, err)
+	}
+
+	if err := worktrees.Branch(context.Background(), left, "norn/NORN-46/runner"); err != nil {
+		t.Fatalf("branch the worktree: %v", err)
+	}
+
+	if err := os.RemoveAll(left); err != nil {
+		t.Fatalf("remove the worktree directory: %v", err)
+	}
+
+	into := filepath.Join(t.TempDir(), "workspace")
+
+	if err := worktrees.Add(context.Background(), source, into, base); err != nil {
+		t.Fatalf("add a new worktree: %v", err)
+	}
+
+	if err := worktrees.Branch(context.Background(), into, "norn/NORN-46/runner"); err != nil {
+		t.Fatalf(
+			"a stale worktree registration blocked a fresh one even though the directory is "+
+				"gone: %v",
+			err,
+		)
+	}
+
+	if got := git(t, into, "rev-parse", "--abbrev-ref", "HEAD"); got != "norn/NORN-46/runner" {
+		t.Fatalf("the worktree is on %q", got)
+	}
+}
+
 func results() config.Results {
 	return config.Results{
 		CreatePRs:    config.PullRequestsAuto,

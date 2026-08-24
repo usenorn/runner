@@ -413,6 +413,21 @@ func (s *snapshotsService) Discard(ctx context.Context, name string) error {
 	return s.runs.Remove(ctx, name)
 }
 
+func (s *snapshotsService) PruneWorktrees(ctx context.Context) error {
+	codebases, err := s.inventories.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, codebase := range codebases {
+		if err := s.worktrees.Prune(ctx, codebase.RootPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (s *snapshotsService) release(
 	ctx context.Context,
 	repositories []entity.SnapshotRepository,

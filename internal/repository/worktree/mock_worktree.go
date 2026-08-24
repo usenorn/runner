@@ -216,6 +216,20 @@ func (mr *MockWorktreeMockRecorder) Patch(ctx, dest, base any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockWorktree)(nil).Patch), ctx, dest, base)
 }
 
+// Prune mocks base method.
+func (m *MockWorktree) Prune(ctx context.Context, repository string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Prune", ctx, repository)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Prune indicates an expected call of Prune.
+func (mr *MockWorktreeMockRecorder) Prune(ctx, repository any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prune", reflect.TypeOf((*MockWorktree)(nil).Prune), ctx, repository)
+}
+
 // Push mocks base method.
 func (m *MockWorktree) Push(ctx context.Context, dest, url, branch string) error {
 	m.ctrl.T.Helper()
