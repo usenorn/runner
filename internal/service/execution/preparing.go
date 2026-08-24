@@ -32,6 +32,14 @@ func (f failure) Unwrap() error {
 func (s *executionsService) Run(ctx context.Context) {
 	s.standing(ctx)
 
+	if err := s.snapshots.PruneWorktrees(ctx); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not prune stale worktree registrations",
+			slog.String("error", err.Error()),
+		)
+	}
+
 	if err := s.reclaim(ctx); err != nil {
 		logging.From(ctx).WarnContext(
 			ctx,

@@ -107,6 +107,8 @@ func (snapshotStub) Release(context.Context, string) error { return nil }
 
 func (snapshotStub) Discard(context.Context, string) error { return nil }
 
+func (snapshotStub) PruneWorktrees(context.Context) error { return nil }
+
 type servicesStub struct{}
 
 func (servicesStub) Run(context.Context) {}

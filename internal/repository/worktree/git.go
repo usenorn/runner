@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -92,6 +93,13 @@ func (r *gitWorktree) Branch(ctx context.Context, dest, name string) error {
 
 	if _, err := r.run(ctx, dest, "switch", "--quiet", name); err != nil {
 		if strings.Contains(err.Error(), "already used by worktree") {
+			stale, pruneErr := r.staleWorktreePath(ctx, dest, name)
+			if stale != "" && pruneErr == nil {
+				if _, removeErr := r.run(ctx, dest, "worktree", "remove", "--force", stale); removeErr == nil {
+					return r.Branch(ctx, dest, name)
+				}
+			}
+
 			return fmt.Errorf("%w: %s", entity.ErrSnapshotWorktreeExists, name)
 		}
 
@@ -99,6 +107,38 @@ func (r *gitWorktree) Branch(ctx context.Context, dest, name string) error {
 	}
 
 	return nil
+}
+
+func (r *gitWorktree) staleWorktreePath(ctx context.Context, repository, branch string) (string, error) {
+	out, err := r.run(ctx, repository, "worktree", "list", "--porcelain")
+	if err != nil {
+		return "", err
+	}
+
+	var path string
+
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "worktree ") {
+			path = strings.TrimPrefix(line, "worktree ")
+			continue
+		}
+
+		if strings.HasPrefix(line, "branch ") && strings.TrimPrefix(line, "branch ") == "refs/heads/"+branch {
+			if _, statErr := os.Stat(path); statErr != nil {
+				return path, nil
+			}
+
+			return "", nil
+		}
+	}
+
+	return "", nil
+}
+
+func (r *gitWorktree) Prune(ctx context.Context, repository string) error {
+	_, err := r.run(ctx, repository, "worktree", "prune")
+
+	return err
 }
 
 func (r *gitWorktree) Submodules(ctx context.Context, dest string) error {
