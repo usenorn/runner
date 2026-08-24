@@ -37,3 +37,47 @@ func TestAPreviewAddressLeadsToThePortAndThePath(t *testing.T) {
 		t.Fatalf("a preview address reads %q, which is not where the service is", address)
 	}
 }
+
+func TestASharedPreviewAddressIsTheIssueTheRunAndThePortAndNothingTheAgentNamedIt(t *testing.T) {
+	serving := entity.PreviewService{Gateway: "gateway.norn.ink", Domain: "norn.ink", Scheme: "https"}
+	execution := entity.Execution{
+		ID:       "exec-01M0SMJXBJ451KZ0MCQ6TY2GH1",
+		IssueKey: "NORN-75",
+		Title:    "A preview address must be one per task, execution and port",
+	}
+
+	want := "https://norn-75-a-preview-address-exec-01m0smjxbj451kz0mcq6ty2gh1-43000.norn.ink/admin"
+
+	if got := serving.Address(execution, 43000, "/admin"); got != want {
+		t.Fatalf(
+			"the address came out as %q, want %q. This is the link a pull request carries, so "+
+				"it has to be the one norn's gateway routes by",
+			got, want,
+		)
+	}
+}
+
+func TestTwoPreviewsOfOneRunShareAnAddressOnlyWhenTheyShareAPort(t *testing.T) {
+	serving := entity.PreviewService{Gateway: "gateway.norn.ink", Domain: "norn.ink", Scheme: "https"}
+	execution := entity.Execution{ID: "exec-01ABC", IssueKey: "NORN-75", Title: "Preview address"}
+
+	web := serving.Address(execution, 43000, "")
+	api := serving.Address(execution, 43001, "")
+	renamed := serving.Address(execution, 43000, "")
+
+	if web == api {
+		t.Fatalf(
+			"two ports of one run answered to the same address %q, so one preview would reach "+
+				"the other's service",
+			web,
+		)
+	}
+
+	if web != renamed {
+		t.Fatalf(
+			"the same port came out as %q and then %q. A link somebody already sent outside "+
+				"the workspace has to keep working for the life of the run",
+			web, renamed,
+		)
+	}
+}

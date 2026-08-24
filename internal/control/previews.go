@@ -8,14 +8,21 @@ import (
 )
 
 func (s *Server) runPreviews(w http.ResponseWriter, r *http.Request) {
-	open, err := s.previews.List(r.Context(), r.PathValue("executionId"))
+	execution, err := s.executions.Get(r.Context(), r.PathValue("executionId"))
 	if err != nil {
 		s.refuse(w, r, err)
 
 		return
 	}
 
-	respond(w, r, http.StatusOK, s.previewsOf(r.PathValue("executionId"), open))
+	open, err := s.previews.List(r.Context(), execution.ID)
+	if err != nil {
+		s.refuse(w, r, err)
+
+		return
+	}
+
+	respond(w, r, http.StatusOK, s.previewsOf(execution, open))
 }
 
 func (s *Server) exposePreview(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +36,14 @@ func (s *Server) exposePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exposed, err := s.previews.Expose(r.Context(), r.PathValue("executionId"), entity.Preview{
+	execution, err := s.executions.Get(r.Context(), r.PathValue("executionId"))
+	if err != nil {
+		s.refuse(w, r, err)
+
+		return
+	}
+
+	exposed, err := s.previews.Expose(r.Context(), execution.ID, entity.Preview{
 		Name:    request.Name,
 		Service: request.Service,
 		Path:    request.Path,
@@ -40,35 +54,40 @@ func (s *Server) exposePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, r, http.StatusOK, s.previewOf(r.PathValue("executionId"), exposed))
+	respond(w, r, http.StatusOK, s.previewOf(execution, exposed))
 }
 
 func (s *Server) closePreview(w http.ResponseWriter, r *http.Request) {
-	closed, err := s.previews.Close(
-		r.Context(), r.PathValue("executionId"), r.PathValue("preview"),
-	)
+	execution, err := s.executions.Get(r.Context(), r.PathValue("executionId"))
 	if err != nil {
 		s.refuse(w, r, err)
 
 		return
 	}
 
-	respond(w, r, http.StatusOK, s.previewOf(r.PathValue("executionId"), closed))
+	closed, err := s.previews.Close(r.Context(), execution.ID, r.PathValue("preview"))
+	if err != nil {
+		s.refuse(w, r, err)
+
+		return
+	}
+
+	respond(w, r, http.StatusOK, s.previewOf(execution, closed))
 }
 
-func (s *Server) previewsOf(executionID string, open []entity.Preview) []Preview {
+func (s *Server) previewsOf(execution entity.Execution, open []entity.Preview) []Preview {
 	previews := make([]Preview, 0, len(open))
 
 	for _, preview := range open {
-		previews = append(previews, s.previewOf(executionID, preview))
+		previews = append(previews, s.previewOf(execution, preview))
 	}
 
 	return previews
 }
 
-func (s *Server) previewOf(executionID string, preview entity.Preview) Preview {
+func (s *Server) previewOf(execution entity.Execution, preview entity.Preview) Preview {
 	serving := s.sessions.Previews()
-	shared := serving.Address(preview.Name, executionID, preview.Path)
+	shared := serving.Address(execution, preview.Port, preview.Path)
 	live := s.tunnels.Report().State == entity.TunnelLive
 
 	return Preview{

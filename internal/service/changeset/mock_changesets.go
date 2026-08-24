@@ -42,18 +42,18 @@ func (m *MockChangeSets) EXPECT() *MockChangeSetsMockRecorder {
 }
 
 // Publish mocks base method.
-func (m *MockChangeSets) Publish(ctx context.Context, execution entity.Execution, snapshot entity.Snapshot, completion entity.Completion) (entity.ChangeSet, error) {
+func (m *MockChangeSets) Publish(ctx context.Context, execution entity.Execution, snapshot entity.Snapshot, completion entity.Completion, previews []entity.PreviewLink) (entity.ChangeSet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", ctx, execution, snapshot, completion)
+	ret := m.ctrl.Call(m, "Publish", ctx, execution, snapshot, completion, previews)
 	ret0, _ := ret[0].(entity.ChangeSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Publish indicates an expected call of Publish.
-func (mr *MockChangeSetsMockRecorder) Publish(ctx, execution, snapshot, completion any) *gomock.Call {
+func (mr *MockChangeSetsMockRecorder) Publish(ctx, execution, snapshot, completion, previews any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockChangeSets)(nil).Publish), ctx, execution, snapshot, completion)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockChangeSets)(nil).Publish), ctx, execution, snapshot, completion, previews)
 }
 
 // Uncommitted mocks base method.

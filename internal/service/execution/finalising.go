@@ -28,7 +28,7 @@ func (s *executionsService) finalise(
 	}
 
 	changes, err := s.changesets.Publish(
-		ctx, execution, snapshot, completion, s.previewLinks(ctx, execution.ID),
+		ctx, execution, snapshot, completion, s.previewLinks(ctx, execution),
 	)
 	if err != nil {
 		return failure{step: entity.StepFinalise, err: err}
@@ -98,9 +98,9 @@ func (s *executionsService) asking(executionID string) {
 
 func (s *executionsService) previewLinks(
 	ctx context.Context,
-	executionID string,
+	execution entity.Execution,
 ) []entity.PreviewLink {
-	open, err := s.previews.List(ctx, executionID)
+	open, err := s.previews.List(ctx, execution.ID)
 	if err != nil || len(open) == 0 {
 		return nil
 	}
@@ -110,7 +110,7 @@ func (s *executionsService) previewLinks(
 	links := make([]entity.PreviewLink, 0, len(open))
 
 	for _, preview := range open {
-		address := serving.Address(preview.Name, executionID, preview.Path)
+		address := serving.Address(execution, preview.Port, preview.Path)
 		if address == "" {
 			continue
 		}

@@ -277,6 +277,7 @@ func (s *previewsService) register(
 		Name:     preview.Name,
 		Service:  preview.Service,
 		Path:     preview.Path,
+		Port:     preview.Port,
 		State:    state,
 		Occurred: occurred,
 	})

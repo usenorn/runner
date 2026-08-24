@@ -509,6 +509,21 @@ func (s *executionsService) stop(executionID string) bool {
 	return true
 }
 
+func (s *executionsService) Get(
+	ctx context.Context,
+	executionID string,
+) (entity.Execution, error) {
+	s.mu.Lock()
+	live, holding := s.held[executionID]
+	s.mu.Unlock()
+
+	if holding {
+		return live, nil
+	}
+
+	return s.runs.LoadTask(ctx, executionID)
+}
+
 func (s *executionsService) List(ctx context.Context) ([]entity.Execution, error) {
 	found, err := s.runs.LoadTasks(ctx)
 	if err != nil {

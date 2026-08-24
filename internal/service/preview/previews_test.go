@@ -283,6 +283,14 @@ func TestOpeningAPreviewRegistersThePairNornWillLetPeopleThrough(t *testing.T) {
 	if registered[0].State != channelv1.PreviewOpen {
 		t.Fatalf("the preview was registered as %q, want open", registered[0].State)
 	}
+
+	if registered[0].Port != 43111 {
+		t.Fatalf(
+			"the registration carries port %d, want 43111. Norn derives the address from the "+
+				"port, so a registration without one leaves the preview with no address at all",
+			registered[0].Port,
+		)
+	}
 }
 
 func TestClosingAPreviewTellsNornToStopLettingPeopleThrough(t *testing.T) {
