@@ -46,6 +46,8 @@ func (s *executionsService) Retain(
 		Occurred: s.now(),
 	})
 
+	s.kept(ctx, execution)
+
 	logging.From(ctx).InfoContext(
 		ctx,
 		"norn asked this machine to keep a run's workspace and previews for longer",

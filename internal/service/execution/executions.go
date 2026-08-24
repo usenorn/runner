@@ -468,6 +468,8 @@ func (s *executionsService) settle(
 		Reason:   reason,
 		Occurred: s.now(),
 	})
+
+	s.kept(ctx, execution)
 }
 
 func (s *executionsService) move(
@@ -509,11 +511,35 @@ func (s *executionsService) move(
 		Occurred: s.now(),
 	})
 
+	s.kept(ctx, execution)
+
 	return s.send(ctx, channelv1.ExecutionStateReport, execution.ID, channelv1.Report{
 		State:    string(state),
 		Reason:   reason,
 		Occurred: s.now(),
 	})
+}
+
+func (s *executionsService) kept(ctx context.Context, execution entity.Execution) {
+	keepUntil := entity.GiveBackAt(execution, s.runner.Retention.WorkspaceAfterDone)
+
+	if keepUntil.IsZero() {
+		return
+	}
+
+	if err := s.send(
+		context.WithoutCancel(ctx),
+		channelv1.ExecutionRetention,
+		execution.ID,
+		channelv1.Retention{KeepUntil: keepUntil},
+	); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not tell norn when it gives a run's workspace back",
+			slog.String("execution_id", execution.ID),
+			slog.String("error", err.Error()),
+		)
+	}
 }
 
 func (s *executionsService) note(

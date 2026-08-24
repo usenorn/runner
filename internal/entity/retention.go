@@ -33,6 +33,20 @@ func (u RunUsage) settled(now time.Time, after time.Duration) bool {
 	return !now.Before(u.Settled.Add(after))
 }
 
+func GiveBackAt(execution Execution, after time.Duration) time.Time {
+	if execution.SettledAt.IsZero() {
+		return execution.KeepUntil
+	}
+
+	given := execution.SettledAt.Add(after)
+
+	if execution.KeepUntil.After(given) {
+		return execution.KeepUntil
+	}
+
+	return given
+}
+
 func Occupied(runs []RunUsage) int64 {
 	var held int64
 
