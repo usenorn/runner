@@ -160,8 +160,6 @@ func UncommittedReason(left []UncommittedWork) string {
 	)
 }
 
-const attributionLine = "Opened by norn."
-
 func PullRequestTitle(issueKey, title string) string {
 	named := strings.TrimSpace(issueKey + " " + strings.TrimSpace(title))
 	if named == "" {
@@ -169,48 +167,6 @@ func PullRequestTitle(issueKey, title string) string {
 	}
 
 	return clip(named, ChangeSetRepositoryMax)
-}
-
-type PreviewLink struct {
-	Name    string
-	Address string
-}
-
-func PullRequestBody(
-	issueKey, issueTitle string,
-	completion Completion,
-	change RepositoryChange,
-	previews []PreviewLink,
-	attributed bool,
-) string {
-	var said strings.Builder
-
-	if summary := strings.TrimSpace(completion.Summary); summary != "" {
-		said.WriteString(summary + "\n\n")
-	}
-
-	if notes := strings.TrimSpace(completion.Notes); notes != "" {
-		said.WriteString("For whoever reviews this: " + notes + "\n\n")
-	}
-
-	fmt.Fprintf(
-		&said, "Issue: %s %s\nBranch: %s\nChanges: %s\n",
-		issueKey, strings.TrimSpace(issueTitle), change.Branch, change.Rendered(),
-	)
-
-	for _, preview := range previews {
-		if preview.Address == "" {
-			continue
-		}
-
-		fmt.Fprintf(&said, "Preview: %s %s\n", preview.Name, preview.Address)
-	}
-
-	if attributed {
-		said.WriteString("\n" + attributionLine + "\n")
-	}
-
-	return said.String()
 }
 
 func (r RepositoryChange) Rendered() string {

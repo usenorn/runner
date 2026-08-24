@@ -231,7 +231,6 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		uploadStub{},
 		questions,
 		previews,
-		sessionStub{},
 		changesetStub{},
 		tokens,
 		driverStub{},
@@ -405,7 +404,6 @@ func keeping() config.Retention {
 func results() config.Results {
 	return config.Results{
 		CreatePRs:    config.PullRequestsAuto,
-		Attribution:  config.AttributionNone,
 		PushTimeout:  60 * time.Second,
 		ForgeTimeout: 30 * time.Second,
 		MaxDiffBytes: 3 << 20,
@@ -421,32 +419,10 @@ func (changesetStub) Uncommitted(
 }
 
 func (changesetStub) Publish(
-	context.Context, entity.Execution, entity.Snapshot, entity.Completion, []entity.PreviewLink,
+	context.Context, entity.Execution, entity.Snapshot, entity.Completion,
 ) (entity.ChangeSet, error) {
 	return entity.ChangeSet{}, nil
 }
-
-type sessionStub struct{}
-
-func (sessionStub) Run(context.Context) {}
-
-func (sessionStub) Access(context.Context) (string, error) { return "", nil }
-
-func (sessionStub) Ticket(context.Context) (string, error) { return "", nil }
-
-func (sessionStub) TunnelTicket(context.Context) (entity.TunnelTicket, error) {
-	return entity.TunnelTicket{}, nil
-}
-
-func (sessionStub) Previews() entity.PreviewService { return entity.PreviewService{} }
-
-func (sessionStub) Report() entity.SessionReport { return entity.SessionReport{} }
-
-func (sessionStub) Adopt(context.Context, entity.Identity) entity.SessionReport {
-	return entity.SessionReport{}
-}
-
-func (sessionStub) Forget() {}
 
 func (uploadStub) Attach(
 	context.Context,

@@ -78,20 +78,6 @@ func ScrubbedForForge(text string) (string, []string) {
 	return strings.TrimSpace(collapseBlankLines(scrubbed)), kinds
 }
 
-func Scrubs(kinds ...[]string) []string {
-	merged := make([]string, 0, len(kinds))
-
-	for _, group := range kinds {
-		for _, kind := range group {
-			if !slices.Contains(merged, kind) {
-				merged = append(merged, kind)
-			}
-		}
-	}
-
-	return merged
-}
-
 func collapseBlankLines(text string) string {
 	for strings.Contains(text, "\n\n\n") {
 		text = strings.ReplaceAll(text, "\n\n\n", "\n\n")

@@ -256,7 +256,6 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("driver.stop_grace", 15*time.Second)
 	v.SetDefault("driver.resume_attempts", defaultResumeAttempts)
 	v.SetDefault("results.create_prs", string(PullRequestsAuto))
-	v.SetDefault("results.attribution", string(AttributionNone))
 	v.SetDefault("results.push_timeout", 2*time.Minute)
 	v.SetDefault("results.forge_timeout", time.Minute)
 	v.SetDefault("results.max_diff_bytes", int64(defaultMaxDiffBytes))
@@ -710,14 +709,6 @@ func validateResults(results Results) error {
 			"results.create_prs is %q and must be %q or %q. It decides whether a finished run "+
 				"opens a pull request for each branch it pushed, or only pushes",
 			results.CreatePRs, PullRequestsAuto, PullRequestsPushOnly,
-		)
-	}
-
-	if !slices.Contains(Attributions(), results.Attribution) {
-		return fmt.Errorf(
-			"results.attribution is %q and must be %q or %q. Plenty of projects forbid assistant "+
-				"trailers, so norn leaves its name out unless a machine asks for it",
-			results.Attribution, AttributionNone, AttributionStandard,
 		)
 	}
 

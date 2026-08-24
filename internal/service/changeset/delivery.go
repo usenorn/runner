@@ -14,8 +14,6 @@ func (s *changeSetsService) deliver(
 	execution entity.Execution,
 	snapshot entity.Snapshot,
 	changes entity.ChangeSet,
-	completion entity.Completion,
-	previews []entity.PreviewLink,
 ) entity.ChangeSet {
 	sources := make(map[string]entity.SnapshotRepository, len(snapshot.Repositories))
 
@@ -37,9 +35,7 @@ func (s *changeSetsService) deliver(
 			continue
 		}
 
-		changes.Repositories[index].PullRequest = s.request(
-			ctx, execution, held, change, completion, previews,
-		)
+		changes.Repositories[index].PullRequest = s.request(ctx, execution, held, change)
 	}
 
 	return changes
@@ -80,8 +76,6 @@ func (s *changeSetsService) request(
 	execution entity.Execution,
 	held entity.SnapshotRepository,
 	change entity.RepositoryChange,
-	completion entity.Completion,
-	previews []entity.PreviewLink,
 ) string {
 	if _, available := s.forges.Available(ctx, held.Path); !available {
 		s.tell(ctx, execution.ID, entity.PullRequestSkipped(held.Name))
@@ -95,22 +89,16 @@ func (s *changeSetsService) request(
 		return already
 	}
 
-	title, fromTitle := entity.ScrubbedForForge(
+	title, scrubbed := entity.ScrubbedForForge(
 		entity.PullRequestTitle(execution.IssueKey, execution.Title),
 	)
 
-	body, fromBody := entity.ScrubbedForForge(entity.PullRequestBody(
-		execution.IssueKey, execution.Title, completion, change, previews,
-		s.results.Attribution == config.AttributionStandard,
-	))
-
-	if scrubbed := entity.Scrubs(fromTitle, fromBody); len(scrubbed) > 0 {
+	if len(scrubbed) > 0 {
 		s.tell(ctx, execution.ID, entity.PullRequestScrubbed(held.Name, scrubbed))
 	}
 
 	address, err := s.forges.Open(ctx, held.Path, entity.PullRequest{
 		Title:  title,
-		Body:   body,
 		Branch: change.Branch,
 	})
 	if err != nil {
