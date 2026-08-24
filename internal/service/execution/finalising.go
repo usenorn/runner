@@ -27,7 +27,9 @@ func (s *executionsService) finalise(
 		return s.recommit(ctx, execution, left)
 	}
 
-	changes, err := s.changesets.Publish(ctx, execution, snapshot, completion)
+	changes, err := s.changesets.Publish(
+		ctx, execution, snapshot, completion, s.previewLinks(ctx, execution.ID),
+	)
 	if err != nil {
 		return failure{step: entity.StepFinalise, err: err}
 	}
@@ -92,4 +94,29 @@ func (s *executionsService) asking(executionID string) {
 	defer s.mu.Unlock()
 
 	s.commits[executionID] = true
+}
+
+func (s *executionsService) previewLinks(
+	ctx context.Context,
+	executionID string,
+) []entity.PreviewLink {
+	open, err := s.previews.List(ctx, executionID)
+	if err != nil || len(open) == 0 {
+		return nil
+	}
+
+	serving := s.serving.Previews()
+
+	links := make([]entity.PreviewLink, 0, len(open))
+
+	for _, preview := range open {
+		address := serving.Address(preview.Name, executionID, preview.Path)
+		if address == "" {
+			continue
+		}
+
+		links = append(links, entity.PreviewLink{Name: preview.Name, Address: address})
+	}
+
+	return links
 }

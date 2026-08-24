@@ -30,6 +30,7 @@ type Execution struct {
 	ID           string
 	Reference    string
 	IssueKey     string
+	Branch       string
 	Attempt      int
 	WorkspaceID  string
 	Title        string
@@ -55,6 +56,7 @@ func ExecutionOf(offer channelv1.Offer, root string, acceptedAt time.Time) Execu
 		ID:           offer.ExecutionID,
 		Reference:    offer.Reference,
 		IssueKey:     offer.Issue.Reference,
+		Branch:       offer.Branch,
 		Attempt:      max(offer.Attempt, 1),
 		WorkspaceID:  offer.WorkspaceID,
 		Title:        offer.Issue.Title,

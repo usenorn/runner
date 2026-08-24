@@ -15,5 +15,6 @@ type ChangeSets interface {
 		execution entity.Execution,
 		snapshot entity.Snapshot,
 		completion entity.Completion,
+		previews []entity.PreviewLink,
 	) (entity.ChangeSet, error)
 }

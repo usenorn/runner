@@ -220,6 +220,7 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		uploadStub{},
 		h.questions,
 		previewsvc.New(runStub{}, h.spool),
+		sessionStub{},
 		changesetStub{},
 		runtokenrepo.New(),
 		driverStub{},
@@ -389,6 +390,28 @@ func (h *harness) queueAged(t *testing.T, count int, age time.Duration) []string
 	return written
 }
 
+type sessionStub struct{}
+
+func (sessionStub) Run(context.Context) {}
+
+func (sessionStub) Access(context.Context) (string, error) { return "", nil }
+
+func (sessionStub) Ticket(context.Context) (string, error) { return "", nil }
+
+func (sessionStub) TunnelTicket(context.Context) (entity.TunnelTicket, error) {
+	return entity.TunnelTicket{}, nil
+}
+
+func (sessionStub) Previews() entity.PreviewService { return entity.PreviewService{} }
+
+func (sessionStub) Report() entity.SessionReport { return entity.SessionReport{} }
+
+func (sessionStub) Adopt(context.Context, entity.Identity) entity.SessionReport {
+	return entity.SessionReport{}
+}
+
+func (sessionStub) Forget() {}
+
 type changesetStub struct{}
 
 func (changesetStub) Uncommitted(
@@ -398,7 +421,7 @@ func (changesetStub) Uncommitted(
 }
 
 func (changesetStub) Publish(
-	context.Context, entity.Execution, entity.Snapshot, entity.Completion,
+	context.Context, entity.Execution, entity.Snapshot, entity.Completion, []entity.PreviewLink,
 ) (entity.ChangeSet, error) {
 	return entity.ChangeSet{}, nil
 }
