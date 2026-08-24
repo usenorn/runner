@@ -77,7 +77,6 @@ func (s *changeSetsService) Publish(
 	execution entity.Execution,
 	snapshot entity.Snapshot,
 	completion entity.Completion,
-	previews []entity.PreviewLink,
 ) (entity.ChangeSet, error) {
 	changes, err := s.collect(ctx, execution, snapshot)
 	if err != nil {
@@ -90,7 +89,7 @@ func (s *changeSetsService) Publish(
 
 	s.report(ctx, execution.ID, changes)
 
-	changes = s.deliver(ctx, execution, snapshot, changes, completion, previews)
+	changes = s.deliver(ctx, execution, snapshot, changes)
 
 	s.report(ctx, execution.ID, changes)
 

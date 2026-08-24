@@ -18,7 +18,6 @@ import (
 func results() config.Results {
 	return config.Results{
 		CreatePRs:    config.PullRequestsAuto,
-		Attribution:  config.AttributionNone,
 		PushTimeout:  time.Second,
 		ForgeTimeout: 10 * time.Second,
 		MaxDiffBytes: 1 << 20,

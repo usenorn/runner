@@ -404,7 +404,6 @@ func TestCloneModeProducesTheSameStartingPointAsAWorktree(t *testing.T) {
 func results() config.Results {
 	return config.Results{
 		CreatePRs:    config.PullRequestsAuto,
-		Attribution:  config.AttributionNone,
 		PushTimeout:  60 * time.Second,
 		ForgeTimeout: 30 * time.Second,
 		MaxDiffBytes: 3 << 20,

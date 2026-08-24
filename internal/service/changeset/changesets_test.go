@@ -227,10 +227,6 @@ func TestAPullRequestIsOpenedForEachBranchAndItsAddressIsReported(t *testing.T) 
 	if !strings.HasPrefix(asked[0].Title, "NORN-54") {
 		t.Fatalf("the pull request is titled %q and does not name the issue", asked[0].Title)
 	}
-
-	if !strings.Contains(asked[0].Body, "added a median helper") {
-		t.Fatalf("the pull request body does not say what changed:\n%s", asked[0].Body)
-	}
 }
 
 func TestASecondPassPutsItsCommitsOnThePullRequestThatIsAlreadyOpen(t *testing.T) {

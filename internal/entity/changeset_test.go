@@ -135,52 +135,6 @@ func TestAVeryLongListOfLeftoverFilesIsSummarisedRatherThanSentWhole(t *testing.
 	}
 }
 
-func TestAPullRequestBodySaysWhatChangedAndWhichIssueItIsFor(t *testing.T) {
-	body := entity.PullRequestBody(
-		"NORN-54", "Finalising",
-		entity.Completion{Summary: "added a median helper", Notes: "the rounding is deliberate"},
-		entity.RepositoryChange{
-			Branch:   "norn/NORN-54/backend",
-			Commits:  3,
-			Diffstat: entity.Diffstat{Additions: 412, Deletions: 77, Files: 9},
-		}, nil,
-		false,
-	)
-
-	for _, wanted := range []string{
-		"added a median helper", "the rounding is deliberate", "NORN-54",
-		"norn/NORN-54/backend", "3 commits", "+412 -77", "9 files",
-	} {
-		if !strings.Contains(body, wanted) {
-			t.Fatalf("the pull request body never says %q:\n%s", wanted, body)
-		}
-	}
-}
-
-func TestNornKeepsItsNameOutOfAPullRequestUnlessItIsAskedFor(t *testing.T) {
-	change := entity.RepositoryChange{Branch: "norn/NORN-54/backend"}
-
-	quiet := entity.PullRequestBody(
-		"NORN-54", "Finalising", entity.Completion{Summary: "a change"}, change, nil, false,
-	)
-
-	if strings.Contains(quiet, "Opened by norn") {
-		t.Fatalf(
-			"norn signed a pull request nobody asked it to sign; plenty of projects forbid "+
-				"assistant trailers, which is why this is off unless a machine turns it on:\n%s",
-			quiet,
-		)
-	}
-
-	signed := entity.PullRequestBody(
-		"NORN-54", "Finalising", entity.Completion{Summary: "a change"}, change, nil, true,
-	)
-
-	if !strings.Contains(signed, "Opened by norn") {
-		t.Fatalf("a machine that asked for attribution did not get it:\n%s", signed)
-	}
-}
-
 func TestOneCommitReadsAsOneCommitRatherThanOneCommits(t *testing.T) {
 	one := entity.RepositoryChange{
 		Commits:  1,

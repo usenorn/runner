@@ -34,7 +34,6 @@ type Driver struct {
 
 type Results struct {
 	CreatePRs    PullRequests  `mapstructure:"create_prs"`
-	Attribution  Attribution   `mapstructure:"attribution"`
 	PushTimeout  time.Duration `mapstructure:"push_timeout"`
 	ForgeTimeout time.Duration `mapstructure:"forge_timeout"`
 	MaxDiffBytes int64         `mapstructure:"max_diff_bytes"`
@@ -201,17 +200,6 @@ const (
 
 func PullRequestChoices() []PullRequests {
 	return []PullRequests{PullRequestsAuto, PullRequestsPushOnly}
-}
-
-type Attribution string
-
-const (
-	AttributionNone     Attribution = "none"
-	AttributionStandard Attribution = "standard"
-)
-
-func Attributions() []Attribution {
-	return []Attribution{AttributionNone, AttributionStandard}
 }
 
 type Console string

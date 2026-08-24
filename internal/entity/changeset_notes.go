@@ -88,7 +88,7 @@ func PullRequestSkipped(repository string) string {
 
 func PullRequestScrubbed(repository string, kinds []string) string {
 	return fmt.Sprintf(
-		"%s: the coding agent's own words carried %s, so it was taken out before the pull "+
+		"%s: the issue title carried %s, so it was taken out before the pull "+
 			"request was opened",
 		repository, strings.Join(kinds, " and "),
 	)

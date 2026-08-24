@@ -31,7 +31,6 @@ type harness struct {
 	spool     repository.Spool
 	worktrees *worktreerepo.MockWorktree
 	forges    *forgerepo.MockForge
-	previews  []entity.PreviewLink
 	uploads   *uploadsvc.MockUploads
 	service   service.ChangeSets
 
@@ -99,7 +98,6 @@ func repositoryAt(name, base string) entity.SnapshotRepository {
 func defaults() config.Results {
 	return config.Results{
 		CreatePRs:    config.PullRequestsAuto,
-		Attribution:  config.AttributionNone,
 		PushTimeout:  time.Second,
 		ForgeTimeout: time.Second,
 		MaxDiffBytes: 1 << 20,
@@ -159,7 +157,6 @@ func (h *harness) publish(t *testing.T, summary string) entity.ChangeSet {
 
 	changes, err := h.service.Publish(
 		context.Background(), h.execution, h.snapshot, entity.Completion{Summary: summary},
-		h.previews,
 	)
 	if err != nil {
 		t.Fatalf("publish what the run changed: %v", err)

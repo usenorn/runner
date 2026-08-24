@@ -200,7 +200,6 @@ func TestWhatARunChangedIsCollectedAndPushedAgainstRealRepositories(t *testing.T
 		entity.Execution{ID: executionID, IssueKey: "NORN-54", Title: "Finalising"},
 		snapshot,
 		entity.Completion{Summary: "added a median helper"},
-		nil,
 	)
 	if err != nil {
 		t.Fatalf("collect and push what the run changed: %v", err)
