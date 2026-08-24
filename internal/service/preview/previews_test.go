@@ -346,3 +346,123 @@ func TestGivingARunBackClosesEveryPreviewItStillHeldWithNorn(t *testing.T) {
 		}
 	}
 }
+
+func TestNornIsToldThePortSoTheAddressCanBeDerivedFromIt(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+
+	h.running(t, "exec-01PORT", serving("web", 43111, entity.ServiceHealthy))
+
+	if _, err := h.service.Expose(ctx, "exec-01PORT", entity.Preview{Service: "web"}); err != nil {
+		t.Fatalf("open a preview: %v", err)
+	}
+
+	registered := h.registered(t)
+	if len(registered) != 1 {
+		t.Fatalf("norn was sent %d registrations, want 1", len(registered))
+	}
+
+	if registered[0].Port != 43111 {
+		t.Fatalf(
+			"the registration carries the port %d, want %d. Norn derives the address from the "+
+				"port, so a registration without it has no address to derive",
+			registered[0].Port, 43111,
+		)
+	}
+}
+
+func TestThePublicAddressIsTheRunAndThePortAndNotWhatThePreviewWasCalled(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+
+	h.running(t, "exec-01SHARED", serving("web", 43111, entity.ServiceHealthy))
+
+	exposed, err := h.service.Expose(ctx, "exec-01SHARED", entity.Preview{
+		Name:    "issue-description",
+		Service: "web",
+	})
+	if err != nil {
+		t.Fatalf("open a preview: %v", err)
+	}
+
+	want := "https://norn-52-norn-s-own-tools-exec-01shared-43111.norn.ink"
+	if exposed.Shared != want {
+		t.Fatalf(
+			"the address a person is handed is %q, want %q. The name is this machine's to "+
+				"choose and norn's address is not",
+			exposed.Shared, want,
+		)
+	}
+}
+
+func TestTwoPreviewsCannotShareOnePortAndSoOneAddress(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+
+	h.running(t, "exec-01ONCE", serving("web", 43111, entity.ServiceHealthy))
+
+	if _, err := h.service.Expose(ctx, "exec-01ONCE", entity.Preview{
+		Name:    "web",
+		Service: "web",
+	}); err != nil {
+		t.Fatalf("open a preview: %v", err)
+	}
+
+	_, err := h.service.Expose(ctx, "exec-01ONCE", entity.Preview{
+		Name:    "admin",
+		Service: "web",
+	})
+	if !errors.Is(err, entity.ErrPreviewInvalid) {
+		t.Fatalf(
+			"a second preview was opened on a port that already has one: %v. Both would answer "+
+				"on the one address norn derives from that port, and only one of them at a path "+
+				"a person was given",
+			err,
+		)
+	}
+}
+
+func TestAPreviewThatMovesToAnotherServiceGivesUpTheAddressItLeft(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+
+	h.running(
+		t, "exec-01MOVED",
+		serving("web", 43111, entity.ServiceHealthy),
+		serving("api", 43112, entity.ServiceHealthy),
+	)
+
+	if _, err := h.service.Expose(ctx, "exec-01MOVED", entity.Preview{
+		Name:    "app",
+		Service: "web",
+	}); err != nil {
+		t.Fatalf("open a preview: %v", err)
+	}
+
+	if _, err := h.service.Expose(ctx, "exec-01MOVED", entity.Preview{
+		Name:    "app",
+		Service: "api",
+	}); err != nil {
+		t.Fatalf("move the preview onto another service: %v", err)
+	}
+
+	registered := h.registered(t)
+	if len(registered) != 3 {
+		t.Fatalf(
+			"norn was sent %+v. The address the preview left has to be closed, or it keeps "+
+				"resolving to whatever the name points at now",
+			registered,
+		)
+	}
+
+	if registered[1].State != channelv1.PreviewClosed || registered[1].Port != 43111 {
+		t.Fatalf(
+			"the second registration is %+v, want the port it left reported closed",
+			registered[1],
+		)
+	}
+
+	if registered[2].State != channelv1.PreviewOpen || registered[2].Port != 43112 {
+		t.Fatalf("the third registration is %+v, want the port it moved to open", registered[2])
+	}
+}

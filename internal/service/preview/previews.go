@@ -18,8 +18,9 @@ import (
 )
 
 type previewsService struct {
-	runs  repository.Run
-	spool repository.Spool
+	runs    repository.Run
+	spool   repository.Spool
+	serving service.Sessions
 
 	now func() time.Time
 
@@ -27,12 +28,13 @@ type previewsService struct {
 	held map[string]map[string]entity.Preview
 }
 
-func New(runs repository.Run, spool repository.Spool) service.Previews {
+func New(runs repository.Run, spool repository.Spool, serving service.Sessions) service.Previews {
 	return &previewsService{
-		runs:  runs,
-		spool: spool,
-		now:   func() time.Time { return time.Now().UTC() },
-		held:  map[string]map[string]entity.Preview{},
+		runs:    runs,
+		spool:   spool,
+		serving: serving,
+		now:     func() time.Time { return time.Now().UTC() },
+		held:    map[string]map[string]entity.Preview{},
 	}
 }
 
@@ -49,7 +51,12 @@ func (s *previewsService) Expose(
 		return entity.Preview{}, err
 	}
 
-	serving, err := s.serving(ctx, executionID, wanted.Service)
+	execution, err := s.claim(ctx, executionID)
+	if err != nil {
+		return entity.Preview{}, err
+	}
+
+	record, err := s.running(ctx, execution, wanted.Service)
 	if err != nil {
 		return entity.Preview{}, err
 	}
@@ -58,12 +65,33 @@ func (s *previewsService) Expose(
 		Name:      wanted.Name,
 		Service:   wanted.Service,
 		Path:      wanted.Path,
-		Port:      serving.Port,
-		URL:       entity.PreviewURL(serving.Port, wanted.Path),
+		Port:      record.Port,
+		URL:       entity.PreviewURL(record.Port, wanted.Path),
 		ExposedAt: s.now(),
 	}
 
+	left, err := s.hold(executionID, exposed)
+	if err != nil {
+		return entity.Preview{}, err
+	}
+
+	if left.Port != 0 {
+		s.tell(ctx, executionID, left, channelv1.PreviewClosed, left.Name+" is closed")
+	}
+
+	s.tell(ctx, executionID, exposed, channelv1.PreviewOpen, fmt.Sprintf(
+		"%s is open at %s, on the service %s", exposed.Name, exposed.URL, exposed.Service,
+	))
+
+	return s.addressed(execution, exposed), nil
+}
+
+func (s *previewsService) hold(
+	executionID string,
+	exposed entity.Preview,
+) (entity.Preview, error) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	holding, known := s.held[executionID]
 	if !known {
@@ -71,21 +99,27 @@ func (s *previewsService) Expose(
 		s.held[executionID] = holding
 	}
 
-	if _, standing := holding[exposed.Name]; !standing && len(holding) >= entity.PreviewsMax {
-		s.mu.Unlock()
+	for name, standing := range holding {
+		if name != exposed.Name && standing.Port == exposed.Port {
+			return entity.Preview{}, fmt.Errorf(
+				"%w: %s already opens the port %s is on, and one port carries one address",
+				entity.ErrPreviewInvalid, name, exposed.Service,
+			)
+		}
+	}
 
+	standing, taken := holding[exposed.Name]
+	if !taken && len(holding) >= entity.PreviewsMax {
 		return entity.Preview{}, fmt.Errorf("%w: %d", entity.ErrPreviewCrowded, entity.PreviewsMax)
 	}
 
 	holding[exposed.Name] = exposed
 
-	s.mu.Unlock()
+	if taken && standing.Port != exposed.Port {
+		return standing, nil
+	}
 
-	s.tell(ctx, executionID, exposed, channelv1.PreviewOpen, fmt.Sprintf(
-		"%s is open at %s, on the service %s", exposed.Name, exposed.URL, exposed.Service,
-	))
-
-	return exposed, nil
+	return entity.Preview{}, nil
 }
 
 func (s *previewsService) Close(
@@ -93,7 +127,8 @@ func (s *previewsService) Close(
 	executionID string,
 	name string,
 ) (entity.Preview, error) {
-	if _, err := s.claim(ctx, executionID); err != nil {
+	execution, err := s.claim(ctx, executionID)
+	if err != nil {
 		return entity.Preview{}, err
 	}
 
@@ -112,7 +147,7 @@ func (s *previewsService) Close(
 
 	s.tell(ctx, executionID, closed, channelv1.PreviewClosed, closed.Name+" is closed")
 
-	return closed, nil
+	return s.addressed(execution, closed), nil
 }
 
 func (s *previewsService) Resolve(
@@ -128,13 +163,18 @@ func (s *previewsService) Resolve(
 		return entity.Preview{}, fmt.Errorf("%w: %s", entity.ErrPreviewUnknown, name)
 	}
 
-	serving, err := s.serving(ctx, executionID, held.Service)
+	execution, err := s.claim(ctx, executionID)
 	if err != nil {
 		return entity.Preview{}, err
 	}
 
-	held.Port = serving.Port
-	held.URL = entity.PreviewURL(serving.Port, held.Path)
+	record, err := s.running(ctx, execution, held.Service)
+	if err != nil {
+		return entity.Preview{}, err
+	}
+
+	held.Port = record.Port
+	held.URL = entity.PreviewURL(record.Port, held.Path)
 
 	return held, nil
 }
@@ -143,7 +183,8 @@ func (s *previewsService) List(
 	ctx context.Context,
 	executionID string,
 ) ([]entity.Preview, error) {
-	if _, err := s.claim(ctx, executionID); err != nil {
+	execution, err := s.claim(ctx, executionID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -153,7 +194,7 @@ func (s *previewsService) List(
 	open := make([]entity.Preview, 0, len(s.held[executionID]))
 
 	for _, preview := range s.held[executionID] {
-		open = append(open, preview)
+		open = append(open, s.addressed(execution, preview))
 	}
 
 	sort.Slice(open, func(i, j int) bool { return open[i].Name < open[j].Name })
@@ -183,16 +224,21 @@ func (s *previewsService) Release(ctx context.Context, executionID string) {
 	}
 }
 
-func (s *previewsService) serving(
+func (s *previewsService) addressed(
+	execution entity.Execution,
+	preview entity.Preview,
+) entity.Preview {
+	preview.Shared = s.serving.Previews().Address(execution, preview.Port, preview.Path)
+
+	return preview
+}
+
+func (s *previewsService) running(
 	ctx context.Context,
-	executionID string,
+	execution entity.Execution,
 	name string,
 ) (entity.ServiceRecord, error) {
-	if _, err := s.claim(ctx, executionID); err != nil {
-		return entity.ServiceRecord{}, err
-	}
-
-	services, err := s.runs.LoadServices(ctx, executionID)
+	services, err := s.runs.LoadServices(ctx, execution.ID)
 	if err != nil {
 		return entity.ServiceRecord{}, err
 	}
@@ -277,6 +323,7 @@ func (s *previewsService) register(
 		Name:     preview.Name,
 		Service:  preview.Service,
 		Path:     preview.Path,
+		Port:     preview.Port,
 		State:    state,
 		Occurred: occurred,
 	})

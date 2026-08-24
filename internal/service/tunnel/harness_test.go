@@ -171,8 +171,13 @@ func build(t *testing.T, cfg config.Tunnel, refusing error) *harness {
 		}, nil).
 		AnyTimes()
 
+	sessions.EXPECT().
+		Previews().
+		Return(entity.PreviewService{Gateway: "https://tunnel.norn.ink", Domain: "norn.ink"}).
+		AnyTimes()
+
 	runs, spool := store(t)
-	previews := previewsvc.New(runs, spool)
+	previews := previewsvc.New(runs, spool, sessions)
 
 	held := &gateway{attached: make(chan struct{}, 1), failing: refusing}
 	tunnels := tunnelsvc.New(held, sessions, previews, cfg)

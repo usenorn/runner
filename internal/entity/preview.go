@@ -25,6 +25,7 @@ type Preview struct {
 	Path      string
 	Port      int
 	URL       string
+	Shared    string
 	ExposedAt time.Time
 }
 
