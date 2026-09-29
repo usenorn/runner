@@ -29,6 +29,10 @@ func (h RunHome) Claude() string {
 	return filepath.Join(h.Root, ".claude")
 }
 
+func (h RunHome) Plans() string {
+	return filepath.Join(h.Claude(), "plans")
+}
+
 func (h RunHome) GitConfig() string {
 	return filepath.Join(h.Root, GitConfigFile)
 }

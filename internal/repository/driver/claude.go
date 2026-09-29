@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -22,6 +23,7 @@ const (
 	modeDontAsk = "dontAsk"
 	modeAuto    = "auto"
 	modeBypass  = "bypassPermissions"
+	modePlan    = "plan"
 )
 
 var release = regexp.MustCompile(`\d+(\.\d+)+(-[0-9A-Za-z.]+)?`)
@@ -38,6 +40,22 @@ func deniedTools() []string {
 		"Bash(gh pr create:*)",
 		"Bash(gh release:*)",
 	}
+}
+
+func planningTools() []string {
+	return []string{
+		"mcp__" + entity.ToolkitServerName + "__ask_human",
+		"mcp__" + entity.ToolkitServerName + "__report_progress",
+	}
+}
+
+func planningFlags(plans string) []string {
+	settings, _ := json.Marshal(map[string]string{"plansDirectory": plans})
+
+	return append(
+		[]string{"--permission-mode", modePlan, "--settings", string(settings), "--allowedTools"},
+		planningTools()...,
+	)
 }
 
 func readOnlyTools() []string {
@@ -98,6 +116,10 @@ func command(env entity.ExecEnv, task entity.Task, held entity.DriverSession, as
 
 	if model := strings.TrimSpace(task.Model); model != "" {
 		args = append(args, "--model", model)
+	}
+
+	if env.Planning() {
+		return append(args, planningFlags(env.Plans)...)
 	}
 
 	return append(args, profileFlags(env.Profile)...)

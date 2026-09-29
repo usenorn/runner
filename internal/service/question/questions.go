@@ -200,29 +200,6 @@ func (s *questionsService) Waiting(executionID string) (entity.Question, bool) {
 	return waiting.question, true
 }
 
-func (s *questionsService) Take(
-	ctx context.Context,
-	executionID string,
-) (entity.Question, entity.Answer, bool, error) {
-	s.mu.Lock()
-	waiting, held := s.held[executionID]
-
-	if !held || waiting.answer == nil {
-		s.mu.Unlock()
-
-		return entity.Question{}, entity.Answer{}, false, nil
-	}
-
-	delete(s.held, executionID)
-	s.mu.Unlock()
-
-	if err := s.runs.ClearQuestion(ctx, executionID); err != nil {
-		return entity.Question{}, entity.Answer{}, false, err
-	}
-
-	return waiting.question, *waiting.answer, true, nil
-}
-
 func (s *questionsService) Forget(ctx context.Context, executionID string) error {
 	s.mu.Lock()
 	delete(s.held, executionID)

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 )
 
 const (
@@ -180,6 +182,12 @@ type ExecEnv struct {
 	Instructions string
 	Plugin       string
 	Profile      PermissionProfile
+	Stage        ExecutionStage
+	Plans        string
+}
+
+func (e ExecEnv) Planning() bool {
+	return e.Stage == channelv1.StagePlanning
 }
 
 type Task struct {

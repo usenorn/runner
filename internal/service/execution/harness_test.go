@@ -815,7 +815,9 @@ func decodeInto[T any](t *testing.T, message channelv1.Message) T {
 func started() channelv1.Start {
 	lease := time.Now().UTC().Add(time.Minute)
 
-	return channelv1.Start{ExecutionID: "exec-01ABC", LeaseExpiresAt: &lease}
+	return channelv1.Start{
+		ExecutionID: "exec-01ABC", LeaseExpiresAt: &lease, Stage: channelv1.StageImplementation,
+	}
 }
 
 func results() config.Results {

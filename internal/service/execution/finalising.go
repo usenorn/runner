@@ -27,7 +27,7 @@ func (s *executionsService) finalise(
 		return s.recommit(ctx, execution, left)
 	}
 
-	changes, err := s.changesets.Publish(ctx, execution, snapshot, completion)
+	changes, err := s.changesets.Collect(ctx, execution, snapshot, completion)
 	if err != nil {
 		return failure{step: entity.StepFinalise, err: err}
 	}

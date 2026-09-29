@@ -11,9 +11,23 @@ import (
 
 func (s *executionsService) approve(ctx context.Context, execution entity.Execution) error {
 	execution.State = channelv1.StateApproved
+	execution.Stage = channelv1.StagePublication
 
 	if err := s.runs.SaveTask(ctx, execution); err != nil {
 		return err
+	}
+
+	return s.publish(ctx, execution)
+}
+
+func (s *executionsService) publish(ctx context.Context, execution entity.Execution) error {
+	snapshot, err := s.runs.Load(ctx, execution.ID)
+	if err != nil {
+		return s.fail(ctx, execution, entity.Failure(entity.StepPublish, err))
+	}
+
+	if _, err := s.changesets.Publish(ctx, execution, snapshot); err != nil {
+		return s.fail(ctx, execution, entity.Failure(entity.StepPublish, err))
 	}
 
 	return s.conclude(ctx, execution)

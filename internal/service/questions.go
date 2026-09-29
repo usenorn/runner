@@ -12,7 +12,6 @@ type Questions interface {
 	Ask(ctx context.Context, executionID string, question entity.Question) (entity.Asked, error)
 	Answered(ctx context.Context, executionID string, answer entity.Answer) error
 	Waiting(executionID string) (entity.Question, bool)
-	Take(ctx context.Context, executionID string) (entity.Question, entity.Answer, bool, error)
 	Forget(ctx context.Context, executionID string) error
 	Restore(ctx context.Context, executionID string) error
 }

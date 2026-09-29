@@ -249,6 +249,10 @@ func (s *executionsService) Start(
 
 	execution.StartedAt = s.now()
 
+	if start.Stage.Valid() {
+		execution.Stage = start.Stage
+	}
+
 	s.mu.Lock()
 	s.held[execution.ID] = execution
 	s.mu.Unlock()

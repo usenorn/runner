@@ -65,6 +65,15 @@ func (k *keptDiff) Publish(
 func run(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 
+	out, err := runIn(dir, args...)
+	if err != nil {
+		t.Fatalf("git %v in %s: %v\n%s", args, dir, err, out)
+	}
+
+	return out
+}
+
+func runIn(dir string, args ...string) (string, error) {
 	command := exec.Command("git", append([]string{"-C", dir}, args...)...)
 	command.Env = append(os.Environ(),
 		"GIT_CONFIG_GLOBAL=/dev/null",
@@ -76,11 +85,8 @@ func run(t *testing.T, dir string, args ...string) string {
 	)
 
 	out, err := command.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v in %s: %v\n%s", args, dir, err, out)
-	}
 
-	return strings.TrimSpace(string(out))
+	return strings.TrimSpace(string(out)), err
 }
 
 func realRepository(t *testing.T) (string, string) {
@@ -121,7 +127,7 @@ func realRepository(t *testing.T) (string, string) {
 	return source, bare
 }
 
-func TestWhatARunChangedIsCollectedAndPushedAgainstRealRepositories(t *testing.T) {
+func TestWhatARunChangedIsCollectedForReviewAndPushedOnlyOnceApproved(t *testing.T) {
 	source, bare := realRepository(t)
 
 	dir, err := statedir.New(config.State{Root: t.TempDir()})
@@ -195,14 +201,29 @@ func TestWhatARunChangedIsCollectedAndPushedAgainstRealRepositories(t *testing.T
 		t.Fatalf("a committed workspace still reads as dirty: %+v (%v)", left, err)
 	}
 
-	changes, err := changesets.Publish(
-		ctx,
-		entity.Execution{ID: executionID, IssueKey: "NORN-54", Title: "Finalising"},
-		snapshot,
-		entity.Completion{Summary: "added a median helper"},
+	execution := entity.Execution{ID: executionID, IssueKey: "NORN-54", Title: "Finalising"}
+
+	collected, err := changesets.Collect(
+		ctx, execution, snapshot, entity.Completion{Summary: "added a median helper"},
 	)
 	if err != nil {
-		t.Fatalf("collect and push what the run changed: %v", err)
+		t.Fatalf("collect what the run changed: %v", err)
+	}
+
+	if _, err := runIn(bare, "rev-parse", "--verify", "--quiet", branch); err == nil {
+		t.Fatal(
+			"the branch reached the remote while its changes were still waiting for review; " +
+				"a person has to approve the work before anything leaves the machine",
+		)
+	}
+
+	changes, err := changesets.Publish(ctx, execution, snapshot)
+	if err != nil {
+		t.Fatalf("push what the run changed: %v", err)
+	}
+
+	if len(collected.Repositories) != 1 || collected.Repositories[0].HeadSHA != changes.Repositories[0].HeadSHA {
+		t.Fatalf("what was reviewed %+v is not what was published %+v", collected, changes)
 	}
 
 	if len(changes.Repositories) != 1 {

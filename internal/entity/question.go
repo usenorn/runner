@@ -75,6 +75,7 @@ func (q Question) Fault() error {
 type Answer struct {
 	QuestionID string
 	Ref        string
+	Question   string
 	Answer     string
 	AnsweredBy string
 	AnsweredAt time.Time
@@ -110,16 +111,37 @@ const (
 		"the default you declared."
 )
 
-// AnswerInjection is what a resumed session is told, and it carries the answer word for word
-// because the agent branches on what a person actually decided, not on a summary of it.
-func AnswerInjection(answer Answer, question string) string {
-	said := answer.AnsweredBy
-	if strings.TrimSpace(said) == "" {
-		said = "Somebody"
+func AnswerOf(answer channelv1.Answer) Answer {
+	return Answer{
+		QuestionID: answer.QuestionID,
+		Ref:        answer.Ref,
+		Question:   answer.Question,
+		Answer:     answer.Answer,
+		AnsweredBy: answer.AnsweredBy,
+		AnsweredAt: answer.AnsweredAt,
+	}
+}
+
+func AnswersInjection(answers []Answer) string {
+	var said strings.Builder
+
+	for _, answer := range answers {
+		who := strings.TrimSpace(answer.AnsweredBy)
+		if who == "" {
+			who = "Somebody"
+		}
+
+		if question := strings.TrimSpace(answer.Question); question != "" {
+			said.WriteString("You asked: " + question + "\n")
+		}
+
+		said.WriteString(
+			who + " answered (question " + answer.QuestionID + "): " +
+				strings.TrimSpace(answer.Answer) + "\n\n",
+		)
 	}
 
-	return "You stopped to ask: " + strings.TrimSpace(question) + "\n\n" +
-		said + " answered (question " + answer.QuestionID + "): " +
-		strings.TrimSpace(answer.Answer) + "\n\n" +
-		"Carry on from where you left off with that decision."
+	said.WriteString("Carry on from where you left off with those decisions.")
+
+	return said.String()
 }

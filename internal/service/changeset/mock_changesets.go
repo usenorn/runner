@@ -41,19 +41,34 @@ func (m *MockChangeSets) EXPECT() *MockChangeSetsMockRecorder {
 	return m.recorder
 }
 
-// Publish mocks base method.
-func (m *MockChangeSets) Publish(ctx context.Context, execution entity.Execution, snapshot entity.Snapshot, completion entity.Completion) (entity.ChangeSet, error) {
+// Collect mocks base method.
+func (m *MockChangeSets) Collect(ctx context.Context, execution entity.Execution, snapshot entity.Snapshot, completion entity.Completion) (entity.ChangeSet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", ctx, execution, snapshot, completion)
+	ret := m.ctrl.Call(m, "Collect", ctx, execution, snapshot, completion)
+	ret0, _ := ret[0].(entity.ChangeSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Collect indicates an expected call of Collect.
+func (mr *MockChangeSetsMockRecorder) Collect(ctx, execution, snapshot, completion any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Collect", reflect.TypeOf((*MockChangeSets)(nil).Collect), ctx, execution, snapshot, completion)
+}
+
+// Publish mocks base method.
+func (m *MockChangeSets) Publish(ctx context.Context, execution entity.Execution, snapshot entity.Snapshot) (entity.ChangeSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Publish", ctx, execution, snapshot)
 	ret0, _ := ret[0].(entity.ChangeSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Publish indicates an expected call of Publish.
-func (mr *MockChangeSetsMockRecorder) Publish(ctx, execution, snapshot, completion any) *gomock.Call {
+func (mr *MockChangeSetsMockRecorder) Publish(ctx, execution, snapshot any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockChangeSets)(nil).Publish), ctx, execution, snapshot, completion)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockChangeSets)(nil).Publish), ctx, execution, snapshot)
 }
 
 // Uncommitted mocks base method.

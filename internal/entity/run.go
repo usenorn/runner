@@ -38,6 +38,7 @@ const (
 	StepToolkit  PrepareStep = "get the agent's skills and servers ready"
 	StepDriver   PrepareStep = "start the coding agent"
 	StepFinalise PrepareStep = "collect what the run changed"
+	StepPublish  PrepareStep = "push the approved branches and open the pull requests"
 )
 
 func Failure(step PrepareStep, err error) string {

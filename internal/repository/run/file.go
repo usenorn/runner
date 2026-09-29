@@ -53,6 +53,7 @@ type storedTask struct {
 	IncludeDirty bool      `json:"includeDirty,omitempty"`
 	Profile      string    `json:"profile,omitempty"`
 	State        string    `json:"state"`
+	Stage        string    `json:"stage,omitempty"`
 	Lease        time.Time `json:"leaseExpiresAt,omitzero"`
 	AcceptedAt   time.Time `json:"acceptedAt"`
 	StartedAt    time.Time `json:"startedAt,omitzero"`
@@ -355,6 +356,7 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 		Profile:      held.Profile,
 		Directory:    r.dir.Run(name),
 		State:        entity.ExecutionState(held.State),
+		Stage:        entity.ExecutionStage(held.Stage),
 		Lease:        held.Lease,
 		AcceptedAt:   held.AcceptedAt,
 		StartedAt:    held.StartedAt,
@@ -382,6 +384,7 @@ func storedTaskOf(execution entity.Execution) storedTask {
 		IncludeDirty: execution.IncludeDirty,
 		Profile:      execution.Profile,
 		State:        string(execution.State),
+		Stage:        string(execution.Stage),
 		Lease:        execution.Lease,
 		AcceptedAt:   execution.AcceptedAt,
 		StartedAt:    execution.StartedAt,

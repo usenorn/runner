@@ -163,13 +163,7 @@ func (c *connection) act(ctx context.Context, message channelv1.Message) error {
 			return c.unreadable(ctx, message, err)
 		}
 
-		return c.service.questions.Answered(ctx, message.ExecutionID, entity.Answer{
-			QuestionID: answer.QuestionID,
-			Ref:        answer.Ref,
-			Answer:     answer.Answer,
-			AnsweredBy: answer.AnsweredBy,
-			AnsweredAt: answer.AnsweredAt,
-		})
+		return c.service.questions.Answered(ctx, message.ExecutionID, entity.AnswerOf(answer))
 	case channelv1.ExecutionRetain:
 		var retention channelv1.Retention
 

@@ -72,7 +72,7 @@ func (s *changeSetsService) Uncommitted(
 	return left, nil
 }
 
-func (s *changeSetsService) Publish(
+func (s *changeSetsService) Collect(
 	ctx context.Context,
 	execution entity.Execution,
 	snapshot entity.Snapshot,
@@ -89,11 +89,24 @@ func (s *changeSetsService) Publish(
 
 	s.report(ctx, execution.ID, changes)
 
+	return changes, s.settle(ctx, execution.ID, completion, changes)
+}
+
+func (s *changeSetsService) Publish(
+	ctx context.Context,
+	execution entity.Execution,
+	snapshot entity.Snapshot,
+) (entity.ChangeSet, error) {
+	changes, err := s.collect(ctx, execution, snapshot)
+	if err != nil {
+		return entity.ChangeSet{}, err
+	}
+
 	changes = s.deliver(ctx, execution, snapshot, changes)
 
 	s.report(ctx, execution.ID, changes)
 
-	return changes, s.settle(ctx, execution.ID, completion, changes)
+	return changes, nil
 }
 
 func (s *changeSetsService) collect(

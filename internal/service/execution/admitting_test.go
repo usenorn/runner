@@ -47,7 +47,9 @@ func TestAnAnsweredRunWaitsForASlotRatherThanRunningPastTheMachinesCapacity(t *t
 	})
 
 	if err := h.service.Continue(ctx, "exec-01ABC", channelv1.Instruction{
-		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+		Reason: channelv1.ResumeAnswer, Answers: []channelv1.Answer{{
+			QuestionID: "q-1", Question: "Keep the old endpoint?", Answer: "Remove now", AnsweredBy: "Rae",
+		}},
 	}); err != nil {
 		t.Fatalf("ask the first run to carry on: %v", err)
 	}

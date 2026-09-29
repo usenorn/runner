@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
+
 	"github.com/usenorn/runner/internal/entity"
 )
 
@@ -313,5 +315,47 @@ func TestWhatTheAgentPrintsOnStandardErrorIsKeptOutOfTheTranscript(t *testing.T)
 
 	if len(logs) != 1 || !strings.Contains(logs[0], "the wrapper had something to say") {
 		t.Fatalf("what the agent printed on standard error came back as %v", logs)
+	}
+}
+
+func TestAPlanningSessionRunsInPlanModeWithOnlyAskingAndProgressAllowed(t *testing.T) {
+	h := newHarness(t)
+
+	h.replays(t, "clean.ndjson")
+
+	env := h.env(t, entity.ProfileUnrestricted)
+	env.Stage = channelv1.StagePlanning
+	env.Plans = filepath.Join(t.TempDir(), "plans")
+
+	session, err := h.driver.Start(t.Context(), env, entity.Task{Prompt: "plan the work"})
+	if err != nil {
+		t.Fatalf("start the coding agent: %v", err)
+	}
+
+	h.drain(t, session)
+
+	asked := h.asked(t)
+
+	if slices.Contains(asked, "bypassPermissions") || !slices.Contains(asked, "plan") {
+		t.Fatalf(
+			"a planning session under the unrestricted profile was asked %v; planning has to "+
+				"run with implementation disabled whatever the profile allows",
+			asked,
+		)
+	}
+
+	settings := `{"plansDirectory":"` + env.Plans + `"}`
+	if !slices.Contains(asked, settings) {
+		t.Fatalf("the plan was not pinned to %s: %v", env.Plans, asked)
+	}
+
+	for _, tool := range []string{"mcp__norn__ask_human", "mcp__norn__report_progress"} {
+		if !slices.Contains(asked, tool) {
+			t.Fatalf("a planning session cannot use %s: %v", tool, asked)
+		}
+	}
+
+	if slices.Contains(asked, "mcp__norn__complete_task") {
+		t.Fatalf("a planning session may declare the work done: %v", asked)
 	}
 }

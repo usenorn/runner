@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oklog/ulid/v2"
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
 	"github.com/usenorn/runner/internal/entity"
@@ -87,6 +88,10 @@ func (s *executionsService) finish(
 		return s.park(ctx, execution, question)
 	}
 
+	if execution.Planning() {
+		return s.propose(ctx, execution, result)
+	}
+
 	reported, announced := s.completion(execution.ID)
 
 	if !announced && !result.Outcome.Finished() {
@@ -108,6 +113,37 @@ func (s *executionsService) finish(
 	execution.State = channelv1.StateFinalizing
 
 	return s.finalise(ctx, execution, reported)
+}
+
+func (s *executionsService) propose(
+	ctx context.Context,
+	execution entity.Execution,
+	result entity.DriverResult,
+) error {
+	if !result.Outcome.Finished() {
+		return fmt.Errorf("%w: %s", entity.ErrDriverCrashed, ending(result))
+	}
+
+	body, err := s.runs.LatestPlan(ctx, execution.ID)
+	if err != nil {
+		return failure{step: entity.StepDriver, err: err}
+	}
+
+	if err := s.send(ctx, channelv1.PlanProposed, execution.ID, channelv1.Plan{
+		Ref:      ulid.Make().String(),
+		Body:     body,
+		Proposed: s.now(),
+	}); err != nil {
+		return err
+	}
+
+	if err := s.move(ctx, execution, channelv1.StateAwaitingPlan, entity.PlanProposed()); err != nil {
+		return err
+	}
+
+	execution.State = channelv1.StateAwaitingPlan
+
+	return nil
 }
 
 func (s *executionsService) park(
@@ -314,6 +350,8 @@ func (s *executionsService) env(
 		Environment: values,
 		MCPConfig:   config,
 		Profile:     setup.Permissions.Profile,
+		Stage:       execution.Stage,
+		Plans:       entity.RunHomeOf(execution.Directory).Plans(),
 	}
 }
 
