@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/repository"
@@ -238,3 +239,11 @@ func (runStub) LoadQuestion(context.Context, string) (entity.OpenQuestion, error
 }
 
 func (runStub) ClearQuestion(context.Context, string) error { return nil }
+
+func (runStub) SaveResume(context.Context, string, channelv1.Instruction) error { return nil }
+
+func (runStub) LoadResume(context.Context, string) (channelv1.Instruction, error) {
+	return channelv1.Instruction{}, entity.ErrSnapshotMissing
+}
+
+func (runStub) ClearResume(context.Context, string) error { return nil }

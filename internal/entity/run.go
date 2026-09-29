@@ -21,6 +21,7 @@ const (
 	RunMCPFile         = "mcp.json"
 	RunToolkitFile     = "toolkit.json"
 	RunQuestionFile    = "question.json"
+	RunResumeFile      = "resume.json"
 	RunToolkitDir      = "toolkit"
 
 	RunTimelineLine = 1 << 20

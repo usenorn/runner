@@ -200,3 +200,41 @@ func held(reports []channelv1.Report, state channelv1.State) bool {
 
 	return false
 }
+
+func TestARunNornAskedToCarryOnWritesThatDownBeforeItGoesAnyFurther(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.drivers.scripts = []script{asking(t, h, "exec-01ABC")}
+
+	stop := h.start(t)
+
+	begun(t, h, "exec-01ABC")
+
+	h.await(t, "waited for the run to park on its question", func() bool {
+		return held(h.reports(t), channelv1.StateWaitingForInput)
+	})
+
+	stop()
+
+	instruction := channelv1.Instruction{
+		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+	}
+
+	if err := h.service.Continue(context.Background(), "exec-01ABC", instruction); err != nil {
+		t.Fatalf("ask the run to carry on: %v", err)
+	}
+
+	kept, err := h.runs.LoadResume(context.Background(), "exec-01ABC")
+	if err != nil || kept != instruction {
+		t.Fatalf(
+			"the machine kept %+v (%v) of being asked to carry on. Norn counts the message as "+
+				"delivered once this returns, so a machine that stops before the agent starts "+
+				"again would never hear it a second time",
+			kept, err,
+		)
+	}
+
+	task, err := h.runs.LoadTask(context.Background(), "exec-01ABC")
+	if err != nil || task.State != channelv1.StateQueuedForResume {
+		t.Fatalf("the run is written down as %s (%v), want %s", task.State, err, channelv1.StateQueuedForResume)
+	}
+}

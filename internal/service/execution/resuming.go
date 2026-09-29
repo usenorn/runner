@@ -46,6 +46,18 @@ func (s *executionsService) Continue(
 		return nil
 	}
 
+	if err := s.runs.SaveResume(ctx, executionID, instruction); err != nil {
+		return err
+	}
+
+	if _, err := s.queued(ctx, execution); err != nil {
+		return err
+	}
+
+	return s.enqueue(executionID, instruction)
+}
+
+func (s *executionsService) enqueue(executionID string, instruction channelv1.Instruction) error {
 	select {
 	case s.resuming <- resumption{executionID: executionID, instruction: instruction}:
 		return nil
@@ -138,16 +150,13 @@ func (s *executionsService) carryOn(
 
 	s.restarting(execution.ID)
 
-	execution, err = s.queued(ctx, execution)
-	if err != nil {
-		return err
-	}
-
 	if err := s.move(ctx, execution, channelv1.StateRunning, resumed(instruction)); err != nil {
 		return err
 	}
 
 	execution.State = channelv1.StateRunning
+
+	s.complain(ctx, execution.ID, s.runs.ClearResume(ctx, execution.ID))
 
 	if _, err := s.uploads.Open(ctx, execution.ID); err != nil {
 		if err := s.note(ctx, execution.ID, channelv1.EventNote, quiet(err)); err != nil {
