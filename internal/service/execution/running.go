@@ -21,7 +21,31 @@ import (
 const timelineToolMax = 500
 
 func (s *executionsService) Driver(ctx context.Context) entity.DriverHealth {
-	return s.drivers.Preflight(ctx, entity.DriverClaude)
+	token, err := s.agentToken(ctx)
+	if err != nil {
+		health := s.drivers.Preflight(ctx, entity.DriverClaude, "")
+		health.Problem = err.Error()
+
+		return health
+	}
+
+	return s.drivers.Preflight(ctx, entity.DriverClaude, token)
+}
+
+func (s *executionsService) agentToken(ctx context.Context) (string, error) {
+	store := entity.StoreKeyring
+
+	identity, err := s.identities.Load(ctx)
+	if err == nil && identity.Store.Valid() {
+		store = identity.Store
+	}
+
+	token, err := s.credentials.LoadAgentToken(ctx, store)
+	if errors.Is(err, entity.ErrAgentTokenMissing) {
+		return "", nil
+	}
+
+	return token, err
 }
 
 func (s *executionsService) drive(

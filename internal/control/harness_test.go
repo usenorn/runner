@@ -163,6 +163,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 
 	dashboard := dashboardrepo.NewMockDashboard(ctrl)
 	credentials := credentialrepo.NewMockCredential(ctrl)
+	credentials.EXPECT().LoadAgentToken(gomock.Any(), gomock.Any()).Return("sk-ant-oat01-test", nil).AnyTimes()
 	identities := identityrepo.New(dir)
 
 	releases := releaserepo.NewMockRelease(ctrl)
@@ -235,6 +236,8 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		tokens,
 		driverStub{},
 		toolkitStub{},
+		identities,
+		credentials,
 		sessions,
 		dir,
 		config.Runner{Capacity: 2, Retention: keeping()},
@@ -378,7 +381,7 @@ func (toolkitStub) NornHandler(accessToken string) http.Handler {
 
 type driverStub struct{}
 
-func (driverStub) Preflight(context.Context, entity.DriverKind) entity.DriverHealth {
+func (driverStub) Preflight(context.Context, entity.DriverKind, string) entity.DriverHealth {
 	return entity.DriverHealth{
 		Kind:      entity.DriverClaude,
 		Installed: true,

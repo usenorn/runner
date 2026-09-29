@@ -280,7 +280,12 @@ func (s *executionsService) fill(
 		return entity.Snapshot{}, entity.RunSetup{}, err
 	}
 
-	health := s.drivers.Preflight(ctx, setup.Driver.Kind)
+	token, err := s.agentToken(ctx)
+	if err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}
+	}
+
+	health := s.drivers.Preflight(ctx, setup.Driver.Kind, token)
 
 	if err := health.Fault(); err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}

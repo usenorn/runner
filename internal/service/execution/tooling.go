@@ -139,7 +139,13 @@ func (s *executionsService) tooling(
 		return entity.ExecEnv{}, fmt.Errorf("write the tools for %s: %w", execution.ID, err)
 	}
 
+	agentToken, err := s.agentToken(ctx)
+	if err != nil {
+		return entity.ExecEnv{}, err
+	}
+
 	env := s.env(execution, snapshot, setup, token, path)
+	env.AgentToken = agentToken
 	env.Instructions = toolkit.Instructions
 
 	if len(toolkit.Skills) > 0 {

@@ -70,11 +70,17 @@ func newDriverStub() *driverStub {
 	}
 }
 
-func (d *driverStub) Preflight(context.Context, entity.DriverKind) entity.DriverHealth {
+func (d *driverStub) Preflight(_ context.Context, _ entity.DriverKind, token string) entity.DriverHealth {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	return d.health
+	health := d.health
+	if token == "" {
+		health.SignedIn = false
+		health.Problem = entity.ErrAgentTokenMissing.Error()
+	}
+
+	return health
 }
 
 func (d *driverStub) Start(

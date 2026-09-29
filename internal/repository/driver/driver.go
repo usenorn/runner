@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/usenorn/runner/internal/config"
@@ -38,7 +39,7 @@ func (r *claudeDriver) spawn(
 	child, err := r.processes.Start(ctx, repository.Launch{
 		Dir:         env.Workspace,
 		Command:     args,
-		Environment: env.Environment,
+		Environment: append(slices.Clone(env.Environment), tokenVariable+"="+env.AgentToken),
 		Output:      spoken,
 		Errors:      complained,
 	})

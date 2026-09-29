@@ -16,6 +16,8 @@ import (
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 	channelrepo "github.com/usenorn/runner/internal/repository/channel"
+	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
+	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	"github.com/usenorn/runner/internal/service"
@@ -208,6 +210,12 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		runStub{}, h.spool, config.Questions{SoftWait: time.Millisecond, MaxWait: time.Second},
 	)
 
+	identities := identityrepo.NewMockIdentity(ctrl)
+	identities.EXPECT().Load(gomock.Any()).Return(entity.Identity{}, entity.ErrNotEnrolled).AnyTimes()
+
+	credentials := credentialrepo.NewMockCredential(ctrl)
+	credentials.EXPECT().LoadAgentToken(gomock.Any(), gomock.Any()).Return("sk-ant-oat01-test", nil).AnyTimes()
+
 	h.executions = executionsvc.New(
 		runStub{},
 		h.spool,
@@ -224,6 +232,8 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		runtokenrepo.New(),
 		driverStub{},
 		toolkitStub{},
+		identities,
+		credentials,
 		h.sessions,
 		dir,
 		config.Runner{Capacity: 2},

@@ -42,6 +42,8 @@ type executionsService struct {
 	tokens      repository.RunToken
 	drivers     repository.Driver
 	toolkits    repository.Toolkit
+	identities  repository.Identity
+	credentials repository.Credential
 	access      service.Sessions
 	dir         *statedir.Dir
 	runner      config.Runner
@@ -83,6 +85,8 @@ func New(
 	tokens repository.RunToken,
 	drivers repository.Driver,
 	toolkits repository.Toolkit,
+	identities repository.Identity,
+	credentials repository.Credential,
 	sessions service.Sessions,
 	dir *statedir.Dir,
 	runner config.Runner,
@@ -106,6 +110,8 @@ func New(
 		tokens:      tokens,
 		drivers:     drivers,
 		toolkits:    toolkits,
+		identities:  identities,
+		credentials: credentials,
 		access:      sessions,
 		dir:         dir,
 		runner:      runner,

@@ -16,6 +16,8 @@ const (
 
 	ExecutionVariable      = "NORN_EXEC_ID"
 	ExecutionTokenVariable = "NORN_EXEC_TOKEN"
+
+	AgentTokenAccount = "the token kept with 'norn runner agent-token'"
 )
 
 var (
@@ -24,10 +26,6 @@ var (
 	)
 	ErrDriverMissing = errors.New(
 		"the coding agent is not installed on this machine",
-	)
-	ErrDriverSignedOut = errors.New(
-		"the coding agent is installed but not signed in; run 'claude auth login' as the user " +
-			"this machine's runner runs as",
 	)
 	ErrDriverCrashed = errors.New(
 		"the coding agent stopped before it said it was finished",
@@ -154,7 +152,7 @@ func (h DriverHealth) Fault() error {
 	case !h.Installed:
 		return ErrDriverMissing
 	case !h.SignedIn:
-		return ErrDriverSignedOut
+		return ErrAgentTokenMissing
 	default:
 		return nil
 	}
@@ -162,6 +160,7 @@ func (h DriverHealth) Fault() error {
 
 type ExecEnv struct {
 	ExecutionID  string
+	AgentToken   string
 	Workspace    string
 	Environment  []string
 	MCPConfig    string

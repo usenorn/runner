@@ -17,7 +17,7 @@ import (
 const fake = `#!/bin/sh
 printf '%s\n' "$@" >> "$NORN_TEST_ARGV"
 if [ "$1" = "--version" ]; then echo "2.1.239 (Claude Code)"; exit 0; fi
-if [ "$1" = "auth" ]; then cat "$NORN_TEST_AUTH"; exit 0; fi
+if [ -n "$NORN_TEST_ENV" ]; then env > "$NORN_TEST_ENV"; fi
 if [ -n "$NORN_TEST_STDERR" ]; then printf '%s\n' "$NORN_TEST_STDERR" >&2; fi
 cat "$NORN_TEST_STREAM"
 exit "${NORN_TEST_EXIT:-0}"
@@ -49,7 +49,6 @@ func newHarness(t *testing.T) *harness {
 	// installed cannot answer a test that is about not having one.
 	t.Setenv("PATH", strings.Join([]string{dir, "/bin", "/usr/bin"}, string(os.PathListSeparator)))
 	t.Setenv("NORN_TEST_ARGV", argv)
-	t.Setenv("NORN_TEST_AUTH", write(t, dir, "auth.json", `{"loggedIn":true,"authMethod":"claude.ai","email":"runner@example.test"}`))
 	t.Setenv("NORN_TEST_STREAM", os.DevNull)
 
 	return &harness{

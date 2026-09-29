@@ -204,15 +204,9 @@ func TestAnAgentThatStopsWithoutFinishingTwiceFailsTheRunRatherThanTryingForever
 	}
 }
 
-func TestACodingAgentThatIsNotSignedInFailsTheRunBeforeAWorkspaceIsCopied(t *testing.T) {
+func TestAMachineWithNoAgentTokenFailsTheRunBeforeAWorkspaceIsCopied(t *testing.T) {
 	h := newHarness(t, 2, 0)
-
-	h.drivers.health = entity.DriverHealth{
-		Kind:      entity.DriverClaude,
-		Installed: true,
-		Version:   "2.1.239",
-		Problem:   entity.ErrDriverSignedOut.Error(),
-	}
+	h.agentToken = ""
 
 	stop := h.start(t)
 	defer stop()
@@ -222,7 +216,8 @@ func TestACodingAgentThatIsNotSignedInFailsTheRunBeforeAWorkspaceIsCopied(t *tes
 	h.await(t, "waited for the run to say the agent is not signed in", func() bool {
 		for _, reported := range h.reports(t) {
 			if reported.State == string(channelv1.StateFailed) {
-				return strings.Contains(reported.Reason, "claude auth login")
+				return strings.Contains(reported.Reason, "claude setup-token") &&
+					strings.Contains(reported.Reason, "norn runner agent-token")
 			}
 		}
 
@@ -231,6 +226,27 @@ func TestACodingAgentThatIsNotSignedInFailsTheRunBeforeAWorkspaceIsCopied(t *tes
 
 	if len(h.requests()) != 0 {
 		t.Fatalf("a workspace was copied for a run that could never start")
+	}
+}
+
+func TestEveryRunSignsTheCodingAgentInWithTheTokenTheMachineKeeps(t *testing.T) {
+	h := newHarness(t, 2, 0)
+
+	stop := h.start(t)
+	defer stop()
+
+	begun(t, h, "exec-01ABC")
+
+	h.await(t, "waited for the coding agent to start", func() bool {
+		return len(h.drivers.worked()) == 1
+	})
+
+	if got := h.drivers.worked()[0].AgentToken; got != "sk-ant-oat01-test" {
+		t.Fatalf(
+			"the coding agent was started with the token %q. A run signed in with anything else "+
+				"shares a login whose refresh can sign every other run out",
+			got,
+		)
 	}
 }
 

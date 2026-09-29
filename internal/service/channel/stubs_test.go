@@ -196,7 +196,7 @@ func (toolkitStub) NornHandler(accessToken string) http.Handler {
 
 type driverStub struct{}
 
-func (driverStub) Preflight(context.Context, entity.DriverKind) entity.DriverHealth {
+func (driverStub) Preflight(context.Context, entity.DriverKind, string) entity.DriverHealth {
 	return entity.DriverHealth{Kind: entity.DriverClaude, Installed: true, SignedIn: true}
 }
 

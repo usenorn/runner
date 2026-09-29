@@ -17,9 +17,11 @@ import (
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
+	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
 	diskrepo "github.com/usenorn/runner/internal/repository/disk"
 	forgerepo "github.com/usenorn/runner/internal/repository/forge"
+	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
@@ -83,6 +85,8 @@ type harness struct {
 	opened   string
 	openErr  error
 	existing string
+
+	agentToken string
 
 	missing   map[string]bool
 	skillErrs map[string]error
@@ -186,6 +190,7 @@ func build(
 		worktrees:   worktreerepo.NewMockWorktree(controller),
 		forges:      forgerepo.NewMockForge(controller),
 		toolkits:    toolkitrepo.NewMockToolkit(controller),
+		agentToken:  "sk-ant-oat01-test",
 		missing:     map[string]bool{},
 		skillErrs:   map[string]error{},
 		free:        free,
@@ -218,6 +223,21 @@ func build(
 	)
 	h.tokens = runtokenrepo.New()
 
+	identities := identityrepo.NewMockIdentity(controller)
+	identities.EXPECT().Load(gomock.Any()).Return(entity.Identity{}, entity.ErrNotEnrolled).AnyTimes()
+
+	credentials := credentialrepo.NewMockCredential(controller)
+	credentials.EXPECT().
+		LoadAgentToken(gomock.Any(), entity.StoreKeyring).
+		DoAndReturn(func(context.Context, entity.Store) (string, error) {
+			if h.agentToken == "" {
+				return "", entity.ErrAgentTokenMissing
+			}
+
+			return h.agentToken, nil
+		}).
+		AnyTimes()
+
 	h.service = executionsvc.New(
 		h.runs,
 		h.spool,
@@ -234,6 +254,8 @@ func build(
 		h.tokens,
 		h.drivers,
 		h.toolkits,
+		identities,
+		credentials,
 		h.sessions,
 		dir,
 		config.Runner{Capacity: capacity, Retention: retention},
