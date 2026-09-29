@@ -250,6 +250,41 @@ func TestEveryRunSignsTheCodingAgentInWithTheTokenTheMachineKeeps(t *testing.T) 
 	}
 }
 
+func TestTheCodingAgentWorksInAHomeOfItsOwnWithoutTheMachinesSessions(t *testing.T) {
+	t.Setenv("SSH_AUTH_SOCK", "/private/tmp/agent.sock")
+	t.Setenv("GH_TOKEN", "gho_machine")
+
+	h := newHarness(t, 2, 0)
+
+	stop := h.start(t)
+	defer stop()
+
+	begun(t, h, "exec-01ABC")
+
+	h.await(t, "waited for the coding agent to start", func() bool {
+		return len(h.drivers.worked()) == 1
+	})
+
+	environment := h.drivers.worked()[0].Environment
+	home := entity.RunHomeOf(h.dir.Run("exec-01ABC"))
+
+	for _, want := range []string{"HOME=" + home.Root, "TMPDIR=" + home.Tmp, "CLAUDE_CONFIG_DIR=" + home.Claude()} {
+		if !slices.Contains(environment, want) {
+			t.Fatalf(
+				"the coding agent was started without %s. Two runs sharing one home share one "+
+					"agent session store and one temporary folder",
+				want,
+			)
+		}
+	}
+
+	for _, entry := range environment {
+		if strings.HasPrefix(entry, "SSH_AUTH_SOCK=") || strings.HasPrefix(entry, "GH_TOKEN=") {
+			t.Fatalf("the coding agent was handed %s, which lets it act as the person", entry)
+		}
+	}
+}
+
 func TestCancellingARunStopsTheAgentAndKeepsItsWorkspaceForAWhile(t *testing.T) {
 	h := newHarness(t, 2, 0)
 

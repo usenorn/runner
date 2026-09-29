@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/repository"
@@ -273,7 +272,8 @@ func environment(
 	wanted entity.Service,
 	ports map[string]int,
 ) []string {
-	values := slices.Clone(os.Environ())
+	hostHome, _ := os.UserHomeDir()
+	values := entity.TaskEnvironment(os.Environ(), hostHome, entity.RunHomeOf(execution.Directory), exists)
 
 	values = append(values, entity.ExecutionVariable+"="+execution.ID)
 
@@ -286,6 +286,12 @@ func environment(
 	}
 
 	return values
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+
+	return err == nil
 }
 
 func (s *servicesSupervisor) Stop(

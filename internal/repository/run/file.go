@@ -30,6 +30,8 @@ func children(path string) []string {
 		filepath.Join(path, entity.RunMetadataDir),
 		filepath.Join(path, entity.RunLogsDir),
 		filepath.Join(path, entity.RunArtifactsDir),
+		filepath.Join(path, entity.RunHomeDir),
+		filepath.Join(path, entity.RunTmpDir),
 	}
 }
 
@@ -126,7 +128,26 @@ func (r *fileRun) Open(_ context.Context, name string) (string, error) {
 		}
 	}
 
+	if err := furnish(entity.RunHomeOf(path)); err != nil {
+		return "", err
+	}
+
 	return path, nil
+}
+
+func furnish(home entity.RunHome) error {
+	hostHome, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("find the home this runner runs under: %w", err)
+	}
+
+	config := entity.TaskGitConfig(entity.HostGitConfigs(hostHome, os.Getenv("XDG_CONFIG_HOME")))
+
+	if err := os.WriteFile(home.GitConfig(), []byte(config), fileMode); err != nil {
+		return fmt.Errorf("write %s: %w", home.GitConfig(), err)
+	}
+
+	return nil
 }
 
 func (r *fileRun) Retire(_ context.Context, name string) error {
@@ -138,6 +159,8 @@ func (r *fileRun) Retire(_ context.Context, name string) error {
 		filepath.Join(path, entity.RunMetadataDir, entity.RunMCPFile),
 		filepath.Join(path, entity.RunMetadataDir, entity.RunToolkitFile),
 		filepath.Join(path, entity.RunMetadataDir, entity.RunToolkitDir),
+		filepath.Join(path, entity.RunHomeDir),
+		filepath.Join(path, entity.RunTmpDir),
 	}
 
 	for _, child := range leaving {

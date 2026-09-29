@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -304,7 +303,7 @@ func (s *executionsService) env(
 	token string,
 	config string,
 ) entity.ExecEnv {
-	values := slices.Clone(os.Environ())
+	values := taskEnvironment(execution.Directory)
 	values = append(values, entity.ExecutionVariable+"="+execution.ID)
 	values = append(values, entity.ExecutionTokenVariable+"="+token)
 
@@ -315,6 +314,18 @@ func (s *executionsService) env(
 		MCPConfig:   config,
 		Profile:     setup.Permissions.Profile,
 	}
+}
+
+func taskEnvironment(runDir string) []string {
+	hostHome, _ := os.UserHomeDir()
+
+	return entity.TaskEnvironment(os.Environ(), hostHome, entity.RunHomeOf(runDir), exists)
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+
+	return err == nil
 }
 
 func workspaceOf(execution entity.Execution, snapshot entity.Snapshot) string {
