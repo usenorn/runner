@@ -2,6 +2,7 @@ package control_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -99,5 +100,42 @@ func TestTheOperatorsOwnCommandsNeedNoRunToken(t *testing.T) {
 	if _, err := h.client.Logs(ctx, "exec-01WATCHED"); err != nil &&
 		strings.Contains(err.Error(), entity.ExecutionTokenVariable) {
 		t.Fatalf("a person was asked for a run's own token to read its timeline: %v", err)
+	}
+}
+
+func TestOnlyARunsOwnTokenOpensTheWayToNornsTools(t *testing.T) {
+	h := newHarness(t, nil)
+
+	running(t, h, "exec-01MINE")
+	running(t, h, "exec-01YOURS")
+
+	mine := h.as(t, "exec-01MINE")
+
+	said := func(executionID string) string {
+		t.Helper()
+
+		endpoint, client := mine.NornTools(executionID)
+
+		response, err := client.Post(endpoint, "application/json", strings.NewReader("{}"))
+		if err != nil {
+			t.Fatalf("reach norn's tools as %s: %v", executionID, err)
+		}
+		defer func() { _ = response.Body.Close() }()
+
+		body, _ := io.ReadAll(response.Body)
+
+		return string(body)
+	}
+
+	if own := said("exec-01MINE"); !strings.Contains(own, "not connected to Norn") {
+		t.Fatalf(
+			"the run's own call came back %q; it passes the run's door and then needs this "+
+				"machine's own access to norn, which an unconnected machine does not have",
+			own,
+		)
+	}
+
+	if borrowed := said("exec-01YOURS"); !strings.Contains(borrowed, "belongs to a different run") {
+		t.Fatalf("one run reached norn's tools through another run's door: %q", borrowed)
 	}
 }

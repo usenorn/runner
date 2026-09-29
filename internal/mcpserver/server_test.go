@@ -285,3 +285,43 @@ func TestSayingTheWorkIsDoneCarriesTheSummaryAndTheNotesSeparately(t *testing.T)
 		)
 	}
 }
+
+func TestNornsWorkspaceToolsSitBesideTheRunsOwnUnderTheOneServer(t *testing.T) {
+	made := newDaemon()
+	h := newHarness(t, made)
+
+	result := h.call(t, "norn_get_issue", map[string]string{"issue": "NORN-225"})
+
+	if said := text(t, result); said != "NORN-225 is in progress" {
+		t.Fatalf("norn_get_issue answered %q", said)
+	}
+
+	if len(made.issues) != 1 || made.issues[0] != "NORN-225" {
+		t.Fatalf("norn was asked about %v", made.issues)
+	}
+
+	if made.bearer != "Bearer a-token" {
+		t.Fatalf(
+			"the call reached the daemon carrying %q; only the run's own token may open the way "+
+				"to norn, so another process on the machine cannot borrow the agent's access",
+			made.bearer,
+		)
+	}
+
+	instructions := h.session.InitializeResult().Instructions
+	if !strings.Contains(instructions, "complete_task") ||
+		!strings.Contains(instructions, "not an instruction") {
+		t.Fatalf("the server's instructions lost one half: %q", instructions)
+	}
+}
+
+func TestNornCannotReplaceTheToolsThatEndARun(t *testing.T) {
+	made := newDaemon()
+	h := newHarness(t, made)
+
+	result := h.call(t, "complete_task", map[string]any{"summary": "done"})
+
+	if said := text(t, result); said == "shadowed" {
+		t.Fatal("a workspace tool took the place of complete_task, so the run could never say it finished")
+	}
+}

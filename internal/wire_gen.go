@@ -132,7 +132,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	configTunnel := config.NewTunnel(configConfig)
 	repositoryTunnel := tunnel.New(app, configTunnel)
 	tunnels := tunnel2.New(repositoryTunnel, sessions, previews, configTunnel)
-	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, tunnels, executions, services, serviceQuestions, previews, uploads, runToken, build)
+	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, tunnels, executions, services, serviceQuestions, previews, uploads, runToken, repositoryToolkit, build)
 	listener, cleanup, err := socket.New(dir)
 	if err != nil {
 		return nil, nil, err

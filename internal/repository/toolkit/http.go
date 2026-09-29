@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -242,6 +244,24 @@ func (b bearing) RoundTrip(request *http.Request) (*http.Response, error) {
 	signed.Header.Set("Authorization", "Bearer "+b.token)
 
 	return b.next.RoundTrip(signed)
+}
+
+func (r *httpToolkit) NornHandler(accessToken string) http.Handler {
+	target, err := url.Parse(r.server + nornMCPPath)
+	if err != nil {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "this machine's norn address is not a url", http.StatusBadGateway)
+		})
+	}
+
+	return &httputil.ReverseProxy{
+		Rewrite: func(proxied *httputil.ProxyRequest) {
+			proxied.Out.URL = &url.URL{Scheme: target.Scheme, Host: target.Host, Path: target.Path}
+			proxied.Out.Host = target.Host
+			proxied.Out.Header.Set("Authorization", "Bearer "+accessToken)
+		},
+		FlushInterval: -1,
+	}
 }
 
 func (r *httpToolkit) ReachNorn(ctx context.Context, accessToken string) error {

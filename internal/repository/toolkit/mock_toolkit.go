@@ -11,6 +11,7 @@ package toolkit
 
 import (
 	context "context"
+	http "net/http"
 	reflect "reflect"
 
 	entity "github.com/usenorn/runner/internal/entity"
@@ -67,6 +68,20 @@ func (m *MockToolkit) Installed(command string) bool {
 func (mr *MockToolkitMockRecorder) Installed(command any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Installed", reflect.TypeOf((*MockToolkit)(nil).Installed), command)
+}
+
+// NornHandler mocks base method.
+func (m *MockToolkit) NornHandler(accessToken string) http.Handler {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NornHandler", accessToken)
+	ret0, _ := ret[0].(http.Handler)
+	return ret0
+}
+
+// NornHandler indicates an expected call of NornHandler.
+func (mr *MockToolkitMockRecorder) NornHandler(accessToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NornHandler", reflect.TypeOf((*MockToolkit)(nil).NornHandler), accessToken)
 }
 
 // ReachNorn mocks base method.

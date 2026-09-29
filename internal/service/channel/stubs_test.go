@@ -2,6 +2,7 @@ package channel_test
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/google/uuid"
 
@@ -185,6 +186,12 @@ func (toolkitStub) InstallSkill(context.Context, entity.ToolkitSkill, string) er
 func (toolkitStub) Installed(string) bool { return true }
 
 func (toolkitStub) ReachNorn(context.Context, string) error { return nil }
+
+func (toolkitStub) NornHandler(accessToken string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(accessToken))
+	})
+}
 
 type driverStub struct{}
 

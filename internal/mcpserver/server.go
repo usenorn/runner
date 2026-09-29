@@ -35,21 +35,12 @@ type toolset struct {
 }
 
 type Server struct {
-	server *mcp.Server
-	tools  *toolset
+	client *control.Client
+	app    config.App
 }
 
 func New(client *control.Client, app config.App) *Server {
-	tools := &toolset{client: client}
-
-	server := mcp.NewServer(
-		&mcp.Implementation{Name: serverName, Version: app.Version},
-		&mcp.ServerOptions{Instructions: untrustedContentInstructions},
-	)
-
-	tools.register(server)
-
-	return &Server{server: server, tools: tools}
+	return &Server{client: client, app: app}
 }
 
 func (s *Server) Run(ctx context.Context, executionID string) error {
@@ -65,10 +56,54 @@ func (s *Server) Serve(
 		return entity.Exit(entity.ExitFailure, errNoExecution)
 	}
 
-	s.tools.execution = executionID
+	endpoint, client := s.client.NornTools(executionID)
 
-	if err := s.server.Run(ctx, transport); err != nil {
+	backend, err := mcp.NewClient(
+		&mcp.Implementation{Name: serverName, Version: s.app.Version}, nil,
+	).Connect(ctx, &mcp.StreamableClientTransport{Endpoint: endpoint, HTTPClient: client}, nil)
+	if err != nil {
+		return fmt.Errorf("reach norn's workspace tools for %s: %w", executionID, err)
+	}
+	defer func() { _ = backend.Close() }()
+
+	instructions := untrustedContentInstructions
+	if held := backend.InitializeResult(); held != nil && held.Instructions != "" {
+		instructions += "\n\n" + held.Instructions
+	}
+
+	server := mcp.NewServer(
+		&mcp.Implementation{Name: serverName, Version: s.app.Version},
+		&mcp.ServerOptions{Instructions: instructions},
+	)
+
+	if err := relay(ctx, server, backend); err != nil {
+		return fmt.Errorf("list norn's workspace tools for %s: %w", executionID, err)
+	}
+
+	tools := &toolset{client: s.client, execution: executionID}
+	tools.register(server)
+
+	if err := server.Run(ctx, transport); err != nil {
 		return fmt.Errorf("serve norn's tools for %s: %w", executionID, err)
+	}
+
+	return nil
+}
+
+func relay(ctx context.Context, server *mcp.Server, backend *mcp.ClientSession) error {
+	for tool, err := range backend.Tools(ctx, nil) {
+		if err != nil {
+			return err
+		}
+
+		name := tool.Name
+
+		server.AddTool(tool, func(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return backend.CallTool(ctx, &mcp.CallToolParams{
+				Name:      name,
+				Arguments: request.Params.Arguments,
+			})
+		})
 	}
 
 	return nil

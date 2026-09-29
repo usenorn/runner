@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,6 +80,7 @@ func serving(t *testing.T, body []byte) string {
 func newToolkit(server string) interface {
 	InstallSkill(context.Context, entity.ToolkitSkill, string) error
 	ReachNorn(context.Context, string) error
+	NornHandler(string) http.Handler
 } {
 	return toolkitrepo.New(
 		config.Runner{Server: server},
@@ -181,5 +183,29 @@ func TestNornsToolsAreReachedWithTheMachinesAccessToken(t *testing.T) {
 
 	if err := newToolkit(norn.URL).ReachNorn(context.Background(), "nrs_stale"); err == nil {
 		t.Fatal("norn refused the token and the machine still called its tools reachable")
+	}
+}
+
+func TestTheWayToNornsToolsCarriesTheMachinesTokenAndNeverTheRuns(t *testing.T) {
+	var path, presented string
+
+	norn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path, presented = r.URL.Path, r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	t.Cleanup(norn.Close)
+
+	incoming := httptest.NewRequest(http.MethodPost, "http://norn/v1/executions/exec-01ABC/norn", strings.NewReader("{}"))
+	incoming.Header.Set("Authorization", "Bearer run-token")
+
+	recorder := httptest.NewRecorder()
+	newToolkit(norn.URL).NornHandler("nrs_live").ServeHTTP(recorder, incoming)
+
+	if recorder.Code != http.StatusAccepted || path != "/mcp" {
+		t.Fatalf("the call reached %q and came back %d", path, recorder.Code)
+	}
+
+	if presented != "Bearer nrs_live" {
+		t.Fatalf("norn was shown %q; the run's own token means nothing to norn and must not leave the machine", presented)
 	}
 }
