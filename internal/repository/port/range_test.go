@@ -3,6 +3,7 @@ package port_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/usenorn/runner/internal/config"
@@ -104,5 +105,49 @@ func TestGivingARunBackFreesEveryPortItHeldAndLeavesTheOthersAlone(t *testing.T)
 
 	if other["api"] != kept {
 		t.Fatalf("giving one run back moved another run's port to %d", other["api"])
+	}
+}
+
+func TestAContainersServicesArePortedOnlyFromWhatItPublishes(t *testing.T) {
+	ports := portrepo.New(config.Runner{PortRange: [2]int{45700, 45799}})
+	ctx := context.Background()
+
+	block, err := ports.Block(ctx, "exec-01DOC", 2)
+	if err != nil || len(block) != 2 {
+		t.Fatalf("reserve a block of two: %v, %v", block, err)
+	}
+
+	web, err := ports.Reserve(ctx, "exec-01DOC", "web")
+	if err != nil {
+		t.Fatalf("reserve web: %v", err)
+	}
+
+	api, err := ports.Reserve(ctx, "exec-01DOC", "api")
+	if err != nil {
+		t.Fatalf("reserve api: %v", err)
+	}
+
+	if web == api || !slices.Contains(block, web) || !slices.Contains(block, api) {
+		t.Fatalf(
+			"the services got %d and %d from the block %v. A port a container did not publish "+
+				"when it started is one nothing outside it can ever reach",
+			web, api, block,
+		)
+	}
+
+	if _, err := ports.Reserve(ctx, "exec-01DOC", "worker"); !errors.Is(err, entity.ErrPortsExhausted) {
+		t.Fatalf("a third service in a block of two came back %v, want the block said to be full", err)
+	}
+
+	other, err := ports.Reserve(ctx, "exec-01OTH", "web")
+	if err != nil || slices.Contains(block, other) {
+		t.Fatalf("another run was given %d out of this run's block %v (%v)", other, block, err)
+	}
+
+	ports.Release(ctx, "exec-01DOC")
+
+	again, err := ports.Block(ctx, "exec-01NEW", 2)
+	if err != nil || len(again) != 2 {
+		t.Fatalf("a block given back could not be reserved again: %v, %v", again, err)
 	}
 }

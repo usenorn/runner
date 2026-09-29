@@ -23,6 +23,7 @@ type rangePort struct {
 
 	mu     sync.Mutex
 	held   map[holder]int
+	blocks map[string][]int
 	cursor int
 }
 
@@ -31,6 +32,7 @@ func New(runner config.Runner) repository.Port {
 		lowest:  runner.PortRange[0],
 		highest: runner.PortRange[1],
 		held:    map[holder]int{},
+		blocks:  map[string][]int{},
 		cursor:  runner.PortRange[0],
 	}
 }
@@ -43,12 +45,86 @@ func (r *rangePort) Reserve(_ context.Context, run string, name string) (int, er
 		return port, nil
 	}
 
+	if block, blocked := r.blocks[run]; blocked {
+		return r.within(run, name, block)
+	}
+
+	port, err := r.next(r.taken())
+	if err != nil {
+		return 0, err
+	}
+
+	r.held[holder{run: run, name: name}] = port
+
+	return port, nil
+}
+
+func (r *rangePort) within(run, name string, block []int) (int, error) {
+	used := map[int]bool{}
+
+	for who, port := range r.held {
+		if who.run == run {
+			used[port] = true
+		}
+	}
+
+	for _, port := range block {
+		if !used[port] {
+			r.held[holder{run: run, name: name}] = port
+
+			return port, nil
+		}
+	}
+
+	return 0, fmt.Errorf(
+		"%w: this run's container publishes %d ports and every one is taken; raise docker.ports",
+		entity.ErrPortsExhausted, len(block),
+	)
+}
+
+func (r *rangePort) Block(_ context.Context, run string, size int) ([]int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if block, blocked := r.blocks[run]; blocked && len(block) == size {
+		return block, nil
+	}
+
+	taken := r.taken()
+	block := make([]int, 0, size)
+
+	for range size {
+		port, err := r.next(taken)
+		if err != nil {
+			return nil, err
+		}
+
+		taken[port] = true
+		block = append(block, port)
+	}
+
+	r.blocks[run] = block
+
+	return block, nil
+}
+
+func (r *rangePort) taken() map[int]bool {
 	taken := map[int]bool{}
 
 	for _, port := range r.held {
 		taken[port] = true
 	}
 
+	for _, block := range r.blocks {
+		for _, port := range block {
+			taken[port] = true
+		}
+	}
+
+	return taken
+}
+
+func (r *rangePort) next(taken map[int]bool) (int, error) {
 	span := r.highest - r.lowest + 1
 
 	for tried := 0; tried < span; tried++ {
@@ -58,7 +134,6 @@ func (r *rangePort) Reserve(_ context.Context, run string, name string) (int, er
 			continue
 		}
 
-		r.held[holder{run: run, name: name}] = port
 		r.cursor = r.lowest + (port-r.lowest+1)%span
 
 		return port, nil
@@ -93,6 +168,8 @@ func (r *rangePort) Release(_ context.Context, run string) {
 			delete(r.held, who)
 		}
 	}
+
+	delete(r.blocks, run)
 }
 
 func free(port int) bool {

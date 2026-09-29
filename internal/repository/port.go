@@ -8,4 +8,5 @@ type Port interface {
 	Reserve(ctx context.Context, run string, name string) (int, error)
 	Held(ctx context.Context, run string) (map[string]int, error)
 	Release(ctx context.Context, run string)
+	Block(ctx context.Context, run string, size int) ([]int, error)
 }
