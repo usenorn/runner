@@ -43,22 +43,6 @@ func TestOnlyASessionThatSaidItWasDoneCountsAsFinished(t *testing.T) {
 	}
 }
 
-func TestAWorkspaceOnMinimalKeepsItsLogsAndNotItsTranscript(t *testing.T) {
-	if !entity.TelemetryMinimal.Keeps(entity.StreamLogs) {
-		t.Fatalf("a workspace on minimal was taken to refuse its own logs")
-	}
-
-	if entity.TelemetryMinimal.Keeps(entity.StreamTranscript) {
-		t.Fatalf("a workspace on minimal was taken to keep full transcripts")
-	}
-
-	for _, stream := range entity.UploadStreams() {
-		if !entity.TelemetryFull.Keeps(stream) {
-			t.Fatalf("a workspace keeping everything was taken to refuse its %s", stream)
-		}
-	}
-}
-
 func TestAnAgentIsOnlyReadyWhenItIsBothInstalledAndSignedIn(t *testing.T) {
 	for health, fault := range map[entity.DriverHealth]error{
 		{Installed: true, SignedIn: true}:  nil,

@@ -230,8 +230,6 @@ func (s *servicesSupervisor) spawn(
 
 	lines, forget := entry.stream.Watch()
 
-	s.forward(ctx, execution.ID, wanted.Name, entry.stream)
-
 	child, err := s.sandboxes.Start(ctx, execution.Sandbox(), repository.Launch{
 		Dir:         filepath.Join(execution.Directory, entity.RunWorkspaceDir, wanted.Dir),
 		Command:     wanted.Command,

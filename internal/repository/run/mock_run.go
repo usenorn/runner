@@ -293,6 +293,34 @@ func (mr *MockRunMockRecorder) Prune(ctx, name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prune", reflect.TypeOf((*MockRun)(nil).Prune), ctx, name)
 }
 
+// RecordStderr mocks base method.
+func (m *MockRun) RecordStderr(ctx context.Context, name, line string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordStderr", ctx, name, line)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordStderr indicates an expected call of RecordStderr.
+func (mr *MockRunMockRecorder) RecordStderr(ctx, name, line any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordStderr", reflect.TypeOf((*MockRun)(nil).RecordStderr), ctx, name, line)
+}
+
+// RecordTranscript mocks base method.
+func (m *MockRun) RecordTranscript(ctx context.Context, name string, event entity.DriverEvent) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordTranscript", ctx, name, event)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordTranscript indicates an expected call of RecordTranscript.
+func (mr *MockRunMockRecorder) RecordTranscript(ctx, name, event any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordTranscript", reflect.TypeOf((*MockRun)(nil).RecordTranscript), ctx, name, event)
+}
+
 // Remove mocks base method.
 func (m *MockRun) Remove(ctx context.Context, name string) error {
 	m.ctrl.T.Helper()

@@ -42,51 +42,6 @@ func (m *MockUpload) EXPECT() *MockUploadMockRecorder {
 	return m.recorder
 }
 
-// AppendLogs mocks base method.
-func (m *MockUpload) AppendLogs(ctx context.Context, token, executionID string, batch entity.LogBatch) (entity.UploadReceipt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppendLogs", ctx, token, executionID, batch)
-	ret0, _ := ret[0].(entity.UploadReceipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AppendLogs indicates an expected call of AppendLogs.
-func (mr *MockUploadMockRecorder) AppendLogs(ctx, token, executionID, batch any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendLogs", reflect.TypeOf((*MockUpload)(nil).AppendLogs), ctx, token, executionID, batch)
-}
-
-// AppendTranscript mocks base method.
-func (m *MockUpload) AppendTranscript(ctx context.Context, token, executionID string, batch entity.TranscriptBatch) (entity.UploadReceipt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppendTranscript", ctx, token, executionID, batch)
-	ret0, _ := ret[0].(entity.UploadReceipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AppendTranscript indicates an expected call of AppendTranscript.
-func (mr *MockUploadMockRecorder) AppendTranscript(ctx, token, executionID, batch any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendTranscript", reflect.TypeOf((*MockUpload)(nil).AppendTranscript), ctx, token, executionID, batch)
-}
-
-// Cursors mocks base method.
-func (m *MockUpload) Cursors(ctx context.Context, token, executionID string) ([]entity.StreamCursor, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Cursors", ctx, token, executionID)
-	ret0, _ := ret[0].([]entity.StreamCursor)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Cursors indicates an expected call of Cursors.
-func (mr *MockUploadMockRecorder) Cursors(ctx, token, executionID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cursors", reflect.TypeOf((*MockUpload)(nil).Cursors), ctx, token, executionID)
-}
-
 // PublishArtifact mocks base method.
 func (m *MockUpload) PublishArtifact(ctx context.Context, token, executionID, label string, body io.Reader) (entity.ArtifactReceipt, error) {
 	m.ctrl.T.Helper()

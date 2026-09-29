@@ -162,14 +162,6 @@ func (s *executionsService) carryOn(
 
 	s.complain(ctx, execution.ID, s.runs.ClearResume(ctx, execution.ID))
 
-	if _, err := s.uploads.Open(ctx, execution.ID); err != nil {
-		if err := s.note(ctx, execution.ID, channelv1.EventNote, quiet(err)); err != nil {
-			return err
-		}
-	}
-
-	defer s.uploads.Close(context.WithoutCancel(ctx), execution.ID)
-
 	return s.again(ctx, execution, held, s.injection(ctx, execution.ID, instruction))
 }
 

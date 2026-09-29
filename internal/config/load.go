@@ -56,12 +56,7 @@ const (
 	defaultResumeAttempts   = 1
 	defaultSandboxImage     = "ghcr.io/usenorn/runner-sandbox:latest"
 	defaultSandboxPorts     = 10
-	defaultUploadBatch      = 200
-	defaultMaxChunkBytes    = 1 << 20
 	defaultMaxArtifactBytes = 32 << 20
-	defaultMaxPending       = 64
-	serverMaxChunkBytes     = 1 << 20
-	serverMaxChunkEntries   = 5000
 
 	defaultMaxDiffBytes = 3 << 20
 
@@ -273,11 +268,6 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("questions.soft_wait", time.Minute)
 	v.SetDefault("questions.max_wait", 10*time.Minute)
 
-	v.SetDefault("upload.enabled", true)
-	v.SetDefault("upload.batch", defaultUploadBatch)
-	v.SetDefault("upload.flush", 5*time.Second)
-	v.SetDefault("upload.max_chunk_bytes", int64(defaultMaxChunkBytes))
-	v.SetDefault("upload.max_pending", defaultMaxPending)
 	v.SetDefault("upload.max_artifact_bytes", int64(defaultMaxArtifactBytes))
 
 	v.SetDefault("update.check", true)
@@ -584,31 +574,8 @@ func validateQuestions(questions Questions) error {
 }
 
 func validateUpload(upload Upload) error {
-	if upload.Batch <= 0 || upload.Batch > serverMaxChunkEntries {
-		return fmt.Errorf(
-			"upload.batch must be between 1 and %d, which is the most norn takes in one batch",
-			serverMaxChunkEntries,
-		)
-	}
-
-	if upload.Flush <= 0 {
-		return fmt.Errorf("upload.flush must be positive")
-	}
-
-	if upload.MaxChunkBytes <= 0 || upload.MaxChunkBytes > serverMaxChunkBytes {
-		return fmt.Errorf(
-			"upload.max_chunk_bytes must be between 1 and %d bytes, which is the most norn stores "+
-				"in one batch; a larger figure here would only have norn refuse the batch",
-			serverMaxChunkBytes,
-		)
-	}
-
 	if upload.MaxArtifactBytes <= 0 {
 		return fmt.Errorf("upload.max_artifact_bytes must be positive")
-	}
-
-	if upload.MaxPending <= 0 {
-		return fmt.Errorf("upload.max_pending must be positive")
 	}
 
 	return nil

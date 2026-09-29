@@ -258,14 +258,6 @@ func TestAConfigurationThatCannotWorkIsRefused(t *testing.T) {
 			name: "a bridge that is not somewhere to listen",
 			body: "docker:\n  bridge: nowhere\n",
 		},
-		{
-			name: "a batch larger than norn takes at once",
-			body: "upload:\n  batch: 5001\n",
-		},
-		{
-			name: "a batch larger than norn stores",
-			body: "upload:\n  max_chunk_bytes: 2MB\n",
-		},
 	}
 
 	for _, testCase := range cases {
@@ -324,22 +316,5 @@ func TestAMachineDrivesACodingAgentUnderTheStandardProfileUnlessItSaysOtherwise(
 
 	if cfg.Driver.ResumeAttempts != 1 {
 		t.Fatalf("a machine that was told nothing carries on %d times", cfg.Driver.ResumeAttempts)
-	}
-}
-
-func TestABatchIsNeverBiggerThanWhatNornStoresInOne(t *testing.T) {
-	t.Setenv("NORN_STATE_ROOT", t.TempDir())
-
-	cfg, err := config.New("", config.Overrides{})
-	if err != nil {
-		t.Fatalf("load defaults: %v", err)
-	}
-
-	if cfg.Upload.MaxChunkBytes != 1<<20 {
-		t.Fatalf("a machine sends batches of up to %d bytes", cfg.Upload.MaxChunkBytes)
-	}
-
-	if cfg.Upload.Batch > 5000 {
-		t.Fatalf("a machine batches %d entries, and norn takes 5000", cfg.Upload.Batch)
 	}
 }

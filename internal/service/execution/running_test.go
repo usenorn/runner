@@ -92,7 +92,7 @@ func TestTheAgentIsToldAboutTheIssueAndPutInTheWorkspaceMadeForTheRun(t *testing
 	}
 }
 
-func TestWhatTheAgentSaysAndDoesIsSentToNornAsItGoes(t *testing.T) {
+func TestWhatTheAgentSaysAndDoesIsKeptOnThisMachineRatherThanSentToNorn(t *testing.T) {
 	h := newHarness(t, 2, 0)
 
 	played := finishes("session-01", "the work is committed")
@@ -112,21 +112,31 @@ func TestWhatTheAgentSaysAndDoesIsSentToNornAsItGoes(t *testing.T) {
 
 	h.awaitReview(t, "exec-01ABC")
 
-	h.await(t, "waited for the transcript to reach norn", func() bool {
-		return len(h.sent()) == 3
-	})
+	logs := filepath.Join(h.dir.Run("exec-01ABC"), entity.RunLogsDir)
 
-	h.await(t, "waited for what the agent printed to reach norn", func() bool {
-		for _, line := range h.logged() {
-			if strings.Contains(line.Text, "the wrapper had something to say") {
-				return true
-			}
+	transcript, err := os.ReadFile(filepath.Join(logs, entity.RunTranscriptFile))
+	if err != nil {
+		t.Fatalf("read the run's transcript on this machine: %v", err)
+	}
+
+	if lines := strings.Count(string(transcript), "\n"); lines != 3 {
+		t.Fatalf("the transcript kept %d events, want all 3 the agent produced:\n%s", lines, transcript)
+	}
+
+	stderr, err := os.ReadFile(filepath.Join(logs, entity.RunAgentStderrFile))
+	if err != nil || !strings.Contains(string(stderr), "the wrapper had something to say") {
+		t.Fatalf("what the agent printed was not kept on this machine: %q (%v)", stderr, err)
+	}
+
+	for _, message := range h.spooled(t) {
+		if message.Type != channelv1.ExecutionEvent {
+			continue
 		}
 
-		return false
-	})
-
-	h.awaitNote(t, "the coding agent used Read")
+		if entry := decodeInto[channelv1.Entry](t, message); strings.Contains(entry.Reason, "the coding agent used") {
+			t.Fatalf("a tool call reached the timeline as %q; the timeline is for what a person needs", entry.Reason)
+		}
+	}
 }
 
 func TestTheSessionARunUsedIsWrittenDownSoItCanBeCarriedOnLater(t *testing.T) {

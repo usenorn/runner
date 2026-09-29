@@ -46,7 +46,6 @@ import (
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
 	updatesvc "github.com/usenorn/runner/internal/service/update"
-	uploadsvc "github.com/usenorn/runner/internal/service/upload"
 )
 
 type harness struct {
@@ -197,11 +196,6 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 
 	questions := questionsvc.New(runrepo.New(dir), spool, questionSettings())
 
-	supervisorUploads := uploadsvc.NewMockUploads(ctrl)
-	supervisorUploads.EXPECT().
-		Line(gomock.Any(), gomock.Any(), gomock.Any()).
-		AnyTimes()
-
 	services := supervisorsvc.New(
 		processrepo.New(),
 		sandboxes(t, dir, processrepo.New()),
@@ -209,7 +203,6 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		servicelogrepo.New(dir),
 		runrepo.New(dir),
 		spool,
-		supervisorUploads,
 		supervisorSettings(),
 	)
 
@@ -354,20 +347,6 @@ func (uploadStub) Publish(
 ) (entity.ArtifactReceipt, error) {
 	return entity.ArtifactReceipt{}, nil
 }
-
-func (uploadStub) Run(context.Context) {}
-
-func (uploadStub) Open(context.Context, string) (entity.TelemetryMode, error) {
-	return entity.TelemetryFull, nil
-}
-
-func (uploadStub) Event(context.Context, string, entity.DriverEvent) {}
-
-func (uploadStub) Line(context.Context, string, entity.LogLine) {}
-
-func (uploadStub) Flush(context.Context, string) error { return nil }
-
-func (uploadStub) Close(context.Context, string) {}
 
 type toolkitStub struct{}
 

@@ -18,8 +18,6 @@ import (
 	"github.com/usenorn/runner/internal/repository"
 )
 
-const timelineToolMax = 500
-
 func (s *executionsService) Driver(ctx context.Context) entity.DriverHealth {
 	token, err := s.agentToken(ctx)
 	if err != nil {
@@ -59,14 +57,6 @@ func (s *executionsService) drive(
 	}
 
 	execution.State = channelv1.StateRunning
-
-	if _, err := s.uploads.Open(ctx, execution.ID); err != nil {
-		if err := s.note(ctx, execution.ID, channelv1.EventNote, quiet(err)); err != nil {
-			return err
-		}
-	}
-
-	defer s.uploads.Close(context.WithoutCancel(ctx), execution.ID)
 
 	result, err := s.sessions(ctx, execution, snapshot, setup)
 	if err != nil {
@@ -221,7 +211,7 @@ func (s *executionsService) attend(
 		}
 	}()
 
-	events, logs, told := session.Events(), session.Logs(), 0
+	events, logs := session.Events(), session.Logs()
 
 	for events != nil || logs != nil {
 		select {
@@ -232,9 +222,7 @@ func (s *executionsService) attend(
 				continue
 			}
 
-			s.uploads.Event(stopping, execution.ID, event)
-
-			told = s.remark(stopping, execution.ID, event, told)
+			s.complain(stopping, execution.ID, s.runs.RecordTranscript(stopping, execution.ID, event))
 		case line, open := <-logs:
 			if !open {
 				logs = nil
@@ -242,11 +230,7 @@ func (s *executionsService) attend(
 				continue
 			}
 
-			s.uploads.Line(stopping, execution.ID, entity.LogLine{
-				Stream: "stderr",
-				Source: string(session.Reference().Outcome),
-				Text:   line,
-			})
+			s.complain(stopping, execution.ID, s.runs.RecordStderr(stopping, execution.ID, line))
 		}
 	}
 
@@ -269,37 +253,6 @@ func (s *executionsService) attend(
 	s.settled(stopping, execution.ID, session.Reference())
 
 	return result
-}
-
-// remark puts the coding agent's tool calls on the timeline, which is what a person reads, and
-// stops once a run has put enough there: the full account is the transcript, and a run that calls
-// a thousand tools would otherwise spend the channel on itself.
-func (s *executionsService) remark(
-	ctx context.Context,
-	executionID string,
-	event entity.DriverEvent,
-	told int,
-) int {
-	if event.Kind != entity.DriverEventToolCall {
-		return told
-	}
-
-	if told > timelineToolMax {
-		return told
-	}
-
-	reason := "the coding agent used " + event.Tool
-
-	if told == timelineToolMax {
-		reason = fmt.Sprintf(
-			"the coding agent has used %d tools, and the rest of them are in its transcript "+
-				"rather than here", told,
-		)
-	}
-
-	s.complain(ctx, executionID, s.note(ctx, executionID, channelv1.EventTool, reason))
-
-	return told + 1
 }
 
 func (s *executionsService) settled(
@@ -422,15 +375,6 @@ func crashed(result entity.DriverResult) string {
 		"%s. This machine is asking it to carry on from where it left off",
 		strings.TrimSpace(ending(result)),
 	)
-}
-
-func quiet(err error) string {
-	if errors.Is(err, context.Canceled) {
-		return "this run was stopped before its transcript could be sent to norn"
-	}
-
-	return "this machine cannot send norn what the coding agent is doing, and is holding it " +
-		"back until it can: " + err.Error()
 }
 
 func waiting(question entity.Question) string {

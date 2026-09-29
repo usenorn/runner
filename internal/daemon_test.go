@@ -131,7 +131,6 @@ func newDaemonRecording(
 	services.EXPECT().Run(gomock.Any()).AnyTimes()
 
 	uploads := uploadsvc.NewMockUploads(ctrl)
-	uploads.EXPECT().Run(gomock.Any()).AnyTimes()
 
 	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
 	if err != nil {

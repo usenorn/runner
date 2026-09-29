@@ -39,5 +39,7 @@ type Run interface {
 	LoadResume(ctx context.Context, name string) (channelv1.Instruction, error)
 	ClearResume(ctx context.Context, name string) error
 	Append(ctx context.Context, name string, entry entity.TimelineEntry) error
+	RecordTranscript(ctx context.Context, name string, event entity.DriverEvent) error
+	RecordStderr(ctx context.Context, name string, line string) error
 	Timeline(ctx context.Context, name string) ([]entity.TimelineEntry, error)
 }

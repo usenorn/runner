@@ -55,12 +55,6 @@ type Questions struct {
 }
 
 type Upload struct {
-	Enabled       bool          `mapstructure:"enabled"`
-	Batch         int           `mapstructure:"batch"`
-	Flush         time.Duration `mapstructure:"flush"`
-	MaxChunkBytes int64         `mapstructure:"max_chunk_bytes"`
-	MaxPending    int           `mapstructure:"max_pending"`
-
 	MaxArtifactBytes int64 `mapstructure:"max_artifact_bytes"`
 }
 

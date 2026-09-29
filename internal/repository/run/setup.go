@@ -69,6 +69,14 @@ type storedService struct {
 	ChangedAt time.Time `json:"changedAt,omitzero"`
 }
 
+type storedEvent struct {
+	Kind    string         `json:"kind"`
+	At      time.Time      `json:"at"`
+	Text    string         `json:"text,omitempty"`
+	Tool    string         `json:"tool,omitempty"`
+	Payload map[string]any `json:"payload,omitempty"`
+}
+
 type storedEntry struct {
 	Kind     string    `json:"kind"`
 	State    string    `json:"state,omitempty"`
@@ -333,12 +341,6 @@ func readInto(path string, into any) error {
 }
 
 func (r *fileRun) Append(_ context.Context, name string, entry entity.TimelineEntry) error {
-	dir := filepath.Join(r.dir.Run(name), entity.RunLogsDir)
-
-	if err := os.MkdirAll(dir, dirMode); err != nil {
-		return fmt.Errorf("create %s: %w", dir, err)
-	}
-
 	raw, err := json.Marshal(storedEntry{
 		Kind:     string(entry.Kind),
 		State:    string(entry.State),
@@ -349,20 +351,53 @@ func (r *fileRun) Append(_ context.Context, name string, entry entity.TimelineEn
 		return fmt.Errorf("write a timeline entry for %s: %w", name, err)
 	}
 
-	path := filepath.Join(dir, entity.RunTimelineFile)
+	return r.appendLog(name, entity.RunTimelineFile, raw, true)
+}
 
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fileMode)
+func (r *fileRun) RecordTranscript(_ context.Context, name string, event entity.DriverEvent) error {
+	raw, err := json.Marshal(storedEvent{
+		Kind:    string(event.Kind),
+		At:      event.At,
+		Text:    event.Text,
+		Tool:    event.Tool,
+		Payload: event.Payload,
+	})
+	if err != nil {
+		return fmt.Errorf("write a transcript entry for %s: %w", name, err)
+	}
+
+	return r.appendLog(name, entity.RunTranscriptFile, raw, false)
+}
+
+func (r *fileRun) RecordStderr(_ context.Context, name string, line string) error {
+	return r.appendLog(name, entity.RunAgentStderrFile, []byte(line), false)
+}
+
+func (r *fileRun) appendLog(name, file string, raw []byte, synced bool) error {
+	dir := filepath.Join(r.dir.Run(name), entity.RunLogsDir)
+
+	if err := os.MkdirAll(dir, dirMode); err != nil {
+		return fmt.Errorf("create %s: %w", dir, err)
+	}
+
+	path := filepath.Join(dir, file)
+
+	opened, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fileMode)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", path, err)
 	}
 
-	defer func() { _ = file.Close() }()
+	defer func() { _ = opened.Close() }()
 
-	if _, err := file.Write(append(raw, '\n')); err != nil {
+	if _, err := opened.Write(append(raw, '\n')); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 
-	return file.Sync()
+	if !synced {
+		return nil
+	}
+
+	return opened.Sync()
 }
 
 func (r *fileRun) Timeline(_ context.Context, name string) ([]entity.TimelineEntry, error) {

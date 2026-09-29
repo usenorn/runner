@@ -8,11 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
-
-	"go.uber.org/mock/gomock"
 
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
@@ -29,7 +26,6 @@ import (
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	"github.com/usenorn/runner/internal/service"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
-	uploadsvc "github.com/usenorn/runner/internal/service/upload"
 )
 
 const patience = 15 * time.Second
@@ -40,9 +36,6 @@ type harness struct {
 	spool   repository.Spool
 	ports   repository.Port
 	service service.Services
-
-	mu       sync.Mutex
-	uploaded []entity.LogLine
 }
 
 func newHarness(t *testing.T, lowest int, highest int) *harness {
@@ -68,17 +61,6 @@ func over(t *testing.T, dir *statedir.Dir, lowest int, highest int) *harness {
 		ports: portrepo.New(config.Runner{PortRange: [2]int{lowest, highest}}),
 	}
 
-	uploads := uploadsvc.NewMockUploads(gomock.NewController(t))
-	uploads.EXPECT().
-		Line(gomock.Any(), gomock.Any(), gomock.Any()).
-		Do(func(_ context.Context, _ string, line entity.LogLine) {
-			h.mu.Lock()
-			defer h.mu.Unlock()
-
-			h.uploaded = append(h.uploaded, line)
-		}).
-		AnyTimes()
-
 	processes := processrepo.New()
 
 	h.service = supervisorsvc.New(
@@ -88,26 +70,10 @@ func over(t *testing.T, dir *statedir.Dir, lowest int, highest int) *harness {
 		servicelogrepo.New(dir),
 		h.runs,
 		h.spool,
-		uploads,
 		settings(),
 	)
 
 	return h
-}
-
-func (h *harness) lines(source string) []entity.LogLine {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	held := []entity.LogLine{}
-
-	for _, line := range h.uploaded {
-		if line.Source == source {
-			held = append(held, line)
-		}
-	}
-
-	return held
 }
 
 func settings() config.Supervisor {
