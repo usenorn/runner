@@ -92,7 +92,7 @@ const (
 	DeclineDiskPressure DeclineReason = channelv1.DeclineDiskPressure
 	DeclinePaused       DeclineReason = channelv1.DeclinePaused
 
-	DeclineRuntimeUnavailable DeclineReason = "runtime_unavailable"
+	DeclineRuntimeUnavailable DeclineReason = channelv1.DeclineRuntimeUnavailable
 )
 
 func DeclineReasons() []DeclineReason {
