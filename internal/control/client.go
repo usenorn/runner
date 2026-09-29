@@ -342,6 +342,24 @@ func (c *Client) waiting(request QuestionRequest) time.Duration {
 	return held + c.cfg.RequestTimeout
 }
 
+type bearing struct {
+	token string
+	next  http.RoundTripper
+}
+
+func (b bearing) RoundTrip(request *http.Request) (*http.Response, error) {
+	signed := request.Clone(request.Context())
+	signed.Header.Set("Authorization", "Bearer "+b.token)
+
+	return b.next.RoundTrip(signed)
+}
+
+func (c *Client) NornTools(executionID string) (string, *http.Client) {
+	return "http://" + Host + forRun(NornToolsPath, executionID), &http.Client{
+		Transport: bearing{token: c.token, next: c.http.Transport},
+	}
+}
+
 func forRun(path string, executionID string) string {
 	return strings.Replace(path, "{executionId}", url.PathEscape(executionID), 1)
 }

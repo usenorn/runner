@@ -32,6 +32,7 @@ const (
 	ProgressPath       = "/v1/executions/{executionId}/progress"
 	ArtifactsPath      = "/v1/executions/{executionId}/artifacts"
 	CompletePath       = "/v1/executions/{executionId}/complete"
+	NornToolsPath      = "/v1/executions/{executionId}/norn"
 )
 
 type Update struct {

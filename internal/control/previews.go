@@ -68,7 +68,7 @@ func (s *Server) previewsOf(executionID string, open []entity.Preview) []Preview
 
 func (s *Server) previewOf(executionID string, preview entity.Preview) Preview {
 	serving := s.sessions.Previews()
-	shared := serving.Address(preview.Name, executionID, preview.Path)
+	shared := serving.Address(executionID, preview)
 	live := s.tunnels.Report().State == entity.TunnelLive
 
 	return Preview{

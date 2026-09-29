@@ -2,6 +2,7 @@ package channel_test
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/google/uuid"
 
@@ -53,6 +54,12 @@ func (runStub) LoadDriver(context.Context, string) (entity.RunDriver, error) {
 }
 
 func (runStub) SaveServices(context.Context, string, entity.RunServices) error { return nil }
+
+func (runStub) SaveToolkit(context.Context, string, entity.Toolkit) error { return nil }
+
+func (runStub) LoadToolkit(context.Context, string) (entity.Toolkit, error) {
+	return entity.Toolkit{}, nil
+}
 
 func (runStub) LoadServices(context.Context, string) (entity.RunServices, error) {
 	return entity.RunServices{}, nil
@@ -170,6 +177,20 @@ func (uploadStub) Publish(
 	entity.Artifact,
 ) (entity.ArtifactReceipt, error) {
 	return entity.ArtifactReceipt{}, nil
+}
+
+type toolkitStub struct{}
+
+func (toolkitStub) InstallSkill(context.Context, entity.ToolkitSkill, string) error { return nil }
+
+func (toolkitStub) Installed(string) bool { return true }
+
+func (toolkitStub) ReachNorn(context.Context, string) error { return nil }
+
+func (toolkitStub) NornHandler(accessToken string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(accessToken))
+	})
 }
 
 type driverStub struct{}

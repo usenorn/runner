@@ -254,6 +254,7 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("driver.probe_timeout", 15*time.Second)
 	v.SetDefault("driver.session_timeout", 4*time.Hour)
 	v.SetDefault("driver.stop_grace", 15*time.Second)
+	v.SetDefault("driver.toolkit_timeout", time.Minute)
 	v.SetDefault("driver.resume_attempts", defaultResumeAttempts)
 	v.SetDefault("results.create_prs", string(PullRequestsAuto))
 	v.SetDefault("results.push_timeout", 2*time.Minute)
@@ -511,9 +512,11 @@ func validateDriver(driver Driver) error {
 		)
 	}
 
-	if driver.ProbeTimeout <= 0 || driver.SessionTimeout <= 0 || driver.StopGrace <= 0 {
+	if driver.ProbeTimeout <= 0 || driver.SessionTimeout <= 0 || driver.StopGrace <= 0 ||
+		driver.ToolkitTimeout <= 0 {
 		return fmt.Errorf(
-			"driver.probe_timeout, driver.session_timeout and driver.stop_grace must all be positive",
+			"driver.probe_timeout, driver.session_timeout, driver.stop_grace and " +
+				"driver.toolkit_timeout must all be positive",
 		)
 	}
 

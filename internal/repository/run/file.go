@@ -136,6 +136,8 @@ func (r *fileRun) Retire(_ context.Context, name string) error {
 		filepath.Join(path, entity.RunWorkspaceDir),
 		filepath.Join(path, entity.RunArtifactsDir),
 		filepath.Join(path, entity.RunMetadataDir, entity.RunMCPFile),
+		filepath.Join(path, entity.RunMetadataDir, entity.RunToolkitFile),
+		filepath.Join(path, entity.RunMetadataDir, entity.RunToolkitDir),
 	}
 
 	for _, child := range leaving {

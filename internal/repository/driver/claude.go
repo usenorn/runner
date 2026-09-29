@@ -88,6 +88,14 @@ func command(env entity.ExecEnv, task entity.Task, held entity.DriverSession, as
 		args = append(args, "--mcp-config", env.MCPConfig)
 	}
 
+	if env.Plugin != "" {
+		args = append(args, "--plugin-dir", env.Plugin)
+	}
+
+	if instructions := strings.TrimSpace(env.Instructions); instructions != "" {
+		args = append(args, "--append-system-prompt", instructions)
+	}
+
 	if model := strings.TrimSpace(task.Model); model != "" {
 		args = append(args, "--model", model)
 	}

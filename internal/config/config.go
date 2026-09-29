@@ -30,6 +30,7 @@ type Driver struct {
 	SessionTimeout time.Duration `mapstructure:"session_timeout"`
 	StopGrace      time.Duration `mapstructure:"stop_grace"`
 	ResumeAttempts int           `mapstructure:"resume_attempts"`
+	ToolkitTimeout time.Duration `mapstructure:"toolkit_timeout"`
 }
 
 type Results struct {

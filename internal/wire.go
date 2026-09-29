@@ -37,6 +37,7 @@ import (
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
+	toolkitrepo "github.com/usenorn/runner/internal/repository/toolkit"
 	tunnelrepo "github.com/usenorn/runner/internal/repository/tunnel"
 	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
@@ -86,6 +87,7 @@ var baseSet = wire.NewSet(
 	portrepo.Set,
 	servicelogrepo.Set,
 	driverrepo.Set,
+	toolkitrepo.Set,
 	uploadrepo.Set,
 	runtokenrepo.Set,
 	forgerepo.Set,

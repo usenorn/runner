@@ -33,6 +33,7 @@ type Server struct {
 	previews   service.Previews
 	uploads    service.Uploads
 	tokens     repository.RunToken
+	toolkits   repository.Toolkit
 	build      entity.Build
 	startedAt  time.Time
 	handler    http.Handler
@@ -55,6 +56,7 @@ func NewServer(
 	previews service.Previews,
 	uploads service.Uploads,
 	tokens repository.RunToken,
+	toolkits repository.Toolkit,
 	build entity.Build,
 ) *Server {
 	server := &Server{
@@ -74,6 +76,7 @@ func NewServer(
 		previews:   previews,
 		uploads:    uploads,
 		tokens:     tokens,
+		toolkits:   toolkits,
 		build:      build,
 		startedAt:  time.Now().UTC(),
 	}
@@ -103,6 +106,7 @@ func NewServer(
 	mux.HandleFunc("POST "+ProgressPath, server.guarded(server.progress))
 	mux.HandleFunc("POST "+ArtifactsPath, server.guarded(server.publishArtifact))
 	mux.HandleFunc("POST "+CompletePath, server.guarded(server.complete))
+	mux.HandleFunc(NornToolsPath, server.guarded(server.nornTools))
 
 	server.handler = recovering(mux)
 

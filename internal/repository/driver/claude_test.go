@@ -113,6 +113,62 @@ func TestASessionIsHandedNornsOwnToolsAndNothingElsesMcpConfig(t *testing.T) {
 	}
 }
 
+func TestASessionCarriesNornsInstructionsAndSkillsBesideTheRepositorysOwn(t *testing.T) {
+	h := newHarness(t)
+
+	h.replays(t, "clean.ndjson")
+
+	env := h.env(t, entity.ProfileStandard)
+	env.Instructions = "Commit small, and write no comments."
+	env.Plugin = t.TempDir()
+
+	session, err := h.driver.Start(t.Context(), env, entity.Task{Prompt: "do the work"})
+	if err != nil {
+		t.Fatalf("start the coding agent: %v", err)
+	}
+
+	h.drain(t, session)
+
+	asked := h.asked(t)
+
+	appended := slices.Index(asked, "--append-system-prompt")
+	if appended < 0 || asked[appended+1] != env.Instructions {
+		t.Fatalf(
+			"the session was started with %v; norn's instructions are appended so the "+
+				"repository's own CLAUDE.md and AGENTS.md still load and still decide how it commits",
+			asked,
+		)
+	}
+
+	if slices.Contains(asked, "--system-prompt") {
+		t.Fatalf("the session replaced its system prompt rather than adding to it: %v", asked)
+	}
+
+	plugin := slices.Index(asked, "--plugin-dir")
+	if plugin < 0 || asked[plugin+1] != env.Plugin {
+		t.Fatalf("the session was started with %v, without the skills norn gave the agent", asked)
+	}
+
+	if !slices.Contains(asked, "project,local") {
+		t.Fatalf("the session stopped reading the repository's own settings: %v", asked)
+	}
+}
+
+func TestASessionWithNothingFromNornAsksForNoMore(t *testing.T) {
+	h := newHarness(t)
+
+	h.replays(t, "clean.ndjson")
+	h.drain(t, h.start(t, entity.ProfileStandard))
+
+	asked := h.asked(t)
+
+	for _, unwanted := range []string{"--append-system-prompt", "--plugin-dir"} {
+		if slices.Contains(asked, unwanted) {
+			t.Fatalf("a session with no instructions or skills was started with %v", asked)
+		}
+	}
+}
+
 func TestCarryingOnAskesForTheSameSessionRatherThanANewOne(t *testing.T) {
 	h := newHarness(t)
 
