@@ -238,6 +238,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		tokens,
 		driverStub{},
 		toolkitStub{},
+		sandboxrepo.New(processrepo.New()),
 		identities,
 		credentials,
 		sessions,

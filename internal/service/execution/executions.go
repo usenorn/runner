@@ -42,6 +42,7 @@ type executionsService struct {
 	tokens      repository.RunToken
 	drivers     repository.Driver
 	toolkits    repository.Toolkit
+	sandboxes   repository.Sandbox
 	identities  repository.Identity
 	credentials repository.Credential
 	access      service.Sessions
@@ -85,6 +86,7 @@ func New(
 	tokens repository.RunToken,
 	drivers repository.Driver,
 	toolkits repository.Toolkit,
+	sandboxes repository.Sandbox,
 	identities repository.Identity,
 	credentials repository.Credential,
 	sessions service.Sessions,
@@ -110,6 +112,7 @@ func New(
 		tokens:      tokens,
 		drivers:     drivers,
 		toolkits:    toolkits,
+		sandboxes:   sandboxes,
 		identities:  identities,
 		credentials: credentials,
 		access:      sessions,
@@ -154,12 +157,46 @@ func (s *executionsService) Offer(ctx context.Context, offer channelv1.Offer) er
 		return s.decline(ctx, offer.ExecutionID, reason, report)
 	}
 
-	execution := entity.ExecutionOf(offer, s.dir.Runs(), s.now())
-	s.held[execution.ID] = execution
+	s.mu.Unlock()
 
+	runtime, why, err := entity.ChooseRuntime(offer.Params.Runtime, string(s.runner.Runtime))
+	if err == nil {
+		err = s.sandboxes.Check(ctx, runtime)
+	}
+
+	if err != nil {
+		return s.unrunnable(ctx, offer.ExecutionID, err)
+	}
+
+	execution := entity.ExecutionOf(offer, s.dir.Runs(), s.now())
+	execution.Runtime = string(runtime)
+	execution.RuntimeWhy = why
+
+	s.mu.Lock()
+	if _, already := s.held[offer.ExecutionID]; already {
+		s.mu.Unlock()
+
+		return nil
+	}
+
+	s.held[execution.ID] = execution
 	s.mu.Unlock()
 
 	return s.send(ctx, channelv1.ExecutionAccepted, execution.ID, struct{}{})
+}
+
+func (s *executionsService) unrunnable(ctx context.Context, executionID string, err error) error {
+	logging.From(ctx).InfoContext(
+		ctx,
+		"this machine turned work down because it cannot run it the way it asked",
+		slog.String("execution_id", executionID),
+		slog.String("error", err.Error()),
+	)
+
+	return s.send(ctx, channelv1.ExecutionDeclined, executionID, channelv1.Decline{
+		Code:   string(entity.DeclineRuntimeUnavailable),
+		Detail: err.Error(),
+	})
 }
 
 func (s *executionsService) decline(

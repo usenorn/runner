@@ -244,6 +244,52 @@ func TestNornMayChangeHowMuchAMachineHoldsWithoutRestartingIt(t *testing.T) {
 	}
 }
 
+func TestWorkAskingForARuntimeThisMachineCannotRunIsTurnedDownSayingSo(t *testing.T) {
+	for asked, wanted := range map[string]string{
+		"kvm":    "not in kvm",
+		"docker": "docker",
+	} {
+		h := newHarness(t, 2, 0)
+		ctx := context.Background()
+
+		offer := h.offer("exec-01ABC")
+		offer.Params.Runtime = asked
+
+		if err := h.service.Offer(ctx, offer); err != nil {
+			t.Fatalf("offer: %v", err)
+		}
+
+		turned := decodeInto[channelv1.Decline](t, h.only(t, channelv1.ExecutionDeclined))
+
+		if turned.Code != string(entity.DeclineRuntimeUnavailable) || !strings.Contains(turned.Detail, wanted) {
+			t.Fatalf(
+				"work asking for %s was turned down as %+v. A run this machine would otherwise "+
+					"have run on the host, without the isolation it asked for, has to be refused "+
+					"saying why",
+				asked, turned,
+			)
+		}
+
+		if held := h.service.Report(ctx).Executions; len(held) != 0 {
+			t.Fatalf("the machine holds %+v after turning the work down", held)
+		}
+	}
+}
+
+func TestAnAcceptedRunRemembersWhichRuntimeItRunsInAndWhy(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	held := h.service.Report(ctx).Executions
+	if len(held) != 1 || held[0].Runtime != string(entity.RuntimeProcess) || held[0].RuntimeWhy == "" {
+		t.Fatalf("an accepted run reads as %+v, want it set to run as host processes with a reason", held)
+	}
+}
+
 func TestAnOfferSentTwiceIsAcceptedOnce(t *testing.T) {
 	h := newHarness(t, 2, 0)
 	ctx := context.Background()

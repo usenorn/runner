@@ -354,7 +354,7 @@ func (s *executionsService) setup(
 		Permissions: profileFor(execution, s.driver.Profile),
 		Plan:        plan,
 		Driver:      driverFor(execution, codebase),
-		Services:    runtimeFor(execution, s.runner.Runtime),
+		Services:    entity.RunServices{Runtime: entity.Runtime(execution.Runtime), Chosen: execution.RuntimeWhy},
 	}
 
 	return setup, s.runs.SaveSetup(ctx, execution.ID, setup)
@@ -433,24 +433,6 @@ func driverFor(execution entity.Execution, codebase entity.Codebase) entity.RunD
 	}
 
 	return driver
-}
-
-func runtimeFor(execution entity.Execution, asked config.Runtime) entity.RunServices {
-	if named := entity.Runtime(execution.Runtime); named.Valid() {
-		return entity.RunServices{Runtime: named, Chosen: "the delegation asked for it"}
-	}
-
-	if named := entity.Runtime(asked); named.Valid() {
-		return entity.RunServices{
-			Runtime: named, Chosen: "this machine's configuration asks for it",
-		}
-	}
-
-	return entity.RunServices{
-		Runtime: entity.RuntimeProcess,
-		Chosen: "nothing asked for anything else, and this release cannot yet read a run plan " +
-			"to know whether the services want docker",
-	}
 }
 
 func told(setup entity.RunSetup) string {

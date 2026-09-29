@@ -23,7 +23,9 @@ import (
 	forgerepo "github.com/usenorn/runner/internal/repository/forge"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
+	processrepo "github.com/usenorn/runner/internal/repository/process"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	schedulingrepo "github.com/usenorn/runner/internal/repository/scheduling"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
@@ -254,6 +256,7 @@ func build(
 		h.tokens,
 		h.drivers,
 		h.toolkits,
+		sandboxrepo.New(processrepo.New()),
 		identities,
 		credentials,
 		h.sessions,

@@ -48,6 +48,7 @@ type storedTask struct {
 	Tool         string    `json:"tool,omitempty"`
 	Model        string    `json:"model,omitempty"`
 	Runtime      string    `json:"runtime,omitempty"`
+	RuntimeWhy   string    `json:"runtimeWhy,omitempty"`
 	BaseRef      string    `json:"baseRef,omitempty"`
 	IncludeDirty bool      `json:"includeDirty,omitempty"`
 	Profile      string    `json:"profile,omitempty"`
@@ -347,6 +348,7 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 		Tool:         held.Tool,
 		Model:        held.Model,
 		Runtime:      held.Runtime,
+		RuntimeWhy:   held.RuntimeWhy,
 		BaseRef:      held.BaseRef,
 		IncludeDirty: held.IncludeDirty,
 		Profile:      held.Profile,
@@ -374,6 +376,7 @@ func storedTaskOf(execution entity.Execution) storedTask {
 		Tool:         execution.Tool,
 		Model:        execution.Model,
 		Runtime:      execution.Runtime,
+		RuntimeWhy:   execution.RuntimeWhy,
 		BaseRef:      execution.BaseRef,
 		IncludeDirty: execution.IncludeDirty,
 		Profile:      execution.Profile,

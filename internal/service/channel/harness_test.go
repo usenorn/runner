@@ -18,6 +18,8 @@ import (
 	channelrepo "github.com/usenorn/runner/internal/repository/channel"
 	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
 	identityrepo "github.com/usenorn/runner/internal/repository/identity"
+	processrepo "github.com/usenorn/runner/internal/repository/process"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	"github.com/usenorn/runner/internal/service"
@@ -232,6 +234,7 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		runtokenrepo.New(),
 		driverStub{},
 		toolkitStub{},
+		sandboxrepo.New(processrepo.New()),
 		identities,
 		credentials,
 		h.sessions,

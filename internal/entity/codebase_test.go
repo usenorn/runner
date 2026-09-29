@@ -1,6 +1,7 @@
 package entity_test
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -348,5 +349,39 @@ func TestOnlyARuntimeThisMachineCanRunWorkInIsOneItOffers(t *testing.T) {
 			"kvm reads as a runtime this machine offers, though nothing here can start a " +
 				"virtual machine; a run that asked for it would be accepted and run on the host",
 		)
+	}
+}
+
+func TestTheRuntimeARunGetsIsTheOneItAskedForOrElseTheMachines(t *testing.T) {
+	cases := []struct {
+		asked, configured string
+		want              entity.Runtime
+		refused           bool
+	}{
+		{asked: "docker", configured: "process", want: entity.RuntimeDocker},
+		{asked: "", configured: "docker", want: entity.RuntimeDocker},
+		{asked: "auto", configured: "docker", want: entity.RuntimeDocker},
+		{asked: "auto", configured: "auto", want: entity.RuntimeProcess},
+		{asked: "", configured: "", want: entity.RuntimeProcess},
+		{asked: "kvm", configured: "docker", refused: true},
+	}
+
+	for _, c := range cases {
+		got, why, err := entity.ChooseRuntime(c.asked, c.configured)
+
+		if c.refused {
+			if !errors.Is(err, entity.ErrRuntimeUnsupported) || !strings.Contains(err.Error(), c.asked) {
+				t.Fatalf("asking for %q came back %v, want it refused by name", c.asked, err)
+			}
+
+			continue
+		}
+
+		if err != nil || got != c.want || why == "" {
+			t.Fatalf(
+				"asked %q on a machine set to %q gave %q (%q, %v), want %q with a reason",
+				c.asked, c.configured, got, why, err, c.want,
+			)
+		}
 	}
 }
