@@ -16,11 +16,8 @@ import (
 func planned(t *testing.T, h *harness, id, session, body string) script {
 	t.Helper()
 
-	held := holds(session)
-
-	go func() {
-		<-h.drivers.playing()
-
+	written := finishes(session, "wrote the plan")
+	written.during = func() {
 		plans := entity.RunHomeOf(h.dir.Run(id)).Plans()
 
 		if err := os.MkdirAll(plans, 0o700); err != nil {
@@ -31,11 +28,9 @@ func planned(t *testing.T, h *harness, id, session, body string) script {
 		if err := os.WriteFile(name, []byte(body), 0o600); err != nil {
 			t.Error(err)
 		}
+	}
 
-		close(held.hold)
-	}()
-
-	return held
+	return written
 }
 
 func planning(t *testing.T, h *harness, id string) {

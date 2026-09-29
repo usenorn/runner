@@ -16,6 +16,7 @@ type script struct {
 	result  entity.DriverResult
 	err     error
 	hold    chan struct{}
+	during  func()
 }
 
 func finishes(session string, summary string) script {
@@ -211,6 +212,10 @@ func newSessionStub(driver *driverStub, played script) *sessionStub {
 
 		for _, line := range played.logs {
 			held.logs <- line
+		}
+
+		if played.during != nil {
+			played.during()
 		}
 
 		if played.hold != nil {
