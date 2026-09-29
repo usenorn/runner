@@ -590,6 +590,10 @@ func (h *harness) start(t *testing.T) func() {
 		h.uploads.Run(ctx)
 	}()
 
+	if err := h.service.Reclaim(ctx); err != nil {
+		t.Fatalf("reclaim the runs this machine was holding: %v", err)
+	}
+
 	go func() {
 		defer close(done)
 

@@ -194,6 +194,20 @@ func (mr *MockExecutionsMockRecorder) Pulse(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pulse", reflect.TypeOf((*MockExecutions)(nil).Pulse), ctx)
 }
 
+// Reclaim mocks base method.
+func (m *MockExecutions) Reclaim(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reclaim", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Reclaim indicates an expected call of Reclaim.
+func (mr *MockExecutionsMockRecorder) Reclaim(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reclaim", reflect.TypeOf((*MockExecutions)(nil).Reclaim), ctx)
+}
+
 // Reconcile mocks base method.
 func (m *MockExecutions) Reconcile(ctx context.Context, leased []string) error {
 	m.ctrl.T.Helper()

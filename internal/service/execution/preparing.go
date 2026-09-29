@@ -29,17 +29,13 @@ func (f failure) Unwrap() error {
 	return f.err
 }
 
-func (s *executionsService) Run(ctx context.Context) {
+func (s *executionsService) Reclaim(ctx context.Context) error {
 	s.standing(ctx)
 
-	if err := s.reclaim(ctx); err != nil {
-		logging.From(ctx).WarnContext(
-			ctx,
-			"this machine could not read back the runs it was holding",
-			slog.String("error", err.Error()),
-		)
-	}
+	return s.reclaim(ctx)
+}
 
+func (s *executionsService) Run(ctx context.Context) {
 	var working sync.WaitGroup
 
 	working.Add(1)

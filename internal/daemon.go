@@ -69,6 +69,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
 
+	if err := d.runs.Reclaim(ctx); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not read back the runs it was holding",
+			slog.String("error", err.Error()),
+		)
+	}
+
 	renewing := make(chan struct{})
 
 	go func() {
