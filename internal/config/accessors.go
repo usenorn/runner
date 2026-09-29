@@ -30,6 +30,8 @@ func NewSupervisor(cfg Config) Supervisor { return cfg.Supervisor }
 
 func NewDriver(cfg Config) Driver { return cfg.Driver }
 
+func NewDocker(cfg Config) Docker { return cfg.Docker }
+
 func NewQuestions(cfg Config) Questions { return cfg.Questions }
 
 func NewUpload(cfg Config) Upload { return cfg.Upload }
