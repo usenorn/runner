@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
+
 	"github.com/usenorn/runner/internal/entity"
 )
 
@@ -154,5 +156,35 @@ func TestAVeryLongDescriptionIsCutRatherThanSentWholeToTheCommandLine(t *testing
 
 	if len(task.Prompt) > entity.PromptMaxBytes*2 {
 		t.Fatalf("the task came to %d bytes", len(task.Prompt))
+	}
+}
+
+func TestAPlanningRunIsToldToPlanAndNotToBuild(t *testing.T) {
+	planning := entity.ComposeTask(
+		entity.Execution{IssueKey: "NORN-47", Title: "Median", Stage: channelv1.StagePlanning},
+		entity.Snapshot{Workspace: "/runs/exec-01ABC/workspace"}, entity.RunPlan{},
+	)
+
+	if !strings.Contains(planning.Prompt, "How to plan here") ||
+		strings.Contains(planning.Prompt, "call `complete_task` once") {
+		t.Fatalf("a planning run was told:\n%s", planning.Prompt)
+	}
+
+	building := entity.PlanApprovedInjection("1. Add the helper.")
+	if !strings.Contains(building, "1. Add the helper.") || !strings.Contains(building, "How to work here") {
+		t.Fatalf("an approved plan hands the agent %q", building)
+	}
+}
+
+func TestEveryAnswerReachesTheAgentBesideTheQuestionItAnswers(t *testing.T) {
+	said := entity.AnswersInjection([]entity.Answer{
+		{QuestionID: "q-1", Question: "Keep the endpoint?", Answer: "No", AnsweredBy: "Rae"},
+		{QuestionID: "q-2", Question: "Which region?", Answer: "eu-west"},
+	})
+
+	for _, want := range []string{"Keep the endpoint?", "Rae answered", "No", "Which region?", "eu-west"} {
+		if !strings.Contains(said, want) {
+			t.Errorf("the agent is not told %q:\n%s", want, said)
+		}
 	}
 }

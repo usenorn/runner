@@ -189,7 +189,7 @@ func TestAnAgentNobodyAnswersInTimeIsToldToStopRatherThanGuess(t *testing.T) {
 }
 
 func TestAnAnswerThatArrivesAfterTheWaitIsKeptForTheWayBackIn(t *testing.T) {
-	questions, spool, _ := newQuestions(t, 20*time.Millisecond)
+	questions, spool, runs := newQuestions(t, 20*time.Millisecond)
 	ctx := context.Background()
 
 	if _, err := questions.Ask(ctx, run, blocking()); err != nil {
@@ -208,24 +208,16 @@ func TestAnAnswerThatArrivesAfterTheWaitIsKeptForTheWayBackIn(t *testing.T) {
 		t.Fatal("a run that has its answer still reads as waiting, so it would park with nothing to wait for")
 	}
 
-	question, answer, held, err := questions.Take(ctx, run)
-	if err != nil {
-		t.Fatalf("take the answer: %v", err)
+	again := restarted(runs)
+	if err := again.Restore(ctx, run); err != nil {
+		t.Fatalf("restore: %v", err)
 	}
 
-	if !held {
+	if _, waiting := again.Waiting(run); waiting {
 		t.Fatal(
-			"the answer that arrived after the wait was dropped, so the run resumes with nothing " +
-				"to tell the agent",
+			"the answer that arrived after the wait was lost across a restart, so the run " +
+				"would park again on a question somebody already answered",
 		)
-	}
-
-	if answer.Answer != "Remove now" || question.Message != blocking().Message {
-		t.Fatalf("the run kept %+v against %q, want both as asked and answered", answer, question.Message)
-	}
-
-	if _, _, again, _ := questions.Take(ctx, run); again {
-		t.Fatal("the same answer was handed out twice, so a second resume would replay it")
 	}
 }
 
@@ -340,10 +332,6 @@ func TestAnAnswerToAQuestionTheRunHasMovedPastIsNotTakenForTheOneItStoppedOn(t *
 				"actually stopped on",
 		)
 	}
-
-	if _, _, held, _ := questions.Take(context.Background(), run); held {
-		t.Fatal("the run would resume on an answer to a question it did not ask last")
-	}
 }
 
 func TestAQuestionAndItsAnswerOutliveTheMachineRestarting(t *testing.T) {
@@ -381,13 +369,8 @@ func TestAQuestionAndItsAnswerOutliveTheMachineRestarting(t *testing.T) {
 		t.Fatalf("restore an answered question: %v", err)
 	}
 
-	question, answer, took, err := answeredThenRestarted.Take(ctx, run)
-	if err != nil || !took {
-		t.Fatalf("take the answer after a second restart: held=%v, %v", took, err)
-	}
-
-	if answer.Answer != "Remove now" || question.Ref != asked.Ref {
-		t.Fatalf("the run kept %+v against %+v, want both as asked and answered", answer, question)
+	if _, waiting := answeredThenRestarted.Waiting(run); waiting {
+		t.Fatal("an answered question read as open again after a second restart")
 	}
 }
 
@@ -405,8 +388,8 @@ func TestAnAnswerTheRunTookIsNotHandedOutAgainAfterARestart(t *testing.T) {
 		t.Fatalf("answer: %v", err)
 	}
 
-	if _, _, took, err := questions.Take(ctx, run); err != nil || !took {
-		t.Fatalf("take the answer: held=%v, %v", took, err)
+	if err := questions.Forget(ctx, run); err != nil {
+		t.Fatalf("carry on past the question: %v", err)
 	}
 
 	again := restarted(runs)
@@ -414,7 +397,7 @@ func TestAnAnswerTheRunTookIsNotHandedOutAgainAfterARestart(t *testing.T) {
 		t.Fatalf("restore: %v", err)
 	}
 
-	if _, _, took, _ := again.Take(ctx, run); took {
-		t.Fatal("an answer the agent already carried on with came back after a restart and would be replayed")
+	if _, waiting := again.Waiting(run); waiting {
+		t.Fatal("a question the agent already carried on past came back after a restart")
 	}
 }

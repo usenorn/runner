@@ -84,6 +84,21 @@ func (mr *MockRunMockRecorder) ClearResume(ctx, name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearResume", reflect.TypeOf((*MockRun)(nil).ClearResume), ctx, name)
 }
 
+// LatestPlan mocks base method.
+func (m *MockRun) LatestPlan(ctx context.Context, name string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestPlan", ctx, name)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LatestPlan indicates an expected call of LatestPlan.
+func (mr *MockRunMockRecorder) LatestPlan(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestPlan", reflect.TypeOf((*MockRun)(nil).LatestPlan), ctx, name)
+}
+
 // List mocks base method.
 func (m *MockRun) List(ctx context.Context) ([]entity.Snapshot, error) {
 	m.ctrl.T.Helper()

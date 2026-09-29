@@ -49,6 +49,7 @@ type driverStub struct {
 	health   entity.DriverHealth
 	scripts  []script
 	starts   []entity.ExecEnv
+	resumes  []entity.ExecEnv
 	tasks    []entity.Task
 	resumed  []entity.DriverSession
 	injected []string
@@ -98,11 +99,12 @@ func (d *driverStub) Start(
 
 func (d *driverStub) Resume(
 	_ context.Context,
-	_ entity.ExecEnv,
+	env entity.ExecEnv,
 	held entity.DriverSession,
 	injection string,
 ) (repository.Session, error) {
 	d.mu.Lock()
+	d.resumes = append(d.resumes, env)
 	d.resumed = append(d.resumed, held)
 	d.injected = append(d.injected, injection)
 	d.mu.Unlock()
@@ -161,6 +163,13 @@ func (d *driverStub) carried() []entity.DriverSession {
 	defer d.mu.Unlock()
 
 	return append([]entity.DriverSession(nil), d.resumed...)
+}
+
+func (d *driverStub) carriedIn() []entity.ExecEnv {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	return append([]entity.ExecEnv(nil), d.resumes...)
 }
 
 func (d *driverStub) worked() []entity.ExecEnv {

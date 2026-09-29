@@ -2,6 +2,7 @@ package execution_test
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -93,7 +94,9 @@ func TestAnAnsweredRunCarriesOnInTheSameSessionWithTheAnswerInIt(t *testing.T) {
 	}
 
 	if err := h.service.Continue(context.Background(), "exec-01ABC", channelv1.Instruction{
-		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+		Reason: channelv1.ResumeAnswer, Answers: []channelv1.Answer{{
+			QuestionID: "q-1", Question: "Keep the old endpoint?", Answer: "Remove now", AnsweredBy: "Rae",
+		}},
 	}); err != nil {
 		t.Fatalf("ask the run to carry on: %v", err)
 	}
@@ -148,7 +151,9 @@ func TestAResumeSettlesTheQuestionEvenWhenTheAnswerCameOnlyWithIt(t *testing.T) 
 	// Norn moved the run on the strength of the answer alone, which is what it does when somebody
 	// answers a run that has already parked. Nothing separate ever tells this machine.
 	if err := h.service.Continue(context.Background(), "exec-01ABC", channelv1.Instruction{
-		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+		Reason: channelv1.ResumeAnswer, Answers: []channelv1.Answer{{
+			QuestionID: "q-1", Question: "Keep the old endpoint?", Answer: "Remove now", AnsweredBy: "Rae",
+		}},
 	}); err != nil {
 		t.Fatalf("ask the run to carry on: %v", err)
 	}
@@ -216,7 +221,9 @@ func TestARunNornAskedToCarryOnWritesThatDownBeforeItGoesAnyFurther(t *testing.T
 	stop()
 
 	instruction := channelv1.Instruction{
-		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+		Reason: channelv1.ResumeAnswer, Answers: []channelv1.Answer{{
+			QuestionID: "q-1", Question: "Keep the old endpoint?", Answer: "Remove now", AnsweredBy: "Rae",
+		}},
 	}
 
 	if err := h.service.Continue(context.Background(), "exec-01ABC", instruction); err != nil {
@@ -224,7 +231,7 @@ func TestARunNornAskedToCarryOnWritesThatDownBeforeItGoesAnyFurther(t *testing.T
 	}
 
 	kept, err := h.runs.LoadResume(context.Background(), "exec-01ABC")
-	if err != nil || kept != instruction {
+	if err != nil || !reflect.DeepEqual(kept, instruction) {
 		t.Fatalf(
 			"the machine kept %+v (%v) of being asked to carry on. Norn counts the message as "+
 				"delivered once this returns, so a machine that stops before the agent starts "+
@@ -277,7 +284,9 @@ func TestARunWaitingOnAnAnswerSurvivesTheMachineRestartingAndCarriesOnInItsSessi
 	}
 
 	if err := restarted.service.Continue(ctx, "exec-01ABC", channelv1.Instruction{
-		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+		Reason: channelv1.ResumeAnswer, Answers: []channelv1.Answer{{
+			QuestionID: "q-1", Question: "Keep the old endpoint?", Answer: "Remove now", AnsweredBy: "Rae",
+		}},
 	}); err != nil {
 		t.Fatalf("ask the run to carry on: %v", err)
 	}
@@ -313,7 +322,9 @@ func TestARunTheMachineWasAboutToCarryOnWithIsCarriedOnAfterARestart(t *testing.
 	stop()
 
 	if err := h.service.Continue(context.Background(), "exec-01ABC", channelv1.Instruction{
-		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+		Reason: channelv1.ResumeAnswer, Answers: []channelv1.Answer{{
+			QuestionID: "q-1", Question: "Keep the old endpoint?", Answer: "Remove now", AnsweredBy: "Rae",
+		}},
 	}); err != nil {
 		t.Fatalf("ask the run to carry on: %v", err)
 	}

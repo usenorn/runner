@@ -150,6 +150,10 @@ func (s *executionsService) carryOn(
 
 	s.restarting(execution.ID)
 
+	if instruction.Stage.Valid() {
+		execution.Stage = instruction.Stage
+	}
+
 	if err := s.move(ctx, execution, channelv1.StateRunning, resumed(instruction)); err != nil {
 		return err
 	}
@@ -221,42 +225,63 @@ func (s *executionsService) queued(
 	return execution, nil
 }
 
-// injection settles the question this run stopped on and grounds the agent in what it asked, not
-// only in what came back. Being asked to carry on is the answer arriving, whether or not it also
-// came down the channel on its own, so a run told to resume never stays holding its question and
-// parking again on one nobody is still waiting to answer.
+// injection settles every question this run stopped on and grounds the agent in what it asked,
+// not only in what came back. Being asked to carry on is the answers arriving, whether or not they
+// also came down the channel on their own, so a run told to resume never stays holding a question
+// and parking again on one nobody is still waiting to answer.
 func (s *executionsService) injection(
 	ctx context.Context,
 	executionID string,
 	instruction channelv1.Instruction,
 ) string {
-	if instruction.Reason == channelv1.ResumeAnswer {
-		s.complain(ctx, executionID, s.questions.Answered(ctx, executionID, entity.Answer{
-			QuestionID: instruction.QuestionID,
-			Ref:        instruction.QuestionRef,
-			Answer:     instruction.Instruction,
-			AnsweredAt: s.now(),
-		}))
+	switch instruction.Reason {
+	case channelv1.ResumePlanApproved:
+		return entity.PlanApprovedInjection(instruction.Instruction)
+	case channelv1.ResumePlanRevision:
+		return entity.PlanRevisionInjection(instruction.Instruction)
+	case channelv1.ResumeAnswer:
+		return s.answered(ctx, executionID, instruction)
+	default:
+		return strings.TrimSpace(instruction.Instruction)
+	}
+}
+
+func (s *executionsService) answered(
+	ctx context.Context,
+	executionID string,
+	instruction channelv1.Instruction,
+) string {
+	answers := make([]entity.Answer, 0, len(instruction.Answers))
+
+	for _, given := range instruction.Answers {
+		answer := entity.AnswerOf(given)
+		answers = append(answers, answer)
+
+		s.complain(ctx, executionID, s.questions.Answered(ctx, executionID, answer))
 	}
 
-	question, answer, held, err := s.questions.Take(ctx, executionID)
-	s.complain(ctx, executionID, err)
+	s.complain(ctx, executionID, s.questions.Forget(ctx, executionID))
 
-	if !held {
+	if len(answers) == 0 {
 		return strings.TrimSpace(instruction.Instruction)
 	}
 
-	return entity.AnswerInjection(answer, question.Message)
+	return entity.AnswersInjection(answers)
 }
 
 func resumed(instruction channelv1.Instruction) string {
+	switch instruction.Reason {
+	case channelv1.ResumePlanApproved:
+		return "somebody approved the plan, and the coding agent is building it"
+	case channelv1.ResumePlanRevision:
+		return "somebody asked for the plan to change, and the coding agent is revising it"
+	case channelv1.ResumeAnswer:
+		return "somebody answered, and the coding agent is carrying on from where it stopped"
+	}
+
 	said := strings.TrimSpace(instruction.Instruction)
 	if said == "" {
 		return "norn asked this machine to carry on"
-	}
-
-	if instruction.Reason == channelv1.ResumeAnswer {
-		return "somebody answered, and the coding agent is carrying on from where it stopped: " + said
 	}
 
 	return "norn asked this machine to carry on: " + said

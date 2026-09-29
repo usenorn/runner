@@ -98,23 +98,6 @@ func (mr *MockQuestionsMockRecorder) Restore(ctx, executionID any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Restore", reflect.TypeOf((*MockQuestions)(nil).Restore), ctx, executionID)
 }
 
-// Take mocks base method.
-func (m *MockQuestions) Take(ctx context.Context, executionID string) (entity.Question, entity.Answer, bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Take", ctx, executionID)
-	ret0, _ := ret[0].(entity.Question)
-	ret1, _ := ret[1].(entity.Answer)
-	ret2, _ := ret[2].(bool)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
-}
-
-// Take indicates an expected call of Take.
-func (mr *MockQuestionsMockRecorder) Take(ctx, executionID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Take", reflect.TypeOf((*MockQuestions)(nil).Take), ctx, executionID)
-}
-
 // Waiting mocks base method.
 func (m *MockQuestions) Waiting(executionID string) (entity.Question, bool) {
 	m.ctrl.T.Helper()

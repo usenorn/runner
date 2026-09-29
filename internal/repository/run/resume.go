@@ -16,11 +16,11 @@ import (
 )
 
 type storedResume struct {
-	Version     int    `json:"version"`
-	Reason      string `json:"reason"`
-	Instruction string `json:"instruction,omitempty"`
-	QuestionID  string `json:"questionId,omitempty"`
-	QuestionRef string `json:"questionRef,omitempty"`
+	Version     int            `json:"version"`
+	Reason      string         `json:"reason"`
+	Stage       string         `json:"stage,omitempty"`
+	Instruction string         `json:"instruction,omitempty"`
+	Answers     []storedAnswer `json:"answers,omitempty"`
 }
 
 func (r *fileRun) resumePath(name string) string {
@@ -34,12 +34,24 @@ func (r *fileRun) SaveResume(_ context.Context, name string, instruction channel
 		return fmt.Errorf("create %s: %w", filepath.Dir(path), err)
 	}
 
+	answers := make([]storedAnswer, 0, len(instruction.Answers))
+	for _, answer := range instruction.Answers {
+		answers = append(answers, storedAnswer{
+			QuestionID: answer.QuestionID,
+			Ref:        answer.Ref,
+			Question:   answer.Question,
+			Answer:     answer.Answer,
+			AnsweredBy: answer.AnsweredBy,
+			AnsweredAt: answer.AnsweredAt,
+		})
+	}
+
 	raw, err := json.MarshalIndent(storedResume{
 		Version:     version,
 		Reason:      instruction.Reason,
+		Stage:       string(instruction.Stage),
 		Instruction: instruction.Instruction,
-		QuestionID:  instruction.QuestionID,
-		QuestionRef: instruction.QuestionRef,
+		Answers:     answers,
 	}, "", "  ")
 	if err != nil {
 		return fmt.Errorf("write how %s is to carry on: %w", name, err)
@@ -55,11 +67,23 @@ func (r *fileRun) LoadResume(_ context.Context, name string) (channelv1.Instruct
 		return channelv1.Instruction{}, err
 	}
 
+	answers := make([]channelv1.Answer, 0, len(stored.Answers))
+	for _, answer := range stored.Answers {
+		answers = append(answers, channelv1.Answer{
+			QuestionID: answer.QuestionID,
+			Ref:        answer.Ref,
+			Question:   answer.Question,
+			Answer:     answer.Answer,
+			AnsweredBy: answer.AnsweredBy,
+			AnsweredAt: answer.AnsweredAt,
+		})
+	}
+
 	return channelv1.Instruction{
 		Reason:      stored.Reason,
+		Stage:       channelv1.Stage(stored.Stage),
 		Instruction: stored.Instruction,
-		QuestionID:  stored.QuestionID,
-		QuestionRef: stored.QuestionRef,
+		Answers:     answers,
 	}, nil
 }
 

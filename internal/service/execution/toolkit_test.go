@@ -19,6 +19,7 @@ func equipped() channelv1.Start {
 	lease := time.Now().UTC().Add(time.Minute)
 
 	return channelv1.Start{
+		Stage:          channelv1.StageImplementation,
 		ExecutionID:    "exec-01ABC",
 		LeaseExpiresAt: &lease,
 		Instructions:   "Commit small.\n\nWrite no comments.",

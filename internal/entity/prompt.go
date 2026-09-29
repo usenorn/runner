@@ -11,10 +11,15 @@ const (
 )
 
 func ComposeTask(execution Execution, snapshot Snapshot, plan RunPlan) Task {
+	rules := standingRules()
+	if execution.Planning() {
+		rules = planningRules()
+	}
+
 	sections := []string{
 		heading(execution),
 		briefing(execution, snapshot, plan),
-		standingRules(),
+		rules,
 	}
 
 	return Task{
@@ -119,6 +124,41 @@ func standingRules() string {
 		"- Working through bash instead? The same things are `norn service …`, `norn preview " +
 			"…` and `norn ask \"your question\" --option \"one answer\"`.",
 	}, "\n")
+}
+
+func planningRules() string {
+	return strings.Join([]string{
+		"## How to plan here",
+		"",
+		"- You are planning, not implementing. Read the code, work out what has to change, and " +
+			"write a plan. Change nothing in the workspace: a person approves the plan before " +
+			"any of it is built, and you are started again to build it once they have.",
+		"- When a decision is not yours to make, `ask_human` with `blocking` set, and offer the " +
+			"answers you would accept. Ask before you settle the plan, not inside it. If nobody " +
+			"answers in time you are told to stop; norn starts you again with the answer.",
+		"- Write the plan to your plan file: what you will change and where, in the order you " +
+			"will do it, how you will check it works, and what you are unsure of. Write it for " +
+			"a reviewer who has not read the code.",
+		"- Say where you are with `report_progress` as you go.",
+		"- End your turn once the plan is written. Do not call `complete_task` while planning.",
+	}, "\n")
+}
+
+func PlanProposed() string {
+	return "the coding agent proposed a plan and is waiting for somebody to approve it before " +
+		"it changes anything"
+}
+
+func PlanApprovedInjection(plan string) string {
+	return "Your plan was approved as it stands. Build it now, following it step by step:\n\n" +
+		strings.TrimSpace(plan) + "\n\n" + standingRules()
+}
+
+func PlanRevisionInjection(feedback string) string {
+	return "A person read your plan and wants it changed before approving it:\n\n" +
+		strings.TrimSpace(feedback) + "\n\n" +
+		"Revise the plan to answer this and write the whole new version to your plan file. " +
+		"You are still planning: change nothing in the workspace."
 }
 
 func compact(values []string) []string {

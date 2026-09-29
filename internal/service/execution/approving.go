@@ -11,6 +11,7 @@ import (
 
 func (s *executionsService) approve(ctx context.Context, execution entity.Execution) error {
 	execution.State = channelv1.StateApproved
+	execution.Stage = channelv1.StagePublication
 
 	if err := s.runs.SaveTask(ctx, execution); err != nil {
 		return err

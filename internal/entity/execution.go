@@ -8,11 +8,15 @@ import (
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 )
 
-const ExecutionTaskFile = "task.json"
+const (
+	ExecutionTaskFile = "task.json"
+	PlanFileExt       = ".md"
+)
 
 var (
 	ErrExecutionUnknown = errors.New("this machine is not holding that execution")
 	ErrExecutionRefused = errors.New("an execution cannot move between those states")
+	ErrPlanMissing      = errors.New("the coding agent stopped planning without writing a plan")
 
 	ErrExecutionNoCodebase = errors.New(
 		"this machine has no connected folder to run the work in; connect one with " +
@@ -25,6 +29,8 @@ var (
 )
 
 type ExecutionState = channelv1.State
+
+type ExecutionStage = channelv1.Stage
 
 type Execution struct {
 	ID           string
@@ -45,6 +51,7 @@ type Execution struct {
 	Profile      string
 	Directory    string
 	State        ExecutionState
+	Stage        ExecutionStage
 	Lease        time.Time
 	AcceptedAt   time.Time
 	StartedAt    time.Time
@@ -71,12 +78,17 @@ func ExecutionOf(offer channelv1.Offer, root string, acceptedAt time.Time) Execu
 		Profile:      offer.Params.Profile,
 		Directory:    filepath.Join(root, offer.ExecutionID),
 		State:        channelv1.StateLeased,
+		Stage:        channelv1.StagePlanning,
 		AcceptedAt:   acceptedAt,
 	}
 }
 
 func (e Execution) Metadata() string {
 	return filepath.Join(e.Directory, RunMetadataDir)
+}
+
+func (e Execution) Planning() bool {
+	return e.Stage == channelv1.StagePlanning
 }
 
 func (e Execution) HoldsSlot() bool {

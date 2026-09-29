@@ -34,6 +34,7 @@ type Run interface {
 	SaveQuestion(ctx context.Context, name string, open entity.OpenQuestion) error
 	LoadQuestion(ctx context.Context, name string) (entity.OpenQuestion, error)
 	ClearQuestion(ctx context.Context, name string) error
+	LatestPlan(ctx context.Context, name string) (string, error)
 	SaveResume(ctx context.Context, name string, instruction channelv1.Instruction) error
 	LoadResume(ctx context.Context, name string) (channelv1.Instruction, error)
 	ClearResume(ctx context.Context, name string) error

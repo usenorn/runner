@@ -34,6 +34,7 @@ type storedQuestion struct {
 type storedAnswer struct {
 	QuestionID string    `json:"questionId,omitempty"`
 	Ref        string    `json:"ref,omitempty"`
+	Question   string    `json:"question,omitempty"`
 	Answer     string    `json:"answer"`
 	AnsweredBy string    `json:"answeredBy,omitempty"`
 	AnsweredAt time.Time `json:"answeredAt,omitzero"`

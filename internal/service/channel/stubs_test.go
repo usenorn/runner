@@ -240,6 +240,8 @@ func (runStub) LoadQuestion(context.Context, string) (entity.OpenQuestion, error
 
 func (runStub) ClearQuestion(context.Context, string) error { return nil }
 
+func (runStub) LatestPlan(context.Context, string) (string, error) { return "", nil }
+
 func (runStub) SaveResume(context.Context, string, channelv1.Instruction) error { return nil }
 
 func (runStub) LoadResume(context.Context, string) (channelv1.Instruction, error) {

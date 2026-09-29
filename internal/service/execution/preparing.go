@@ -157,6 +157,10 @@ func (s *executionsService) recover(ctx context.Context, execution entity.Execut
 		s.hold(ctx, execution, "a run was waiting for somebody to review it when this machine last stopped")
 
 		return true, nil
+	case channelv1.StateAwaitingPlan:
+		s.hold(ctx, execution, "a run was waiting for somebody to approve its plan when this machine last stopped")
+
+		return true, nil
 	case channelv1.StateWaitingForInput:
 		if err := s.questions.Restore(ctx, execution.ID); err != nil {
 			return false, err
