@@ -97,6 +97,10 @@ func (c *Client) Logs(ctx context.Context, executionID string) ([]TimelineEntry,
 	return ask[[]TimelineEntry](ctx, c, http.MethodGet, forRun(LogsPath, executionID), nil)
 }
 
+func (c *Client) SaveAgentToken(ctx context.Context, token string) (AgentTokenSaved, error) {
+	return ask[AgentTokenSaved](ctx, c, http.MethodPost, AgentTokenPath, AgentTokenRequest{Token: token})
+}
+
 func (c *Client) Disconnect(ctx context.Context) (Disconnected, error) {
 	return ask[Disconnected](ctx, c, http.MethodPost, DisconnectPath, struct{}{})
 }

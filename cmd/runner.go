@@ -24,6 +24,7 @@ func newRunnerCommand() *cobra.Command {
 		newRunnerVersionCommand(),
 		newRunnerConnectCommand(),
 		newRunnerDisconnectCommand(),
+		newRunnerAgentTokenCommand(),
 		newRunnerInspectCommand(),
 		newRunnerSnapshotCommand(),
 		newRunnerPauseCommand(),

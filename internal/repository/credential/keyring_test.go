@@ -132,3 +132,39 @@ func TestDisconnectingWorksOnAHostWhereOneStoreCannotBeReachedAtAll(t *testing.T
 		t.Fatalf("the credential that was really there survived: %v", err)
 	}
 }
+
+func TestTheAgentTokenIsKeptApartFromThisMachinesOwnCredentials(t *testing.T) {
+	keyring.MockInit()
+
+	account := t.TempDir()
+	repo := &stores{
+		backends: map[entity.Store]backend{entity.StoreKeyring: &keyringStore{account: account}},
+		agents:   map[entity.Store]backend{entity.StoreKeyring: &keyringStore{account: account + "#agent-token"}},
+	}
+	ctx := context.Background()
+
+	if _, err := repo.LoadAgentToken(ctx, entity.StoreKeyring); !errors.Is(err, entity.ErrAgentTokenMissing) {
+		t.Fatalf("an empty store gave back %v, want the token reported missing", err)
+	}
+
+	if err := repo.Save(ctx, entity.StoreKeyring, someCredentials(t)); err != nil {
+		t.Fatalf("save credentials: %v", err)
+	}
+
+	if err := repo.SaveAgentToken(ctx, entity.StoreKeyring, "sk-ant-oat01-kept"); err != nil {
+		t.Fatalf("save the agent token: %v", err)
+	}
+
+	token, err := repo.LoadAgentToken(ctx, entity.StoreKeyring)
+	if err != nil || token != "sk-ant-oat01-kept" {
+		t.Fatalf("the agent token came back as %q, %v", token, err)
+	}
+
+	if _, err := repo.Load(ctx, entity.StoreKeyring); err != nil {
+		t.Fatalf(
+			"keeping the agent token broke this machine's own credentials: %v. The two are "+
+				"separate secrets and one must never overwrite the other",
+			err,
+		)
+	}
+}

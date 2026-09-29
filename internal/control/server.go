@@ -86,6 +86,7 @@ func NewServer(
 	mux.HandleFunc("GET "+VersionPath, server.version)
 	mux.HandleFunc("POST "+ConnectPath, server.connect)
 	mux.HandleFunc("POST "+DisconnectPath, server.disconnect)
+	mux.HandleFunc("POST "+AgentTokenPath, server.saveAgentToken)
 	mux.HandleFunc("POST "+InspectPath, server.inspect)
 	mux.HandleFunc("POST "+AcceptPath, server.accept)
 	mux.HandleFunc("POST "+PausePath, server.pause)
@@ -362,6 +363,25 @@ func (s *Server) disconnect(w http.ResponseWriter, r *http.Request) {
 		RunnerID: identity.RunnerID.String(),
 		Server:   identity.Server,
 	})
+}
+
+func (s *Server) saveAgentToken(w http.ResponseWriter, r *http.Request) {
+	var request AgentTokenRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		respond(w, r, http.StatusBadRequest, Failure{Reason: ReasonRefused, Message: "that token request is malformed"})
+
+		return
+	}
+
+	store, err := s.enrolments.SaveAgentToken(r.Context(), request.Token)
+	if err != nil {
+		s.refuse(w, r, err)
+
+		return
+	}
+
+	respond(w, r, http.StatusOK, AgentTokenSaved{Store: string(store)})
 }
 
 func (s *Server) refuse(w http.ResponseWriter, r *http.Request, err error) {

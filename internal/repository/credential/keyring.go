@@ -11,7 +11,10 @@ import (
 	"github.com/usenorn/runner/internal/pkg/statedir"
 )
 
-const keyringService = "site.norn.runner"
+const (
+	keyringService    = "site.norn.runner"
+	agentTokenAccount = "agent-token"
+)
 
 type keyringStore struct {
 	account string
@@ -19,6 +22,10 @@ type keyringStore struct {
 
 func newKeyring(dir *statedir.Dir) backend {
 	return &keyringStore{account: dir.Root()}
+}
+
+func newAgentKeyring(dir *statedir.Dir) backend {
+	return &keyringStore{account: dir.Root() + "#" + agentTokenAccount}
 }
 
 func (b *keyringStore) usable(ctx context.Context) error {

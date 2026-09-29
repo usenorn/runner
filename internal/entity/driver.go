@@ -3,7 +3,9 @@ package entity
 import (
 	"errors"
 	"slices"
+	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -33,6 +35,13 @@ var (
 	ErrDriverUnanswerable = errors.New(
 		"the coding agent stopped for something it wanted to be asked directly, which nothing " +
 			"outside its own session can answer; a question for a person goes through 'norn ask'",
+	)
+	ErrAgentTokenMissing = errors.New(
+		"this machine has no token for the coding agent; run 'claude setup-token' and hand what " +
+			"it prints to 'norn runner agent-token'",
+	)
+	ErrAgentTokenMalformed = errors.New(
+		"that is not a coding agent token; paste exactly what 'claude setup-token' printed",
 	)
 	ErrDriverSessionUnknown = errors.New(
 		"this run has no coding agent session to carry on from",
@@ -227,3 +236,11 @@ type UploadReceipt struct {
 const DriverResumeInjection = "Your session stopped before you said you were finished. Carry on " +
 	"from where you left off: check what you had already changed in this workspace, then finish " +
 	"the work and commit it."
+
+func ValidateAgentToken(token string) error {
+	if token == "" || strings.ContainsFunc(token, unicode.IsSpace) {
+		return ErrAgentTokenMalformed
+	}
+
+	return nil
+}

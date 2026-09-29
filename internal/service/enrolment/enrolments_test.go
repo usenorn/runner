@@ -321,3 +321,37 @@ func TestDisconnectingAMachineThatWasNeverConnectedSaysSo(t *testing.T) {
 		t.Fatalf("disconnecting an unbound machine returned %v, want it named", err)
 	}
 }
+
+func TestTheAgentTokenIsKeptInTheStoreThisMachineWasConnectedWith(t *testing.T) {
+	h := newHarness(t)
+	identity := h.identity()
+	identity.Store = entity.StoreEncrypted
+
+	h.identities.EXPECT().Load(gomock.Any()).Return(identity, nil)
+	h.credentials.EXPECT().
+		SaveAgentToken(gomock.Any(), entity.StoreEncrypted, "sk-ant-oat01-kept").
+		Return(nil)
+
+	store, err := h.service.SaveAgentToken(context.Background(), "sk-ant-oat01-kept")
+	if err != nil {
+		t.Fatalf("save the agent token: %v", err)
+	}
+
+	if store != entity.StoreEncrypted {
+		t.Fatalf(
+			"the token went to the %q store, want the one this machine chose when it connected; "+
+				"a host with no keystore was connected with the encrypted file for a reason",
+			store,
+		)
+	}
+}
+
+func TestSomethingThatIsNotATokenIsNeverKept(t *testing.T) {
+	h := newHarness(t)
+
+	for _, pasted := range []string{"", "sk-ant-oat01 two words"} {
+		if _, err := h.service.SaveAgentToken(context.Background(), pasted); !errors.Is(err, entity.ErrAgentTokenMalformed) {
+			t.Fatalf("keeping %q came back %v, want it refused as malformed", pasted, err)
+		}
+	}
+}

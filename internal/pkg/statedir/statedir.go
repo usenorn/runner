@@ -15,6 +15,7 @@ const (
 	configFile     = "runner.yaml"
 	identityFile   = "identity.json"
 	secretsFile    = "credentials.enc"
+	agentTokenFile = "agent-token.enc"
 	socketFile     = "runner.sock"
 	schedulingFile = "scheduling.json"
 	lockFile       = "runner.lock"
@@ -63,6 +64,8 @@ func (d *Dir) Config() string { return filepath.Join(d.root, configFile) }
 func (d *Dir) Identity() string { return filepath.Join(d.root, identityFile) }
 
 func (d *Dir) Credentials() string { return filepath.Join(d.root, secretsFile) }
+
+func (d *Dir) AgentToken() string { return filepath.Join(d.root, agentTokenFile) }
 
 func (d *Dir) Socket() string { return filepath.Join(d.root, socketFile) }
 

@@ -27,6 +27,7 @@ type backend interface {
 
 type stores struct {
 	backends map[entity.Store]backend
+	agents   map[entity.Store]backend
 }
 
 func New(dir *statedir.Dir) repository.Credential {
@@ -35,7 +36,38 @@ func New(dir *statedir.Dir) repository.Credential {
 			entity.StoreKeyring:   newKeyring(dir),
 			entity.StoreEncrypted: newEncrypted(dir.Credentials(), machineSecret),
 		},
+		agents: map[entity.Store]backend{
+			entity.StoreKeyring:   newAgentKeyring(dir),
+			entity.StoreEncrypted: newEncrypted(dir.AgentToken(), machineSecret),
+		},
 	}
+}
+
+func (r *stores) LoadAgentToken(ctx context.Context, store entity.Store) (string, error) {
+	chosen, ok := r.agents[store]
+	if !ok {
+		return "", fmt.Errorf("%w: %q", entity.ErrAgentTokenMissing, store)
+	}
+
+	raw, err := chosen.read(ctx)
+	if errors.Is(err, entity.ErrCredentialsMissing) {
+		return "", entity.ErrAgentTokenMissing
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(raw), nil
+}
+
+func (r *stores) SaveAgentToken(ctx context.Context, store entity.Store, token string) error {
+	chosen, ok := r.agents[store]
+	if !ok {
+		return fmt.Errorf("%w: %q", entity.ErrCredentialsMissing, store)
+	}
+
+	return chosen.write(ctx, []byte(token))
 }
 
 func (r *stores) Usable(ctx context.Context, store entity.Store) error {
