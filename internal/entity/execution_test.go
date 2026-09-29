@@ -10,16 +10,16 @@ import (
 	"github.com/usenorn/runner/internal/entity"
 )
 
-func TestOnlyWorkTheMachineIsActuallyDoingHoldsASlot(t *testing.T) {
+func TestWorkTheMachineIsDoingOrHasPromisedToDoHoldsASlot(t *testing.T) {
 	holding := map[entity.ExecutionState]bool{
 		channelv1.StateQueued:          false,
-		channelv1.StateLeased:          false,
+		channelv1.StateLeased:          true,
 		channelv1.StatePreparing:       true,
 		channelv1.StateRunning:         true,
 		channelv1.StateFinalizing:      true,
 		channelv1.StateWaitingForInput: false,
 		channelv1.StateAwaitingReview:  false,
-		channelv1.StateQueuedForResume: false,
+		channelv1.StateQueuedForResume: true,
 		channelv1.StateApproved:        false,
 		channelv1.StateCompleted:       false,
 		channelv1.StateFailed:          false,
@@ -31,7 +31,12 @@ func TestOnlyWorkTheMachineIsActuallyDoingHoldsASlot(t *testing.T) {
 		execution := entity.Execution{State: state}
 
 		if execution.HoldsSlot() != want {
-			t.Errorf("%q holds a slot=%v, want %v", state, execution.HoldsSlot(), want)
+			t.Errorf(
+				"%q holds a slot=%v, want %v. A run the machine accepted or is about to carry on "+
+					"with will want a slot any moment, and leaving it out lets norn offer more "+
+					"than the machine can take",
+				state, execution.HoldsSlot(), want,
+			)
 		}
 	}
 }

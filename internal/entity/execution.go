@@ -79,7 +79,13 @@ func (e Execution) Metadata() string {
 }
 
 func (e Execution) HoldsSlot() bool {
-	return e.State.HoldsSlot()
+	switch e.State {
+	case channelv1.StateLeased, channelv1.StatePreparing, channelv1.StateRunning,
+		channelv1.StateQueuedForResume, channelv1.StateFinalizing:
+		return true
+	default:
+		return false
+	}
 }
 
 func (e Execution) Finished() bool {

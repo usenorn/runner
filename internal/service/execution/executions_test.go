@@ -14,7 +14,7 @@ import (
 	"github.com/usenorn/runner/internal/entity"
 )
 
-func TestAnAcceptedOfferHoldsItsSlotOnlyOnceItIsActuallyPreparing(t *testing.T) {
+func TestAnAcceptedOfferHoldsItsSlotFromTheMomentItIsAccepted(t *testing.T) {
 	h := newHarness(t, 2, 0)
 	ctx := context.Background()
 
@@ -28,8 +28,13 @@ func TestAnAcceptedOfferHoldsItsSlotOnlyOnceItIsActuallyPreparing(t *testing.T) 
 
 	report := h.service.Report(ctx)
 
-	if report.Used != 0 || len(report.Executions) != 1 {
-		t.Fatalf("a run that has only been accepted uses %d of %d slots", report.Used, report.Capacity)
+	if report.Used != 1 || len(report.Executions) != 1 {
+		t.Fatalf(
+			"a run that has been accepted uses %d of %d slots, want 1. Norn starts what a "+
+				"machine accepted, so an acceptance that holds nothing lets it offer a full "+
+				"machine more",
+			report.Used, report.Capacity,
+		)
 	}
 
 	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
@@ -707,7 +712,7 @@ func TestWhatTheMachineSaysHelloWithNamesTheBuildAndWhatItHolds(t *testing.T) {
 
 	pulse := h.service.Pulse(ctx)
 
-	if pulse.Capacity != 3 || pulse.Used != 0 || len(pulse.Phases) != 1 {
+	if pulse.Capacity != 3 || pulse.Used != 1 || len(pulse.Phases) != 1 {
 		t.Fatalf("the heartbeat reads %+v", pulse)
 	}
 

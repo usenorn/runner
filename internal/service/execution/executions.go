@@ -22,7 +22,9 @@ import (
 const interruptedNote = "this machine restarted while the run was under way, so the work it had " +
 	"started was left unfinished"
 
-const waitingToPrepare = 64
+const waitingToWork = 64
+
+const overflowing = "this machine has more runs waiting to be worked on than it can hold"
 
 type executionsService struct {
 	runs        repository.Run
@@ -50,9 +52,12 @@ type executionsService struct {
 
 	preparing chan string
 	resuming  chan resumption
+	woken     chan struct{}
 
 	mu       sync.Mutex
 	held     map[string]entity.Execution
+	waiting  []admission
+	admitted map[string]bool
 	work     map[string]context.CancelFunc
 	owed     map[string]bool
 	done     map[string]entity.Completion
@@ -108,9 +113,11 @@ func New(
 		scheduler:   scheduler,
 		driver:      driver,
 		now:         func() time.Time { return time.Now().UTC() },
-		preparing:   make(chan string, waitingToPrepare),
-		resuming:    make(chan resumption, waitingToPrepare),
+		preparing:   make(chan string, waitingToWork),
+		resuming:    make(chan resumption, waitingToWork),
+		woken:       make(chan struct{}, 1),
 		held:        map[string]entity.Execution{},
+		admitted:    map[string]bool{},
 		work:        map[string]context.CancelFunc{},
 		owed:        map[string]bool{},
 		done:        map[string]entity.Completion{},
@@ -199,15 +206,11 @@ func (s *executionsService) Start(
 
 	execution.StartedAt = s.now()
 
-	if err := s.move(ctx, execution, channelv1.StatePreparing, ""); err != nil {
-		return err
-	}
+	s.mu.Lock()
+	s.held[execution.ID] = execution
+	s.mu.Unlock()
 
-	select {
-	case s.preparing <- execution.ID:
-	default:
-		return s.fail(ctx, execution, "this machine has more runs waiting to be prepared than it can hold")
-	}
+	s.admit(ctx, admission{executionID: execution.ID})
 
 	return nil
 }
@@ -317,9 +320,13 @@ func (s *executionsService) Configure(configuration channelv1.Configuration) {
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.capacity = *configuration.Capacity
+	s.mu.Unlock()
+
+	select {
+	case s.woken <- struct{}{}:
+	default:
+	}
 }
 
 func (s *executionsService) Greeting() channelv1.Hello {

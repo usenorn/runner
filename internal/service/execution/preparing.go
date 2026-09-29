@@ -57,6 +57,7 @@ func (s *executionsService) Run(ctx context.Context) {
 
 			go func() {
 				defer working.Done()
+				defer s.vacate(context.WithoutCancel(ctx), executionID)
 
 				s.prepare(ctx, executionID)
 			}()
@@ -65,9 +66,12 @@ func (s *executionsService) Run(ctx context.Context) {
 
 			go func() {
 				defer working.Done()
+				defer s.vacate(context.WithoutCancel(ctx), held.executionID)
 
 				s.resume(ctx, held)
 			}()
+		case <-s.woken:
+			s.dispatch(ctx)
 		}
 	}
 }
@@ -165,7 +169,9 @@ func (s *executionsService) recover(ctx context.Context, execution entity.Execut
 
 		s.hold(ctx, execution, "a run was about to carry on when this machine last stopped")
 
-		return true, s.enqueue(execution.ID, instruction)
+		s.admit(ctx, resuming(execution.ID, instruction))
+
+		return true, nil
 	case channelv1.StateApproved:
 		return true, s.conclude(ctx, execution)
 	default:

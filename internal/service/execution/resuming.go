@@ -54,15 +54,15 @@ func (s *executionsService) Continue(
 		return err
 	}
 
-	return s.enqueue(executionID, instruction)
+	s.admit(ctx, resuming(executionID, instruction))
+
+	return nil
 }
 
-func (s *executionsService) enqueue(executionID string, instruction channelv1.Instruction) error {
-	select {
-	case s.resuming <- resumption{executionID: executionID, instruction: instruction}:
-		return nil
-	default:
-		return fmt.Errorf("%w: %s", entity.ErrExecutionRefused, executionID)
+func resuming(executionID string, instruction channelv1.Instruction) admission {
+	return admission{
+		executionID: executionID,
+		resume:      &resumption{executionID: executionID, instruction: instruction},
 	}
 }
 
