@@ -3,10 +3,13 @@ package worktree_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -407,5 +410,58 @@ func results() config.Results {
 		PushTimeout:  60 * time.Second,
 		ForgeTimeout: 30 * time.Second,
 		MaxDiffBytes: 3 << 20,
+	}
+}
+
+func TestRunsPreparingAtOnceDoNotTripOverTheSameRepository(t *testing.T) {
+	source, _ := origin(t)
+	worktrees := maker(t)
+	base := git(t, source, "rev-parse", "HEAD")
+	root := t.TempDir()
+
+	const runs = 12
+
+	failures := make(chan error, runs)
+
+	var group sync.WaitGroup
+
+	for run := range runs {
+		group.Go(func() {
+			into := filepath.Join(root, "run-"+strconv.Itoa(run), "workspace", "runner")
+			ctx := context.Background()
+
+			if err := worktrees.Fetch(ctx, source, "main"); err != nil {
+				failures <- fmt.Errorf("run %d fetch: %w", run, err)
+
+				return
+			}
+
+			if err := worktrees.Add(ctx, source, into, base); err != nil {
+				failures <- fmt.Errorf("run %d add: %w", run, err)
+
+				return
+			}
+
+			if err := worktrees.Branch(ctx, into, "norn/NORN-226/run-"+strconv.Itoa(run)); err != nil {
+				failures <- fmt.Errorf("run %d branch: %w", run, err)
+
+				return
+			}
+
+			if err := worktrees.Remove(ctx, source, into); err != nil {
+				failures <- fmt.Errorf("run %d remove: %w", run, err)
+			}
+		})
+	}
+
+	group.Wait()
+	close(failures)
+
+	for err := range failures {
+		t.Errorf(
+			"%v. Every run on this machine shares the person's repository, and one run's "+
+				"prune or fetch must not fail another's preparation",
+			err,
+		)
 	}
 }
