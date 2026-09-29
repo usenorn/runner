@@ -28,4 +28,5 @@ type Worktree interface {
 	Patch(ctx context.Context, dest, base string) ([]byte, error)
 	Push(ctx context.Context, dest, url, branch string) error
 	Remove(ctx context.Context, repository, dest string) error
+	Keep(ctx context.Context, repository, dest, branch, run string) (string, error)
 }

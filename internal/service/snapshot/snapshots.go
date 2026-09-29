@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -398,11 +399,46 @@ func (s *snapshotsService) Release(ctx context.Context, name string) error {
 		return err
 	}
 
+	if err := s.keep(ctx, name, snapshot.Repositories); err != nil {
+		return err
+	}
+
 	if err := s.release(ctx, snapshot.Repositories); err != nil {
 		return err
 	}
 
 	return s.runs.Prune(ctx, name)
+}
+
+func (s *snapshotsService) keep(
+	ctx context.Context,
+	name string,
+	repositories []entity.SnapshotRepository,
+) error {
+	for _, held := range repositories {
+		if held.Mode != entity.GitModeClone || held.Branch == "" {
+			continue
+		}
+
+		if _, err := os.Stat(held.Path); err != nil {
+			continue
+		}
+
+		ahead, err := s.worktrees.Commits(ctx, held.Path, held.BaseSHA)
+		if err != nil {
+			return fmt.Errorf("count the work on %s in %s: %w", held.Branch, held.RelPath, err)
+		}
+
+		if ahead == 0 {
+			continue
+		}
+
+		if _, err := s.worktrees.Keep(ctx, held.Source, held.Path, held.Branch, name); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *snapshotsService) Discard(ctx context.Context, name string) error {

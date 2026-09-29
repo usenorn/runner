@@ -465,3 +465,66 @@ func TestRunsPreparingAtOnceDoNotTripOverTheSameRepository(t *testing.T) {
 		)
 	}
 }
+
+func cloned(t *testing.T, source, branch string) string {
+	t.Helper()
+
+	into := filepath.Join(t.TempDir(), "workspace", "runner")
+	worktrees := maker(t)
+
+	if err := worktrees.Clone(context.Background(), source, into, git(t, source, "rev-parse", "HEAD")); err != nil {
+		t.Fatalf("clone %s: %v", source, err)
+	}
+
+	if err := worktrees.Branch(context.Background(), into, branch); err != nil {
+		t.Fatalf("branch the clone: %v", err)
+	}
+
+	return into
+}
+
+func TestAClonesCommitsLandOnTheirBranchInThePersonsRepository(t *testing.T) {
+	source, _ := origin(t)
+	into := cloned(t, source, "norn/NORN-226/runner")
+	made := commit(t, into, "b.txt", "two\n")
+
+	kept, err := maker(t).Keep(context.Background(), source, into, "norn/NORN-226/runner", "exec-1")
+	if err != nil {
+		t.Fatalf("keep the clone's work: %v", err)
+	}
+
+	if kept != "refs/heads/norn/NORN-226/runner" {
+		t.Fatalf("the work was kept at %s, want the branch itself", kept)
+	}
+
+	if got := git(t, source, "rev-parse", kept); got != made {
+		t.Fatalf(
+			"the branch in the person's repository is at %s, want %s. A clone's commits live "+
+				"only in its own folder, so deleting that folder without this loses them",
+			got, made,
+		)
+	}
+}
+
+func TestAClonesCommitsNeverOverwriteABranchThatMovedElsewhere(t *testing.T) {
+	source, _ := origin(t)
+	into := cloned(t, source, "norn/NORN-226/runner")
+	made := commit(t, into, "b.txt", "two\n")
+
+	git(t, source, "switch", "-q", "-c", "norn/NORN-226/runner")
+	theirs := commit(t, source, "c.txt", "somebody else's\n")
+	git(t, source, "switch", "-q", "main")
+
+	kept, err := maker(t).Keep(context.Background(), source, into, "norn/NORN-226/runner", "exec-1")
+	if err != nil {
+		t.Fatalf("keep the clone's work: %v", err)
+	}
+
+	if got := git(t, source, "rev-parse", "refs/heads/norn/NORN-226/runner"); got != theirs {
+		t.Fatalf("the branch somebody else moved is now at %s, want it left at %s", got, theirs)
+	}
+
+	if got := git(t, source, "rev-parse", kept); got != made {
+		t.Fatalf("the clone's work was kept at %s as %s, want %s", kept, got, made)
+	}
+}

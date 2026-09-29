@@ -272,6 +272,25 @@ func (r *gitWorktree) Remove(ctx context.Context, repository, dest string) error
 	return removed
 }
 
+func (r *gitWorktree) Keep(
+	ctx context.Context,
+	repository, dest, branch, run string,
+) (string, error) {
+	defer r.hold(repository)()
+
+	named := "refs/heads/" + branch
+	if _, err := r.run(ctx, repository, "fetch", "--no-tags", "--quiet", dest, named+":"+named); err == nil {
+		return named, nil
+	}
+
+	aside := entity.KeptRef(run, branch)
+	if _, err := r.run(ctx, repository, "fetch", "--no-tags", "--quiet", dest, "+"+named+":"+aside); err != nil {
+		return "", fmt.Errorf("keep %s from %s in %s: %w", branch, dest, repository, err)
+	}
+
+	return aside, nil
+}
+
 func (r *gitWorktree) paths(
 	ctx context.Context,
 	repository string,

@@ -149,6 +149,10 @@ func BranchFor(issueKey, repository string, attempt int) string {
 	return branch
 }
 
+func KeptRef(run, branch string) string {
+	return "refs/" + BranchNamespace + "/kept/" + sanitiseRef(run) + "/" + branch
+}
+
 func RunNameFor(issueKey string, attempt int) string {
 	return fmt.Sprintf("snap-%s-%d", sanitiseRef(issueKey), max(attempt, 1))
 }
