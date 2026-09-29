@@ -10,8 +10,10 @@ import (
 	"github.com/goforj/wire"
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
+	"github.com/usenorn/runner/internal/mcpbridge"
 	"github.com/usenorn/runner/internal/mcpserver"
 	"github.com/usenorn/runner/internal/observability/logging"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/buildinfo"
 	"github.com/usenorn/runner/internal/pkg/dashboardclient"
 	"github.com/usenorn/runner/internal/pkg/hostfacts"
@@ -139,14 +141,25 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	if err != nil {
 		return nil, nil, err
 	}
-	log := config.NewLog(configConfig)
-	logger, cleanup2, err := logging.New(app, log, dir)
+	docker := config.NewDocker(configConfig)
+	bridgeListener, cleanup2, err := bridge.New(docker)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	daemon := NewDaemon(configControl, server, listener, sessions, updates, codebases, channels, tunnels, executions, services, uploads, logger)
+	mcpbridgeBridge, cleanup3 := mcpbridge.New(configControl, questions, dir, app)
+	log := config.NewLog(configConfig)
+	logger, cleanup4, err := logging.New(app, log, dir)
+	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	daemon := NewDaemon(configControl, server, listener, bridgeListener, mcpbridgeBridge, sessions, updates, codebases, channels, tunnels, executions, services, uploads, logger)
 	return daemon, func() {
+		cleanup4()
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -351,7 +364,7 @@ func InitMCPServer(cfgFile string, overrides config.Overrides) (*mcpserver.Serve
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, sandbox.Set, port.Set, servicelog.Set, driver.Set, toolkit.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, bridge.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, sandbox.Set, port.Set, servicelog.Set, driver.Set, toolkit.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, mcpbridge.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,

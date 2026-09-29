@@ -10,7 +10,9 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/mcpbridge"
 	"github.com/usenorn/runner/internal/observability/logging"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/service"
 )
@@ -19,6 +21,8 @@ type Daemon struct {
 	cfg       config.Control
 	handler   http.Handler
 	listener  *socket.Listener
+	bridge    *bridge.Listener
+	tools     *mcpbridge.Bridge
 	sessions  service.Sessions
 	updates   service.Updates
 	codebases service.Codebases
@@ -34,6 +38,8 @@ func NewDaemon(
 	cfg config.Control,
 	handler http.Handler,
 	listener *socket.Listener,
+	bridge *bridge.Listener,
+	tools *mcpbridge.Bridge,
 	sessions service.Sessions,
 	updates service.Updates,
 	codebases service.Codebases,
@@ -48,6 +54,8 @@ func NewDaemon(
 		cfg:       cfg,
 		handler:   handler,
 		listener:  listener,
+		bridge:    bridge,
+		tools:     tools,
 		sessions:  sessions,
 		updates:   updates,
 		codebases: codebases,
@@ -141,6 +149,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.uploads.Run(ctx)
 	}()
 
+	bridging := d.serveTools(ctx)
+
 	serving := make(chan error, 1)
 
 	go func() {
@@ -170,6 +180,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 	)
 	defer cancel()
 
+	bridging(shutdownCtx)
+
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		_ = server.Close()
 		<-serving
@@ -197,4 +209,46 @@ func (d *Daemon) Run(ctx context.Context) error {
 	logging.From(ctx).InfoContext(ctx, "runner stopped")
 
 	return <-serving
+}
+
+func (d *Daemon) serveTools(ctx context.Context) func(context.Context) {
+	if err := d.bridge.Available(); err != nil {
+		logging.From(ctx).InfoContext(
+			ctx,
+			"runs in docker cannot reach their tools on this machine, so docker is not offered",
+			slog.String("reason", err.Error()),
+		)
+
+		return func(context.Context) {}
+	}
+
+	server := &http.Server{
+		Handler:           d.tools,
+		ReadHeaderTimeout: d.cfg.ReadHeaderTimeout,
+		BaseContext:       func(net.Listener) context.Context { return ctx },
+	}
+
+	served := make(chan struct{})
+
+	go func() {
+		defer close(served)
+
+		logging.From(ctx).InfoContext(
+			ctx, "runner serving tools to containers", slog.String("address", d.bridge.Addr().String()),
+		)
+
+		if err := server.Serve(d.bridge); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logging.From(ctx).WarnContext(
+				ctx, "runner stopped serving tools to containers", slog.String("error", err.Error()),
+			)
+		}
+	}()
+
+	return func(shutdown context.Context) {
+		if err := server.Shutdown(shutdown); err != nil {
+			_ = server.Close()
+		}
+
+		<-served
+	}
 }

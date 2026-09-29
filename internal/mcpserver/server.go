@@ -52,8 +52,22 @@ func (s *Server) Serve(
 	executionID string,
 	transport mcp.Transport,
 ) error {
+	server, closeBackend, err := s.Build(ctx, executionID)
+	if err != nil {
+		return err
+	}
+	defer closeBackend()
+
+	if err := server.Run(ctx, transport); err != nil {
+		return fmt.Errorf("serve norn's tools for %s: %w", executionID, err)
+	}
+
+	return nil
+}
+
+func (s *Server) Build(ctx context.Context, executionID string) (*mcp.Server, func(), error) {
 	if executionID == "" {
-		return entity.Exit(entity.ExitFailure, errNoExecution)
+		return nil, nil, entity.Exit(entity.ExitFailure, errNoExecution)
 	}
 
 	endpoint, client := s.client.NornTools(executionID)
@@ -62,9 +76,10 @@ func (s *Server) Serve(
 		&mcp.Implementation{Name: serverName, Version: s.app.Version}, nil,
 	).Connect(ctx, &mcp.StreamableClientTransport{Endpoint: endpoint, HTTPClient: client}, nil)
 	if err != nil {
-		return fmt.Errorf("reach norn's workspace tools for %s: %w", executionID, err)
+		return nil, nil, fmt.Errorf("reach norn's workspace tools for %s: %w", executionID, err)
 	}
-	defer func() { _ = backend.Close() }()
+
+	closeBackend := func() { _ = backend.Close() }
 
 	instructions := untrustedContentInstructions
 	if held := backend.InitializeResult(); held != nil && held.Instructions != "" {
@@ -77,17 +92,15 @@ func (s *Server) Serve(
 	)
 
 	if err := relay(ctx, server, backend); err != nil {
-		return fmt.Errorf("list norn's workspace tools for %s: %w", executionID, err)
+		closeBackend()
+
+		return nil, nil, fmt.Errorf("list norn's workspace tools for %s: %w", executionID, err)
 	}
 
 	tools := &toolset{client: s.client, execution: executionID}
 	tools.register(server)
 
-	if err := server.Run(ctx, transport); err != nil {
-		return fmt.Errorf("serve norn's tools for %s: %w", executionID, err)
-	}
-
-	return nil
+	return server, closeBackend, nil
 }
 
 func relay(ctx context.Context, server *mcp.Server, backend *mcp.ClientSession) error {

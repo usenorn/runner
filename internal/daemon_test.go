@@ -17,6 +17,8 @@ import (
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/mcpbridge"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	channelsvc "github.com/usenorn/runner/internal/service/channel"
@@ -131,9 +133,19 @@ func newDaemonRecording(
 	uploads := uploadsvc.NewMockUploads(ctrl)
 	uploads.EXPECT().Run(gomock.Any()).AnyTimes()
 
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatalf("listen for containers: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	tools, closeTools := mcpbridge.New(cfg, config.Questions{}, dir, config.App{Version: "test"})
+	t.Cleanup(closeTools)
+
 	return internal.NewDaemon(
-		cfg, handler, listener, sessions, updates, codebases, channels, tunnels, runs, services,
-		uploads, logger,
+		cfg, handler, listener, bridged, tools, sessions, updates, codebases, channels, tunnels,
+		runs, services, uploads, logger,
 	), dir, started
 }
 
