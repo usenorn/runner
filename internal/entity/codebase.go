@@ -85,11 +85,10 @@ type Runtime string
 const (
 	RuntimeProcess Runtime = "process"
 	RuntimeDocker  Runtime = "docker"
-	RuntimeKVM     Runtime = "kvm"
 )
 
 func Runtimes() []Runtime {
-	return []Runtime{RuntimeProcess, RuntimeDocker, RuntimeKVM}
+	return []Runtime{RuntimeProcess, RuntimeDocker}
 }
 
 func (r Runtime) Valid() bool {

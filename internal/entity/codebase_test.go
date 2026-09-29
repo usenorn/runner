@@ -337,3 +337,16 @@ func TestACodebaseIsDriftedWhenWhatWasReportedIsNotWhatWasConfirmed(t *testing.T
 		t.Fatalf("a codebase whose two inventories agree still reads as drifted")
 	}
 }
+
+func TestOnlyARuntimeThisMachineCanRunWorkInIsOneItOffers(t *testing.T) {
+	if got := entity.Runtimes(); !slices.Equal(got, []entity.Runtime{entity.RuntimeProcess, entity.RuntimeDocker}) {
+		t.Fatalf("the machine offers %v, want process and docker", got)
+	}
+
+	if entity.Runtime("kvm").Valid() {
+		t.Fatal(
+			"kvm reads as a runtime this machine offers, though nothing here can start a " +
+				"virtual machine; a run that asked for it would be accepted and run on the host",
+		)
+	}
+}
