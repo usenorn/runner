@@ -5,8 +5,10 @@ import (
 	"context"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -171,6 +173,104 @@ func TestAServiceListeningInsideTheContainerIsReachedOnTheHostAtTheSamePort(t *t
 			"the host read %q at %s. A preview and a health check both reach a service at the "+
 				"port it was given, so a container has to publish it at that same port",
 			said, address,
+		)
+	}
+}
+
+func liveImageWithGit(t *testing.T) string {
+	t.Helper()
+
+	image := os.Getenv("NORN_TEST_DOCKER_IMAGE")
+	if image == "" {
+		t.Skip("NORN_TEST_DOCKER_IMAGE names no image with git and curl in it")
+	}
+
+	return image
+}
+
+func TestAnAgentInAContainerCommitsOnItsWorktreeBranchInThePersonsRepository(t *testing.T) {
+	sandbox, spec := liveDocker(t)
+	sandbox.cfg.Image = liveImageWithGit(t)
+	ctx := t.Context()
+
+	source := filepath.Join(filepath.Dir(spec.Workdir), "source")
+	worktree := filepath.Join(spec.Workdir, "api")
+
+	for _, args := range [][]string{
+		{"init", "-q", "-b", "main", source},
+		{"-C", source, "-c", "user.name=t", "-c", "user.email=t@example.test", "commit", "-q", "--allow-empty", "-m", "base"},
+		{"-C", source, "worktree", "add", "-q", "-b", "norn/NORN-226/api", worktree},
+	} {
+		if out, err := exec.CommandContext(ctx, "git", args...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	spec.Mounts = append(spec.Mounts, entity.Mount{Path: filepath.Join(source, ".git")})
+
+	if err := sandbox.Open(ctx, spec); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	var said bytes.Buffer
+
+	code, err := sandbox.Run(ctx, spec.Box, repository.Launch{
+		Dir: worktree,
+		Command: []string{"sh", "-c", `echo change > change.txt && git add change.txt && ` +
+			`git -c user.name=agent -c user.email=agent@example.test commit -q -m "from inside"`},
+		Environment: []string{"HOME=" + spec.Workdir},
+		Output:      &said,
+	}, time.Minute)
+	if err != nil || code != 0 {
+		t.Fatalf("commit inside the container came back %d, %v: %s", code, err, said.String())
+	}
+
+	subject, err := exec.CommandContext(ctx, "git", "-C", source, "log", "-1", "--format=%s", "norn/NORN-226/api").Output()
+	if err != nil || strings.TrimSpace(string(subject)) != "from inside" {
+		t.Fatalf(
+			"the branch in the person's repository ends at %q (%v). A commit made in the "+
+				"container has to land where the runner pushes it from",
+			subject, err,
+		)
+	}
+}
+
+func TestAContainerReachesTheRunnerThroughTheBridge(t *testing.T) {
+	sandbox, spec := liveDocker(t)
+	sandbox.cfg.Image = liveImageWithGit(t)
+	ctx := t.Context()
+
+	served := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, "the runner answered")
+		}),
+		ReadHeaderTimeout: time.Second,
+	}
+
+	go func() { _ = served.Serve(sandbox.bridged) }()
+
+	t.Cleanup(func() { _ = served.Close() })
+
+	reach, err := sandbox.Tools(spec.Box)
+	if err != nil {
+		t.Fatalf("reach: %v", err)
+	}
+
+	if err := sandbox.Open(ctx, spec); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	var said bytes.Buffer
+
+	code, err := sandbox.Run(ctx, spec.Box, repository.Launch{
+		Command: []string{"curl", "-fsS", "--max-time", "10", reach},
+		Output:  &said,
+	}, time.Minute)
+	if err != nil || code != 0 || !strings.Contains(said.String(), "the runner answered") {
+		t.Fatalf(
+			"from inside the container %s answered %q (%d, %v). An agent that cannot reach the "+
+				"runner has none of its tools",
+			reach, said.String(), code, err,
 		)
 	}
 }
