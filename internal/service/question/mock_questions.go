@@ -71,31 +71,48 @@ func (mr *MockQuestionsMockRecorder) Ask(ctx, executionID, question any) *gomock
 }
 
 // Forget mocks base method.
-func (m *MockQuestions) Forget(executionID string) {
+func (m *MockQuestions) Forget(ctx context.Context, executionID string) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Forget", executionID)
+	ret := m.ctrl.Call(m, "Forget", ctx, executionID)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Forget indicates an expected call of Forget.
-func (mr *MockQuestionsMockRecorder) Forget(executionID any) *gomock.Call {
+func (mr *MockQuestionsMockRecorder) Forget(ctx, executionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forget", reflect.TypeOf((*MockQuestions)(nil).Forget), executionID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forget", reflect.TypeOf((*MockQuestions)(nil).Forget), ctx, executionID)
+}
+
+// Restore mocks base method.
+func (m *MockQuestions) Restore(ctx context.Context, executionID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Restore", ctx, executionID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Restore indicates an expected call of Restore.
+func (mr *MockQuestionsMockRecorder) Restore(ctx, executionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Restore", reflect.TypeOf((*MockQuestions)(nil).Restore), ctx, executionID)
 }
 
 // Take mocks base method.
-func (m *MockQuestions) Take(executionID string) (entity.Question, entity.Answer, bool) {
+func (m *MockQuestions) Take(ctx context.Context, executionID string) (entity.Question, entity.Answer, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Take", executionID)
+	ret := m.ctrl.Call(m, "Take", ctx, executionID)
 	ret0, _ := ret[0].(entity.Question)
 	ret1, _ := ret[1].(entity.Answer)
 	ret2, _ := ret[2].(bool)
-	return ret0, ret1, ret2
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Take indicates an expected call of Take.
-func (mr *MockQuestionsMockRecorder) Take(executionID any) *gomock.Call {
+func (mr *MockQuestionsMockRecorder) Take(ctx, executionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Take", reflect.TypeOf((*MockQuestions)(nil).Take), executionID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Take", reflect.TypeOf((*MockQuestions)(nil).Take), ctx, executionID)
 }
 
 // Waiting mocks base method.

@@ -3,6 +3,7 @@ package question
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -66,15 +67,17 @@ func (s *questionsService) Ask(
 	waiting := &standing{question: question, answers: make(chan entity.Answer, 1)}
 
 	if question.Blocking {
+		if err := s.runs.SaveQuestion(ctx, executionID, entity.OpenQuestion{Question: question}); err != nil {
+			return entity.Asked{}, err
+		}
+
 		s.mu.Lock()
 		s.held[executionID] = waiting
 		s.mu.Unlock()
 	}
 
 	if err := s.send(ctx, executionID, question); err != nil {
-		s.drop(executionID, waiting)
-
-		return entity.Asked{}, err
+		return entity.Asked{}, errors.Join(err, s.drop(ctx, executionID, waiting))
 	}
 
 	if !question.Blocking {
@@ -112,7 +115,9 @@ func (s *questionsService) wait(
 
 	select {
 	case answer := <-waiting.answers:
-		s.drop(executionID, waiting)
+		if err := s.drop(ctx, executionID, waiting); err != nil {
+			return entity.Asked{}, err
+		}
 
 		return entity.Asked{
 			Outcome:    entity.AskAnswered,
@@ -156,6 +161,14 @@ func (s *questionsService) Answered(
 	}
 	s.mu.Unlock()
 
+	if held {
+		if err := s.runs.SaveQuestion(ctx, executionID, entity.OpenQuestion{
+			Question: waiting.question, Answer: &answer,
+		}); err != nil {
+			return err
+		}
+	}
+
 	if !held {
 		logging.From(ctx).InfoContext(
 			ctx,
@@ -187,34 +200,73 @@ func (s *questionsService) Waiting(executionID string) (entity.Question, bool) {
 	return waiting.question, true
 }
 
-func (s *questionsService) Take(executionID string) (entity.Question, entity.Answer, bool) {
+func (s *questionsService) Take(
+	ctx context.Context,
+	executionID string,
+) (entity.Question, entity.Answer, bool, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	waiting, held := s.held[executionID]
+
 	if !held || waiting.answer == nil {
-		return entity.Question{}, entity.Answer{}, false
+		s.mu.Unlock()
+
+		return entity.Question{}, entity.Answer{}, false, nil
 	}
 
 	delete(s.held, executionID)
+	s.mu.Unlock()
 
-	return waiting.question, *waiting.answer, true
+	if err := s.runs.ClearQuestion(ctx, executionID); err != nil {
+		return entity.Question{}, entity.Answer{}, false, err
+	}
+
+	return waiting.question, *waiting.answer, true, nil
 }
 
-func (s *questionsService) Forget(executionID string) {
+func (s *questionsService) Forget(ctx context.Context, executionID string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	delete(s.held, executionID)
+	s.mu.Unlock()
+
+	return s.runs.ClearQuestion(ctx, executionID)
 }
 
-func (s *questionsService) drop(executionID string, waiting *standing) {
+func (s *questionsService) Restore(ctx context.Context, executionID string) error {
+	open, err := s.runs.LoadQuestion(ctx, executionID)
+	if errors.Is(err, entity.ErrSnapshotMissing) {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.held[executionID] == waiting {
+	s.held[executionID] = &standing{
+		question: open.Question,
+		answers:  make(chan entity.Answer, 1),
+		answer:   open.Answer,
+	}
+
+	return nil
+}
+
+func (s *questionsService) drop(ctx context.Context, executionID string, waiting *standing) error {
+	s.mu.Lock()
+	owned := s.held[executionID] == waiting
+
+	if owned {
 		delete(s.held, executionID)
 	}
+	s.mu.Unlock()
+
+	if !owned {
+		return nil
+	}
+
+	return s.runs.ClearQuestion(ctx, executionID)
 }
 
 func (s *questionsService) send(

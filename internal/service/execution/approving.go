@@ -32,7 +32,7 @@ func (s *executionsService) finished(ctx context.Context, executionID string) er
 	delete(s.held, executionID)
 	s.mu.Unlock()
 
-	s.questions.Forget(executionID)
+	s.complain(ctx, executionID, s.questions.Forget(context.WithoutCancel(ctx), executionID))
 	s.tokens.Release(context.WithoutCancel(ctx), executionID)
 	s.forget(executionID)
 

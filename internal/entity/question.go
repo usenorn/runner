@@ -80,6 +80,11 @@ type Answer struct {
 	AnsweredAt time.Time
 }
 
+type OpenQuestion struct {
+	Question Question
+	Answer   *Answer
+}
+
 type AskOutcome string
 
 const (

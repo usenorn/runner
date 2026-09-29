@@ -226,7 +226,9 @@ func (s *executionsService) injection(
 		}))
 	}
 
-	question, answer, held := s.questions.Take(executionID)
+	question, answer, held, err := s.questions.Take(ctx, executionID)
+	s.complain(ctx, executionID, err)
+
 	if !held {
 		return strings.TrimSpace(instruction.Instruction)
 	}

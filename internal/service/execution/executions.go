@@ -587,7 +587,7 @@ func (s *executionsService) record(
 }
 
 func (s *executionsService) teardown(ctx context.Context, executionID string) error {
-	s.questions.Forget(executionID)
+	s.complain(ctx, executionID, s.questions.Forget(context.WithoutCancel(ctx), executionID))
 	s.previews.Release(context.WithoutCancel(ctx), executionID)
 	s.tokens.Release(context.WithoutCancel(ctx), executionID)
 	s.forget(executionID)

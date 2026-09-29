@@ -13,6 +13,7 @@ import (
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/pkg/statedir"
+	"github.com/usenorn/runner/internal/repository"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	"github.com/usenorn/runner/internal/service"
 	questionsvc "github.com/usenorn/runner/internal/service/question"
@@ -40,7 +41,10 @@ func (s *spoolStub) Count(context.Context) (int, error)                     { re
 
 func (s *spoolStub) Prune(context.Context, time.Time, int) (int, error) { return 0, nil }
 
-func newQuestions(t *testing.T, wait time.Duration) (service.Questions, *spoolStub) {
+func newQuestions(
+	t *testing.T,
+	wait time.Duration,
+) (service.Questions, *spoolStub, repository.Run) {
 	t.Helper()
 
 	dir, err := statedir.New(config.State{Root: filepath.Join(t.TempDir(), "norn")})
@@ -71,7 +75,13 @@ func newQuestions(t *testing.T, wait time.Duration) (service.Questions, *spoolSt
 
 	return questionsvc.New(
 		runs, spool, config.Questions{SoftWait: wait, MaxWait: time.Minute},
-	), spool
+	), spool, runs
+}
+
+func restarted(runs repository.Run) service.Questions {
+	return questionsvc.New(
+		runs, newSpool(), config.Questions{SoftWait: time.Millisecond, MaxWait: time.Minute},
+	)
 }
 
 func blocking() entity.Question {
@@ -107,7 +117,7 @@ func sentQuestion(t *testing.T, spool *spoolStub) channelv1.Question {
 }
 
 func TestAnAnswerThatArrivesWhileTheAgentIsWaitingComesBackInline(t *testing.T) {
-	questions, spool := newQuestions(t, time.Second)
+	questions, spool, _ := newQuestions(t, time.Second)
 	ctx := context.Background()
 
 	answered := make(chan entity.Asked, 1)
@@ -152,7 +162,7 @@ func TestAnAnswerThatArrivesWhileTheAgentIsWaitingComesBackInline(t *testing.T) 
 }
 
 func TestAnAgentNobodyAnswersInTimeIsToldToStopRatherThanGuess(t *testing.T) {
-	questions, spool := newQuestions(t, 20*time.Millisecond)
+	questions, spool, _ := newQuestions(t, 20*time.Millisecond)
 	ctx := context.Background()
 
 	asked, err := questions.Ask(ctx, run, blocking())
@@ -179,7 +189,7 @@ func TestAnAgentNobodyAnswersInTimeIsToldToStopRatherThanGuess(t *testing.T) {
 }
 
 func TestAnAnswerThatArrivesAfterTheWaitIsKeptForTheWayBackIn(t *testing.T) {
-	questions, spool := newQuestions(t, 20*time.Millisecond)
+	questions, spool, _ := newQuestions(t, 20*time.Millisecond)
 	ctx := context.Background()
 
 	if _, err := questions.Ask(ctx, run, blocking()); err != nil {
@@ -198,7 +208,11 @@ func TestAnAnswerThatArrivesAfterTheWaitIsKeptForTheWayBackIn(t *testing.T) {
 		t.Fatal("a run that has its answer still reads as waiting, so it would park with nothing to wait for")
 	}
 
-	question, answer, held := questions.Take(run)
+	question, answer, held, err := questions.Take(ctx, run)
+	if err != nil {
+		t.Fatalf("take the answer: %v", err)
+	}
+
 	if !held {
 		t.Fatal(
 			"the answer that arrived after the wait was dropped, so the run resumes with nothing " +
@@ -210,13 +224,13 @@ func TestAnAnswerThatArrivesAfterTheWaitIsKeptForTheWayBackIn(t *testing.T) {
 		t.Fatalf("the run kept %+v against %q, want both as asked and answered", answer, question.Message)
 	}
 
-	if _, _, again := questions.Take(run); again {
+	if _, _, again, _ := questions.Take(ctx, run); again {
 		t.Fatal("the same answer was handed out twice, so a second resume would replay it")
 	}
 }
 
 func TestAQuestionTheAgentIsNotWaitingOnDoesNotStopIt(t *testing.T) {
-	questions, spool := newQuestions(t, time.Minute)
+	questions, spool, _ := newQuestions(t, time.Minute)
 	ctx := context.Background()
 
 	meanwhile := blocking()
@@ -242,7 +256,7 @@ func TestAQuestionTheAgentIsNotWaitingOnDoesNotStopIt(t *testing.T) {
 }
 
 func TestAQuestionNobodyCouldAnswerIsRefusedBeforeItLeavesTheMachine(t *testing.T) {
-	questions, spool := newQuestions(t, time.Second)
+	questions, spool, _ := newQuestions(t, time.Second)
 
 	unanswerable := blocking()
 	unanswerable.Options = nil
@@ -262,7 +276,7 @@ func TestAQuestionNobodyCouldAnswerIsRefusedBeforeItLeavesTheMachine(t *testing.
 }
 
 func TestAQuestionTheAgentWillNotWaitOnHasToSayWhatItDoesMeanwhile(t *testing.T) {
-	questions, _ := newQuestions(t, time.Second)
+	questions, _, _ := newQuestions(t, time.Second)
 
 	undeclared := blocking()
 	undeclared.Blocking = false
@@ -279,7 +293,7 @@ func TestAQuestionTheAgentWillNotWaitOnHasToSayWhatItDoesMeanwhile(t *testing.T)
 }
 
 func TestAQuestionAgainstARunThisMachineIsNotWorkingOnIsRefused(t *testing.T) {
-	questions, spool := newQuestions(t, time.Second)
+	questions, spool, _ := newQuestions(t, time.Second)
 
 	if _, err := questions.Ask(context.Background(), "exec-01OTHER", blocking()); !errors.Is(
 		err, entity.ErrQuestionUnknownRun,
@@ -299,7 +313,7 @@ func TestAQuestionAgainstARunThisMachineIsNotWorkingOnIsRefused(t *testing.T) {
 }
 
 func TestAnAnswerToAQuestionTheRunHasMovedPastIsNotTakenForTheOneItStoppedOn(t *testing.T) {
-	questions, spool := newQuestions(t, 20*time.Millisecond)
+	questions, spool, _ := newQuestions(t, 20*time.Millisecond)
 	ctx := context.Background()
 
 	if _, err := questions.Ask(ctx, run, blocking()); err != nil {
@@ -327,7 +341,80 @@ func TestAnAnswerToAQuestionTheRunHasMovedPastIsNotTakenForTheOneItStoppedOn(t *
 		)
 	}
 
-	if _, _, held := questions.Take(run); held {
+	if _, _, held, _ := questions.Take(context.Background(), run); held {
 		t.Fatal("the run would resume on an answer to a question it did not ask last")
+	}
+}
+
+func TestAQuestionAndItsAnswerOutliveTheMachineRestarting(t *testing.T) {
+	questions, spool, runs := newQuestions(t, 20*time.Millisecond)
+	ctx := context.Background()
+
+	if _, err := questions.Ask(ctx, run, blocking()); err != nil {
+		t.Fatalf("ask a question: %v", err)
+	}
+
+	asked := sentQuestion(t, spool)
+	again := restarted(runs)
+
+	if err := again.Restore(ctx, run); err != nil {
+		t.Fatalf("restore after a restart: %v", err)
+	}
+
+	waiting, held := again.Waiting(run)
+	if !held || waiting.Ref != asked.Ref || waiting.Message != blocking().Message {
+		t.Fatalf(
+			"after a restart the run reads as waiting=%v on %+v. A machine that forgets what "+
+				"its run stopped on resumes the agent without the question it asked",
+			held, waiting,
+		)
+	}
+
+	if err := again.Answered(ctx, run, entity.Answer{
+		QuestionID: "q-1", Ref: asked.Ref, Answer: "Remove now", AnsweredBy: "Rae",
+	}); err != nil {
+		t.Fatalf("answer after a restart: %v", err)
+	}
+
+	answeredThenRestarted := restarted(runs)
+	if err := answeredThenRestarted.Restore(ctx, run); err != nil {
+		t.Fatalf("restore an answered question: %v", err)
+	}
+
+	question, answer, took, err := answeredThenRestarted.Take(ctx, run)
+	if err != nil || !took {
+		t.Fatalf("take the answer after a second restart: held=%v, %v", took, err)
+	}
+
+	if answer.Answer != "Remove now" || question.Ref != asked.Ref {
+		t.Fatalf("the run kept %+v against %+v, want both as asked and answered", answer, question)
+	}
+}
+
+func TestAnAnswerTheRunTookIsNotHandedOutAgainAfterARestart(t *testing.T) {
+	questions, spool, runs := newQuestions(t, 20*time.Millisecond)
+	ctx := context.Background()
+
+	if _, err := questions.Ask(ctx, run, blocking()); err != nil {
+		t.Fatalf("ask a question: %v", err)
+	}
+
+	asked := sentQuestion(t, spool)
+
+	if err := questions.Answered(ctx, run, entity.Answer{Ref: asked.Ref, Answer: "Remove now"}); err != nil {
+		t.Fatalf("answer: %v", err)
+	}
+
+	if _, _, took, err := questions.Take(ctx, run); err != nil || !took {
+		t.Fatalf("take the answer: held=%v, %v", took, err)
+	}
+
+	again := restarted(runs)
+	if err := again.Restore(ctx, run); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+
+	if _, _, took, _ := again.Take(ctx, run); took {
+		t.Fatal("an answer the agent already carried on with came back after a restart and would be replayed")
 	}
 }

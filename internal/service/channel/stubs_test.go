@@ -230,3 +230,11 @@ type schedulingStub struct{}
 func (schedulingStub) Paused(context.Context) (bool, error) { return false, nil }
 
 func (schedulingStub) Pause(context.Context, bool) error { return nil }
+
+func (runStub) SaveQuestion(context.Context, string, entity.OpenQuestion) error { return nil }
+
+func (runStub) LoadQuestion(context.Context, string) (entity.OpenQuestion, error) {
+	return entity.OpenQuestion{}, entity.ErrSnapshotMissing
+}
+
+func (runStub) ClearQuestion(context.Context, string) error { return nil }

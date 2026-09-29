@@ -55,6 +55,20 @@ func (mr *MockRunMockRecorder) Append(ctx, name, entry any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Append", reflect.TypeOf((*MockRun)(nil).Append), ctx, name, entry)
 }
 
+// ClearQuestion mocks base method.
+func (m *MockRun) ClearQuestion(ctx context.Context, name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearQuestion", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearQuestion indicates an expected call of ClearQuestion.
+func (mr *MockRunMockRecorder) ClearQuestion(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearQuestion", reflect.TypeOf((*MockRun)(nil).ClearQuestion), ctx, name)
+}
+
 // List mocks base method.
 func (m *MockRun) List(ctx context.Context) ([]entity.Snapshot, error) {
 	m.ctrl.T.Helper()
@@ -98,6 +112,21 @@ func (m *MockRun) LoadDriver(ctx context.Context, name string) (entity.RunDriver
 func (mr *MockRunMockRecorder) LoadDriver(ctx, name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadDriver", reflect.TypeOf((*MockRun)(nil).LoadDriver), ctx, name)
+}
+
+// LoadQuestion mocks base method.
+func (m *MockRun) LoadQuestion(ctx context.Context, name string) (entity.OpenQuestion, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadQuestion", ctx, name)
+	ret0, _ := ret[0].(entity.OpenQuestion)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadQuestion indicates an expected call of LoadQuestion.
+func (mr *MockRunMockRecorder) LoadQuestion(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadQuestion", reflect.TypeOf((*MockRun)(nil).LoadQuestion), ctx, name)
 }
 
 // LoadServices mocks base method.
@@ -273,6 +302,20 @@ func (m *MockRun) SaveDriver(ctx context.Context, name string, driver entity.Run
 func (mr *MockRunMockRecorder) SaveDriver(ctx, name, driver any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveDriver", reflect.TypeOf((*MockRun)(nil).SaveDriver), ctx, name, driver)
+}
+
+// SaveQuestion mocks base method.
+func (m *MockRun) SaveQuestion(ctx context.Context, name string, open entity.OpenQuestion) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveQuestion", ctx, name, open)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveQuestion indicates an expected call of SaveQuestion.
+func (mr *MockRunMockRecorder) SaveQuestion(ctx, name, open any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveQuestion", reflect.TypeOf((*MockRun)(nil).SaveQuestion), ctx, name, open)
 }
 
 // SaveServices mocks base method.
