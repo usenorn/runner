@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
+	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 )
 
@@ -14,9 +17,16 @@ type routedSandbox struct {
 	runtimes map[entity.Runtime]repository.Sandbox
 }
 
-func New(processes repository.Process) repository.Sandbox {
+func New(
+	processes repository.Process,
+	ports repository.Port,
+	dir *statedir.Dir,
+	cfg config.Docker,
+	bridged *bridge.Listener,
+) repository.Sandbox {
 	return &routedSandbox{runtimes: map[entity.Runtime]repository.Sandbox{
 		entity.RuntimeProcess: &hostSandbox{processes: processes},
+		entity.RuntimeDocker:  newDocker(processes, ports, dir, cfg, bridged),
 	}}
 }
 
@@ -80,6 +90,24 @@ func (r *routedSandbox) Run(
 	}
 
 	return chosen.Run(ctx, box, launch, timeout)
+}
+
+func (r *routedSandbox) Has(ctx context.Context, box entity.Sandbox, command string) bool {
+	chosen, err := r.route(box.Runtime)
+	if err != nil {
+		return false
+	}
+
+	return chosen.Has(ctx, box, command)
+}
+
+func (r *routedSandbox) Tools(box entity.Sandbox) (string, error) {
+	chosen, err := r.route(box.Runtime)
+	if err != nil {
+		return "", err
+	}
+
+	return chosen.Tools(box)
 }
 
 func (r *routedSandbox) Close(ctx context.Context, box entity.Sandbox) error {

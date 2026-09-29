@@ -71,6 +71,20 @@ func (mr *MockSandboxMockRecorder) Close(ctx, box any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockSandbox)(nil).Close), ctx, box)
 }
 
+// Has mocks base method.
+func (m *MockSandbox) Has(ctx context.Context, box entity.Sandbox, command string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Has", ctx, box, command)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Has indicates an expected call of Has.
+func (mr *MockSandboxMockRecorder) Has(ctx, box, command any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Has", reflect.TypeOf((*MockSandbox)(nil).Has), ctx, box, command)
+}
+
 // Open mocks base method.
 func (m *MockSandbox) Open(ctx context.Context, spec entity.SandboxSpec) error {
 	m.ctrl.T.Helper()
@@ -127,4 +141,19 @@ func (m *MockSandbox) Sweep(ctx context.Context) error {
 func (mr *MockSandboxMockRecorder) Sweep(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sweep", reflect.TypeOf((*MockSandbox)(nil).Sweep), ctx)
+}
+
+// Tools mocks base method.
+func (m *MockSandbox) Tools(box entity.Sandbox) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tools", box)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Tools indicates an expected call of Tools.
+func (mr *MockSandboxMockRecorder) Tools(box any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tools", reflect.TypeOf((*MockSandbox)(nil).Tools), box)
 }

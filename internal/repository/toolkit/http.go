@@ -13,7 +13,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -226,12 +225,6 @@ func (r *httpToolkit) describe(plugin string) error {
 	}
 
 	return nil
-}
-
-func (r *httpToolkit) Installed(command string) bool {
-	_, err := exec.LookPath(command)
-
-	return err == nil
 }
 
 type bearing struct {

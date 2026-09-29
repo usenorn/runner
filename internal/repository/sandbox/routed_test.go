@@ -9,8 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
+	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
+	portrepo "github.com/usenorn/runner/internal/repository/port"
 	processrepo "github.com/usenorn/runner/internal/repository/process"
 	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 )
@@ -22,7 +26,7 @@ func TestWorkAskedToRunAsAHostProcessRunsOnTheHost(t *testing.T) {
 
 	var said bytes.Buffer
 
-	code, err := sandboxrepo.New(processrepo.New()).Run(
+	code, err := hostOnly(t).Run(
 		context.Background(),
 		entity.Sandbox{Run: "exec-01ABC", Runtime: entity.RuntimeProcess},
 		repository.Launch{Command: []string{"sh", "-c", "echo on the host"}, Output: &said},
@@ -38,7 +42,7 @@ func TestWorkAskedToRunAsAHostProcessRunsOnTheHost(t *testing.T) {
 }
 
 func TestARuntimeThisMachineCannotRunWorkInIsRefusedByName(t *testing.T) {
-	sandboxes := sandboxrepo.New(processrepo.New())
+	sandboxes := hostOnly(t)
 
 	err := sandboxes.Check(context.Background(), entity.Runtime("kvm"))
 	if !errors.Is(err, entity.ErrRuntimeUnsupported) || !strings.Contains(err.Error(), "kvm") {
@@ -54,4 +58,28 @@ func TestARuntimeThisMachineCannotRunWorkInIsRefusedByName(t *testing.T) {
 	); !errors.Is(err, entity.ErrRuntimeUnsupported) {
 		t.Fatalf("starting work in kvm came back %v, want it refused", err)
 	}
+}
+
+func hostOnly(t *testing.T) repository.Sandbox {
+	t.Helper()
+
+	dir, err := statedir.New(config.State{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("make a state directory: %v", err)
+	}
+
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatalf("listen for containers: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	return sandboxrepo.New(
+		processrepo.New(),
+		portrepo.New(config.Runner{PortRange: [2]int{46100, 46199}}),
+		dir,
+		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 1, Timeout: time.Second, PullTimeout: time.Second},
+		bridged,
+	)
 }

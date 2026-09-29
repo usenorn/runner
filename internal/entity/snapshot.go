@@ -108,6 +108,7 @@ type SnapshotRepository struct {
 	RelPath string
 	Kind    RepositoryKind
 	Source  string
+	Common  string
 	Path    string
 	Mode    GitMode
 	Base    BasePolicy

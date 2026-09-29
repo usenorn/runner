@@ -12,6 +12,7 @@ import (
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
@@ -25,10 +26,10 @@ import (
 	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
 	portrepo "github.com/usenorn/runner/internal/repository/port"
 	processrepo "github.com/usenorn/runner/internal/repository/process"
-	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
 	schedulingrepo "github.com/usenorn/runner/internal/repository/scheduling"
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
@@ -203,7 +204,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 
 	services := supervisorsvc.New(
 		processrepo.New(),
-		sandboxrepo.New(processrepo.New()),
+		sandboxes(t, dir, processrepo.New()),
 		portrepo.New(config.Runner{PortRange: [2]int{45100, 45199}}),
 		servicelogrepo.New(dir),
 		runrepo.New(dir),
@@ -238,7 +239,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		tokens,
 		driverStub{},
 		toolkitStub{},
-		sandboxrepo.New(processrepo.New()),
+		sandboxes(t, dir, processrepo.New()),
 		identities,
 		credentials,
 		sessions,
@@ -454,4 +455,23 @@ func (uploadStub) Attach(
 	[]byte,
 ) (entity.ArtifactReceipt, error) {
 	return entity.ArtifactReceipt{}, nil
+}
+
+func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) repository.Sandbox {
+	t.Helper()
+
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatalf("listen for containers: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	return sandboxrepo.New(
+		processes,
+		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
+		dir,
+		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		bridged,
+	)
 }

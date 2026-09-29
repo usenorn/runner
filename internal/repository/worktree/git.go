@@ -42,6 +42,10 @@ func (r *gitWorktree) Head(ctx context.Context, repository string) (string, erro
 	return r.Resolve(ctx, repository, "HEAD")
 }
 
+func (r *gitWorktree) CommonDir(ctx context.Context, repository string) (string, error) {
+	return r.run(ctx, repository, "rev-parse", "--path-format=absolute", "--git-common-dir")
+}
+
 func (r *gitWorktree) Resolve(
 	ctx context.Context,
 	repository string,

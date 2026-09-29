@@ -303,7 +303,7 @@ func (s *executionsService) env(
 	token string,
 	config string,
 ) entity.ExecEnv {
-	values := taskEnvironment(execution.Directory)
+	values := taskEnvironment(execution)
 	values = append(values, entity.ExecutionVariable+"="+execution.ID)
 	values = append(values, entity.ExecutionTokenVariable+"="+token)
 
@@ -317,10 +317,12 @@ func (s *executionsService) env(
 	}
 }
 
-func taskEnvironment(runDir string) []string {
+func taskEnvironment(execution entity.Execution) []string {
 	hostHome, _ := os.UserHomeDir()
 
-	return entity.TaskEnvironment(os.Environ(), hostHome, entity.RunHomeOf(runDir), exists)
+	return entity.TaskEnvironment(
+		execution.Sandbox().Runtime, os.Environ(), hostHome, entity.RunHomeOf(execution.Directory), exists,
+	)
 }
 
 func exists(path string) bool {

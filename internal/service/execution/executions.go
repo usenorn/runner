@@ -651,6 +651,17 @@ func (s *executionsService) teardown(ctx context.Context, executionID string) er
 		)
 	}
 
+	if held, err := s.runs.LoadTask(ctx, executionID); err == nil {
+		if err := s.sandboxes.Close(context.WithoutCancel(ctx), held.Sandbox()); err != nil {
+			logging.From(ctx).WarnContext(
+				ctx,
+				"this machine could not take a run's container down",
+				slog.String("execution_id", executionID),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
 	if err := s.snapshots.Release(context.WithoutCancel(ctx), executionID); err != nil {
 		logging.From(ctx).WarnContext(
 			ctx,

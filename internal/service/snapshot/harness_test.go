@@ -113,6 +113,12 @@ func (h *harness) expect() {
 		Return(baseSHA, nil).
 		AnyTimes()
 	h.worktrees.EXPECT().
+		CommonDir(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, source string) (string, error) {
+			return filepath.Join(source, ".git"), nil
+		}).
+		AnyTimes()
+	h.worktrees.EXPECT().
 		Resolve(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(baseSHA, nil).
 		AnyTimes()

@@ -36,7 +36,7 @@ func TestARunsGitSignsCommitsAsThePersonButCannotReachTheirCredentials(t *testin
 	home := entity.RunHomeOf(path)
 	read := func(args ...string) string {
 		command := exec.Command("git", append([]string{"config"}, args...)...)
-		command.Env = entity.TaskEnvironment(os.Environ(), host, home, func(string) bool { return false })
+		command.Env = entity.TaskEnvironment(entity.RuntimeProcess, os.Environ(), host, home, func(string) bool { return false })
 		command.Dir = home.Root
 
 		out, _ := command.Output()

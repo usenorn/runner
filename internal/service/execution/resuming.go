@@ -175,6 +175,10 @@ func (s *executionsService) again(
 	held resumable,
 	injected string,
 ) error {
+	if err := s.sandboxes.Open(ctx, entity.SandboxSpecFor(execution, held.snapshot)); err != nil {
+		return failure{step: entity.StepSandbox, err: err}
+	}
+
 	env, err := s.tooling(ctx, execution, held.snapshot, held.setup)
 	if err != nil {
 		return failure{step: entity.StepDriver, err: err}

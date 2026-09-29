@@ -46,6 +46,7 @@ func liveDocker(t *testing.T) (*dockerSandbox, entity.SandboxSpec) {
 		portrepo.New(config.Runner{PortRange: [2]int{45900, 45999}}),
 		dir,
 		config.Docker{Image: liveImage, Ports: 2, Timeout: time.Minute, PullTimeout: 10 * time.Minute},
+		listening(t),
 	)
 
 	workspace := dir.Run("exec-01live") + "/workspace"

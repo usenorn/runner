@@ -225,11 +225,17 @@ func (s *snapshotsService) checkout(
 		return entity.SnapshotRepository{}, warnings, err
 	}
 
+	common, err := s.worktrees.CommonDir(ctx, source)
+	if err != nil {
+		return entity.SnapshotRepository{}, warnings, err
+	}
+
 	checked := entity.SnapshotRepository{
 		Name:    held.Name,
 		RelPath: held.RelPath,
 		Kind:    held.Kind,
 		Source:  source,
+		Common:  common,
 		Path:    path,
 		Mode:    policy.GitMode,
 		Base:    policy.Base,

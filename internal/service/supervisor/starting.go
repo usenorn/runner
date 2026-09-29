@@ -273,7 +273,9 @@ func environment(
 	ports map[string]int,
 ) []string {
 	hostHome, _ := os.UserHomeDir()
-	values := entity.TaskEnvironment(os.Environ(), hostHome, entity.RunHomeOf(execution.Directory), exists)
+	values := entity.TaskEnvironment(
+		execution.Sandbox().Runtime, os.Environ(), hostHome, entity.RunHomeOf(execution.Directory), exists,
+	)
 
 	values = append(values, entity.ExecutionVariable+"="+execution.ID)
 

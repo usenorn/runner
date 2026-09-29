@@ -12,14 +12,13 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
+	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/mcpserver"
 	"github.com/usenorn/runner/internal/observability/logging"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 )
 
 const (
-	RunPath = "/executions/{executionId}/mcp"
-
 	bearerPrefix = "Bearer "
 	idleLimit    = 10 * time.Minute
 )
@@ -63,7 +62,7 @@ func New(
 		mux:       http.NewServeMux(),
 	}
 
-	bridge.mux.HandleFunc(RunPath, bridge.serve)
+	bridge.mux.HandleFunc(entity.RunToolsRoute, bridge.serve)
 
 	return bridge, func() {
 		stop()

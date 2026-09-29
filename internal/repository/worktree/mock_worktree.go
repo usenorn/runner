@@ -142,6 +142,21 @@ func (mr *MockWorktreeMockRecorder) Commits(ctx, dest, base any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commits", reflect.TypeOf((*MockWorktree)(nil).Commits), ctx, dest, base)
 }
 
+// CommonDir mocks base method.
+func (m *MockWorktree) CommonDir(ctx context.Context, repository string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommonDir", ctx, repository)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommonDir indicates an expected call of CommonDir.
+func (mr *MockWorktreeMockRecorder) CommonDir(ctx, repository any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommonDir", reflect.TypeOf((*MockWorktree)(nil).CommonDir), ctx, repository)
+}
+
 // Diff mocks base method.
 func (m *MockWorktree) Diff(ctx context.Context, repository string, paths []string) ([]byte, error) {
 	m.ctrl.T.Helper()

@@ -32,6 +32,14 @@ func (f failure) Unwrap() error {
 func (s *executionsService) Reclaim(ctx context.Context) error {
 	s.standing(ctx)
 
+	if err := s.sandboxes.Sweep(ctx); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx,
+			"this machine could not clear away the containers its runs left behind",
+			slog.String("error", err.Error()),
+		)
+	}
+
 	return s.reclaim(ctx)
 }
 
@@ -287,7 +295,7 @@ func (s *executionsService) fill(
 
 	health := s.drivers.Preflight(ctx, setup.Driver.Kind, token)
 
-	if err := health.Fault(); err != nil {
+	if err := health.FaultIn(execution.Sandbox().Runtime); err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}
 	}
 
@@ -307,6 +315,14 @@ func (s *executionsService) fill(
 	})
 	if err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSnapshot, err: err}
+	}
+
+	if err := s.sandboxes.Open(ctx, entity.SandboxSpecFor(execution, snapshot)); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSandbox, err: err}
+	}
+
+	if err := s.commands(ctx, execution); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepToolkit, err: err}
 	}
 
 	for _, warning := range snapshot.Warnings {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 	portrepo "github.com/usenorn/runner/internal/repository/port"
@@ -81,6 +82,7 @@ func newDockerHarness(t *testing.T) *dockerHarness {
 			Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 3,
 			Timeout: time.Second, PullTimeout: time.Second,
 		},
+		listening(t),
 	)
 
 	return h
@@ -245,4 +247,17 @@ func TestSweepingClearsEveryContainerAndNetworkThisRunnerLeftBehind(t *testing.T
 			t.Fatalf("the sweep listed containers that are not this runner's: %v", listed)
 		}
 	}
+}
+
+func listening(t *testing.T) *bridge.Listener {
+	t.Helper()
+
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatalf("listen for containers: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	return bridged
 }

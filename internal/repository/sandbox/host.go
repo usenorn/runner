@@ -2,6 +2,7 @@ package sandbox
 
 import (
 	"context"
+	"os/exec"
 	"time"
 
 	"github.com/usenorn/runner/internal/entity"
@@ -35,6 +36,16 @@ func (r *hostSandbox) Run(
 	timeout time.Duration,
 ) (int, error) {
 	return r.processes.Run(ctx, launch, timeout)
+}
+
+func (r *hostSandbox) Has(_ context.Context, _ entity.Sandbox, command string) bool {
+	_, err := exec.LookPath(command)
+
+	return err == nil
+}
+
+func (r *hostSandbox) Tools(entity.Sandbox) (string, error) {
+	return "", nil
 }
 
 func (r *hostSandbox) Close(context.Context, entity.Sandbox) error {

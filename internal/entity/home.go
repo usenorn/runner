@@ -80,11 +80,16 @@ func ambientPrefixes() []string {
 }
 
 func TaskEnvironment(
+	runtime Runtime,
 	host []string,
 	hostHome string,
 	home RunHome,
 	exists func(path string) bool,
 ) []string {
+	if runtime == RuntimeDocker {
+		return append(home.variables(), "HOST=0.0.0.0")
+	}
+
 	kept := make([]string, 0, len(host)+len(Toolchains())+len(home.variables()))
 	set := map[string]bool{}
 

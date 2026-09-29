@@ -18,12 +18,13 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 	portrepo "github.com/usenorn/runner/internal/repository/port"
 	processrepo "github.com/usenorn/runner/internal/repository/process"
-	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	"github.com/usenorn/runner/internal/service"
@@ -82,7 +83,7 @@ func over(t *testing.T, dir *statedir.Dir, lowest int, highest int) *harness {
 
 	h.service = supervisorsvc.New(
 		processes,
-		sandboxrepo.New(processes),
+		sandboxes(t, dir, processes),
 		h.ports,
 		servicelogrepo.New(dir),
 		h.runs,
@@ -341,4 +342,23 @@ func (h *harness) wrote(t *testing.T, executionID string, name string) string {
 
 func held(name string, command string) entity.Service {
 	return entity.Service{Name: name, Command: []string{"sh", "-c", command}}
+}
+
+func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) repository.Sandbox {
+	t.Helper()
+
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatalf("listen for containers: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	return sandboxrepo.New(
+		processes,
+		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
+		dir,
+		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		bridged,
+	)
 }

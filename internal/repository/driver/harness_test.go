@@ -9,8 +9,11 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
+	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 	driverrepo "github.com/usenorn/runner/internal/repository/driver"
+	portrepo "github.com/usenorn/runner/internal/repository/port"
 	processrepo "github.com/usenorn/runner/internal/repository/process"
 	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 )
@@ -53,7 +56,7 @@ func newHarness(t *testing.T) *harness {
 	t.Setenv("NORN_TEST_STREAM", os.DevNull)
 
 	return &harness{
-		driver: driverrepo.New(sandboxrepo.New(processrepo.New()), settings()),
+		driver: driverrepo.New(sandboxes(t, stateDir(t), processrepo.New()), settings()),
 		dir:    dir,
 		argv:   argv,
 	}
@@ -176,4 +179,34 @@ func (h *harness) asked(t *testing.T) []string {
 	}
 
 	return strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n")
+}
+
+func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) repository.Sandbox {
+	t.Helper()
+
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatalf("listen for containers: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	return sandboxrepo.New(
+		processes,
+		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
+		dir,
+		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		bridged,
+	)
+}
+
+func stateDir(t *testing.T) *statedir.Dir {
+	t.Helper()
+
+	dir, err := statedir.New(config.State{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("make a state directory: %v", err)
+	}
+
+	return dir
 }

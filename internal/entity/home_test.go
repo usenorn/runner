@@ -37,7 +37,7 @@ func TestATaskLivesInAHomeOfItsOwnWithNoneOfTheMachinesCredentialsAround(t *test
 		"LANG=en_GB.UTF-8",
 	}
 
-	environment := entity.TaskEnvironment(host, "/Users/vlad", home, func(string) bool { return false })
+	environment := entity.TaskEnvironment(entity.RuntimeProcess, host, "/Users/vlad", home, func(string) bool { return false })
 
 	for name, want := range map[string]string{
 		"HOME":              "/state/runs/exec-01ABC/home",
@@ -75,7 +75,7 @@ func TestATaskStillFindsTheToolchainsInstalledUnderThePersonsHome(t *testing.T) 
 	}
 	host := []string{"PATH=/usr/bin", "GOPATH=/opt/go"}
 
-	environment := entity.TaskEnvironment(host, "/Users/vlad", home, func(path string) bool {
+	environment := entity.TaskEnvironment(entity.RuntimeProcess, host, "/Users/vlad", home, func(path string) bool {
 		return installed[path]
 	})
 
@@ -111,5 +111,34 @@ func TestATasksGitConfigKeepsThePersonsSettingsButNoneOfTheirCredentialHelpers(t
 
 	if strings.Index(config, "[credential]") < strings.Index(config, "[include]") {
 		t.Fatalf("the credential reset comes before the includes it has to override:\n%s", config)
+	}
+}
+
+func TestATaskInAContainerGetsItsOwnHomeAndNothingFromTheHost(t *testing.T) {
+	home := entity.RunHomeOf("/state/runs/exec-01ABC")
+	host := []string{"PATH=/opt/homebrew/bin:/usr/bin", "LANG=en_GB.UTF-8", "GOPATH=/Users/vlad/go"}
+
+	environment := entity.TaskEnvironment(entity.RuntimeDocker, host, "/Users/vlad", home, func(string) bool { return true })
+
+	for _, name := range []string{"PATH", "LANG", "GOPATH", "CARGO_HOME"} {
+		if value, found := lookup(environment, name); found {
+			t.Fatalf(
+				"%s=%q reached a task in a container. The host's paths mean nothing inside the "+
+					"image, and a macOS PATH there finds no shell at all",
+				name, value,
+			)
+		}
+	}
+
+	if got, _ := lookup(environment, "HOME"); got != home.Root {
+		t.Fatalf("HOME in the container is %q, want the run's own %q", got, home.Root)
+	}
+
+	if got, _ := lookup(environment, "HOST"); got != "0.0.0.0" {
+		t.Fatalf(
+			"HOST in the container is %q. A service listening on the container's own loopback "+
+				"is one no published port can reach",
+			got,
+		)
 	}
 }

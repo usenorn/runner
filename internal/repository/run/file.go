@@ -72,6 +72,7 @@ type storedRepository struct {
 	RelPath string       `json:"relPath"`
 	Kind    string       `json:"kind"`
 	Source  string       `json:"source"`
+	Common  string       `json:"common,omitempty"`
 	Path    string       `json:"path"`
 	Mode    string       `json:"mode"`
 	Base    string       `json:"base"`
@@ -452,6 +453,7 @@ func storedRepositoryOf(repository entity.SnapshotRepository) storedRepository {
 		RelPath: repository.RelPath,
 		Kind:    string(repository.Kind),
 		Source:  repository.Source,
+		Common:  repository.Common,
 		Path:    repository.Path,
 		Mode:    string(repository.Mode),
 		Base:    string(repository.Base),
@@ -509,6 +511,7 @@ func repositoryOf(held storedRepository) entity.SnapshotRepository {
 		RelPath: held.RelPath,
 		Kind:    entity.RepositoryKind(held.Kind),
 		Source:  held.Source,
+		Common:  held.Common,
 		Path:    held.Path,
 		Mode:    entity.GitMode(held.Mode),
 		Base:    entity.BasePolicy(held.Base),

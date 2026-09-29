@@ -45,14 +45,6 @@ func (s *executionsService) equip(ctx context.Context, execution entity.Executio
 		}
 	}
 
-	for _, server := range toolkit.Servers {
-		if server.Transport == entity.ToolkitStdio && !s.toolkits.Installed(server.Command) {
-			gaps = append(gaps, entity.ToolkitGap{
-				Kind: entity.ToolkitServerKind, Name: server.Name, Reason: entity.ErrToolkitCommandMissing,
-			})
-		}
-	}
-
 	if err := s.reachNorn(ctx); err != nil {
 		gaps = append(gaps, entity.ToolkitGap{
 			Kind: entity.ToolkitServerKind, Name: entity.ToolkitServerName, Reason: err,
@@ -64,6 +56,25 @@ func (s *executionsService) equip(ctx context.Context, execution entity.Executio
 	}
 
 	return s.note(ctx, execution.ID, channelv1.EventPhase, equipped(toolkit))
+}
+
+func (s *executionsService) commands(ctx context.Context, execution entity.Execution) error {
+	toolkit, err := s.runs.LoadToolkit(ctx, execution.ID)
+	if err != nil {
+		return err
+	}
+
+	gaps := []entity.ToolkitGap{}
+
+	for _, server := range toolkit.Servers {
+		if server.Transport == entity.ToolkitStdio && !s.sandboxes.Has(ctx, execution.Sandbox(), server.Command) {
+			gaps = append(gaps, entity.ToolkitGap{
+				Kind: entity.ToolkitServerKind, Name: server.Name, Reason: entity.ErrToolkitCommandMissing,
+			})
+		}
+	}
+
+	return entity.Shortfall(gaps)
 }
 
 func (s *executionsService) reachNorn(ctx context.Context) error {
@@ -126,6 +137,19 @@ func (s *executionsService) tooling(
 			entity.ExecutionVariable:      execution.ID,
 			entity.ExecutionTokenVariable: token,
 		},
+	}
+
+	reach, err := s.sandboxes.Tools(execution.Sandbox())
+	if err != nil {
+		return entity.ExecEnv{}, err
+	}
+
+	if reach != "" {
+		servers[entity.ToolkitServerName] = mcpServer{
+			Type:    entity.ToolkitHTTP,
+			URL:     reach,
+			Headers: map[string]string{"Authorization": "Bearer " + token},
+		}
 	}
 
 	raw, err := json.MarshalIndent(mcpConfig{Servers: servers}, "", "  ")

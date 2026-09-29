@@ -147,6 +147,18 @@ func (h DriverHealth) Ready() bool {
 	return h.Installed && h.SignedIn
 }
 
+func (h DriverHealth) FaultIn(runtime Runtime) error {
+	if runtime == RuntimeDocker && !h.SignedIn {
+		return ErrAgentTokenMissing
+	}
+
+	if runtime == RuntimeDocker {
+		return nil
+	}
+
+	return h.Fault()
+}
+
 func (h DriverHealth) Fault() error {
 	switch {
 	case !h.Installed:

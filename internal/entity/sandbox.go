@@ -3,9 +3,16 @@ package entity
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"slices"
+	"strings"
 )
 
-const RuntimeAuto = "auto"
+const (
+	RuntimeAuto = "auto"
+
+	RunToolsRoute = "/executions/{executionId}/mcp"
+)
 
 var (
 	ErrRuntimeUnsupported = errors.New("this machine runs work as host processes or in docker")
@@ -36,6 +43,32 @@ func ChooseRuntime(asked, configured string) (Runtime, string, error) {
 
 func (e Execution) Sandbox() Sandbox {
 	return Sandbox{Run: e.ID, Runtime: Runtime(e.Runtime)}
+}
+
+func RunToolsPath(executionID string) string {
+	return strings.Replace(RunToolsRoute, "{executionId}", url.PathEscape(executionID), 1)
+}
+
+func SandboxSpecFor(execution Execution, snapshot Snapshot) SandboxSpec {
+	home := RunHomeOf(execution.Directory)
+	mounts := []Mount{
+		{Path: snapshot.Workspace},
+		{Path: home.Root},
+		{Path: home.Tmp},
+		{Path: execution.Metadata(), ReadOnly: true},
+	}
+
+	for _, repository := range snapshot.Repositories {
+		if repository.Common == "" || slices.ContainsFunc(mounts, func(held Mount) bool {
+			return held.Path == repository.Common
+		}) {
+			continue
+		}
+
+		mounts = append(mounts, Mount{Path: repository.Common, ReadOnly: repository.Mode == GitModeClone})
+	}
+
+	return SandboxSpec{Box: execution.Sandbox(), Workdir: snapshot.Workspace, Mounts: mounts}
 }
 
 type Mount struct {

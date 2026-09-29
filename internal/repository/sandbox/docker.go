@@ -19,6 +19,7 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 )
@@ -41,6 +42,7 @@ type dockerSandbox struct {
 	processes repository.Process
 	ports     repository.Port
 	cfg       config.Docker
+	bridged   *bridge.Listener
 	runner    string
 	user      string
 	client    []string
@@ -51,11 +53,13 @@ func newDocker(
 	ports repository.Port,
 	dir *statedir.Dir,
 	cfg config.Docker,
+	bridged *bridge.Listener,
 ) *dockerSandbox {
 	return &dockerSandbox{
 		processes: processes,
 		ports:     ports,
 		cfg:       cfg,
+		bridged:   bridged,
 		runner:    fingerprint(dir.Root()),
 		user:      strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()),
 		client:    clientEnvironment(os.Environ()),
@@ -113,11 +117,30 @@ func (r *dockerSandbox) docker(
 }
 
 func (r *dockerSandbox) Check(ctx context.Context, _ entity.Runtime) error {
+	if err := r.bridged.Available(); err != nil {
+		return fmt.Errorf("%w: docker cannot be used, because %w", entity.ErrRuntimeUnavailable, err)
+	}
+
 	if _, err := r.docker(ctx, r.cfg.Timeout, "version", "--format", "{{.Server.Version}}"); err != nil {
-		return fmt.Errorf("%w: docker is not answering on this machine (%w)", entity.ErrRuntimeUnavailable, err)
+		return fmt.Errorf("%w: docker is not answering (%w)", entity.ErrRuntimeUnavailable, err)
 	}
 
 	return nil
+}
+
+func (r *dockerSandbox) Has(ctx context.Context, box entity.Sandbox, command string) bool {
+	_, err := r.docker(ctx, r.cfg.Timeout, "exec", container(box), "sh", "-c", `command -v "$0"`, command)
+
+	return err == nil
+}
+
+func (r *dockerSandbox) Tools(box entity.Sandbox) (string, error) {
+	reach, err := r.bridged.Reach()
+	if err != nil {
+		return "", err
+	}
+
+	return reach + entity.RunToolsPath(box.Run), nil
 }
 
 func (r *dockerSandbox) Open(ctx context.Context, spec entity.SandboxSpec) error {
