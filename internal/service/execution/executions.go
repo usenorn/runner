@@ -39,6 +39,8 @@ type executionsService struct {
 	changesets  service.ChangeSets
 	tokens      repository.RunToken
 	drivers     repository.Driver
+	toolkits    repository.Toolkit
+	access      service.Sessions
 	dir         *statedir.Dir
 	runner      config.Runner
 	app         config.App
@@ -75,6 +77,8 @@ func New(
 	changesets service.ChangeSets,
 	tokens repository.RunToken,
 	drivers repository.Driver,
+	toolkits repository.Toolkit,
+	sessions service.Sessions,
 	dir *statedir.Dir,
 	runner config.Runner,
 	app config.App,
@@ -96,6 +100,8 @@ func New(
 		changesets:  changesets,
 		tokens:      tokens,
 		drivers:     drivers,
+		toolkits:    toolkits,
+		access:      sessions,
 		dir:         dir,
 		runner:      runner,
 		app:         app,
@@ -180,6 +186,10 @@ func (s *executionsService) Start(
 	}
 
 	if _, err := s.runs.Open(ctx, execution.ID); err != nil {
+		return s.fail(ctx, execution, entity.Failure(entity.StepRecord, err))
+	}
+
+	if err := s.runs.SaveToolkit(ctx, execution.ID, entity.ToolkitOf(start)); err != nil {
 		return s.fail(ctx, execution, entity.Failure(entity.StepRecord, err))
 	}
 

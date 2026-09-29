@@ -38,6 +38,7 @@ import (
 	"github.com/usenorn/runner/internal/repository/servicelog"
 	"github.com/usenorn/runner/internal/repository/settings"
 	"github.com/usenorn/runner/internal/repository/spool"
+	"github.com/usenorn/runner/internal/repository/toolkit"
 	"github.com/usenorn/runner/internal/repository/tunnel"
 	"github.com/usenorn/runner/internal/repository/upload"
 	"github.com/usenorn/runner/internal/repository/worktree"
@@ -123,8 +124,9 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	runToken := runtoken.New()
 	configDriver := config.NewDriver(configConfig)
 	repositoryDriver := driver.New(repositoryProcess, configDriver)
+	repositoryToolkit := toolkit.New(runner, app, configDriver)
 	scheduler := config.NewScheduler(configConfig)
-	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, dir, runner, app, scheduler, configDriver)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, repositoryToolkit, sessions, dir, runner, app, scheduler, configDriver)
 	configSpool := config.NewSpool(configConfig)
 	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, serviceQuestions, configChannel, configSpool, app)
 	configTunnel := config.NewTunnel(configConfig)
@@ -347,7 +349,7 @@ func InitMCPServer(cfgFile string, overrides config.Overrides) (*mcpserver.Serve
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, port.Set, servicelog.Set, driver.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, port.Set, servicelog.Set, driver.Set, toolkit.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,

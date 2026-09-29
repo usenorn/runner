@@ -242,6 +242,10 @@ func (s *executionsService) fill(
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}
 	}
 
+	if err := s.equip(ctx, execution); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepToolkit, err: err}
+	}
+
 	snapshot, err := s.snapshots.Take(ctx, service.TakeRequest{
 		Path:         codebase.RootPath,
 		IssueKey:     execution.IssueKey,

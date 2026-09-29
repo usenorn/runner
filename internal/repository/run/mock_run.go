@@ -160,6 +160,21 @@ func (mr *MockRunMockRecorder) LoadTasks(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadTasks", reflect.TypeOf((*MockRun)(nil).LoadTasks), ctx)
 }
 
+// LoadToolkit mocks base method.
+func (m *MockRun) LoadToolkit(ctx context.Context, name string) (entity.Toolkit, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadToolkit", ctx, name)
+	ret0, _ := ret[0].(entity.Toolkit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadToolkit indicates an expected call of LoadToolkit.
+func (mr *MockRunMockRecorder) LoadToolkit(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadToolkit", reflect.TypeOf((*MockRun)(nil).LoadToolkit), ctx, name)
+}
+
 // Open mocks base method.
 func (m *MockRun) Open(ctx context.Context, name string) (string, error) {
 	m.ctrl.T.Helper()
@@ -300,6 +315,20 @@ func (m *MockRun) SaveTask(ctx context.Context, execution entity.Execution) erro
 func (mr *MockRunMockRecorder) SaveTask(ctx, execution any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveTask", reflect.TypeOf((*MockRun)(nil).SaveTask), ctx, execution)
+}
+
+// SaveToolkit mocks base method.
+func (m *MockRun) SaveToolkit(ctx context.Context, name string, toolkit entity.Toolkit) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveToolkit", ctx, name, toolkit)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveToolkit indicates an expected call of SaveToolkit.
+func (mr *MockRunMockRecorder) SaveToolkit(ctx, name, toolkit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveToolkit", reflect.TypeOf((*MockRun)(nil).SaveToolkit), ctx, name, toolkit)
 }
 
 // Timeline mocks base method.

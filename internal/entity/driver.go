@@ -152,11 +152,13 @@ func (h DriverHealth) Fault() error {
 }
 
 type ExecEnv struct {
-	ExecutionID string
-	Workspace   string
-	Environment []string
-	MCPConfig   string
-	Profile     PermissionProfile
+	ExecutionID  string
+	Workspace    string
+	Environment  []string
+	MCPConfig    string
+	Instructions string
+	Plugin       string
+	Profile      PermissionProfile
 }
 
 type Task struct {

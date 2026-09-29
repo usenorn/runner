@@ -27,6 +27,7 @@ import (
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
+	toolkitrepo "github.com/usenorn/runner/internal/repository/toolkit"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
 	"github.com/usenorn/runner/internal/service"
 	changesetsvc "github.com/usenorn/runner/internal/service/changeset"
@@ -58,6 +59,7 @@ type harness struct {
 	sessions    *sessionsvc.MockSessions
 	worktrees   *worktreerepo.MockWorktree
 	forges      *forgerepo.MockForge
+	toolkits    *toolkitrepo.MockToolkit
 	changesets  service.ChangeSets
 	uploads     service.Uploads
 	questions   service.Questions
@@ -81,6 +83,11 @@ type harness struct {
 	opened   string
 	openErr  error
 	existing string
+
+	missing   map[string]bool
+	skillErrs map[string]error
+	nornErr   error
+	installed []string
 
 	mu          sync.Mutex
 	pushed      []string
@@ -178,6 +185,9 @@ func build(
 		sessions:    sessionsvc.NewMockSessions(controller),
 		worktrees:   worktreerepo.NewMockWorktree(controller),
 		forges:      forgerepo.NewMockForge(controller),
+		toolkits:    toolkitrepo.NewMockToolkit(controller),
+		missing:     map[string]bool{},
+		skillErrs:   map[string]error{},
 		free:        free,
 		connected:   []entity.Codebase{connected("/codebase")},
 		telemetry:   entity.TelemetryFull,
@@ -223,6 +233,8 @@ func build(
 		h.changesets,
 		h.tokens,
 		h.drivers,
+		h.toolkits,
+		h.sessions,
 		dir,
 		config.Runner{Capacity: capacity, Retention: retention},
 		config.App{Version: "1.4.0"},
@@ -233,6 +245,7 @@ func build(
 			SessionTimeout: time.Minute,
 			StopGrace:      10 * time.Millisecond,
 			ResumeAttempts: 1,
+			ToolkitTimeout: time.Second,
 		},
 	)
 
@@ -253,6 +266,32 @@ func connected(root string) entity.Codebase {
 }
 
 func (h *harness) expect() {
+	h.toolkits.EXPECT().
+		InstallSkill(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, skill entity.ToolkitSkill, plugin string) error {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			if err := h.skillErrs[skill.Name]; err != nil {
+				return err
+			}
+
+			h.installed = append(h.installed, filepath.Join(plugin, entity.ToolkitSkillsDir, skill.Name))
+
+			return nil
+		}).
+		AnyTimes()
+
+	h.toolkits.EXPECT().
+		Installed(gomock.Any()).
+		DoAndReturn(func(command string) bool { return !h.missing[command] }).
+		AnyTimes()
+
+	h.toolkits.EXPECT().
+		ReachNorn(gomock.Any(), "access-token").
+		DoAndReturn(func(context.Context, string) error { return h.nornErr }).
+		AnyTimes()
+
 	h.disks.EXPECT().
 		Free(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(context.Context, string) (int64, error) { return h.free, h.freeErr }).

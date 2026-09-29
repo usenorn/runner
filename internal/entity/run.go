@@ -19,6 +19,8 @@ const (
 	RunDriverFile      = "driver.json"
 	RunServicesFile    = "services.json"
 	RunMCPFile         = "mcp.json"
+	RunToolkitFile     = "toolkit.json"
+	RunToolkitDir      = "toolkit"
 
 	RunTimelineLine = 1 << 20
 )
@@ -30,6 +32,7 @@ const (
 	StepSetup    PrepareStep = "work out how this run should be set up"
 	StepSnapshot PrepareStep = "copy that folder into a workspace of its own"
 	StepRecord   PrepareStep = "write down what it prepared"
+	StepToolkit  PrepareStep = "get the agent's skills and servers ready"
 	StepDriver   PrepareStep = "start the coding agent"
 	StepFinalise PrepareStep = "collect what the run changed"
 )

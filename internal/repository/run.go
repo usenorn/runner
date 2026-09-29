@@ -27,6 +27,8 @@ type Run interface {
 	LoadDriver(ctx context.Context, name string) (entity.RunDriver, error)
 	SaveServices(ctx context.Context, name string, services entity.RunServices) error
 	LoadServices(ctx context.Context, name string) (entity.RunServices, error)
+	SaveToolkit(ctx context.Context, name string, toolkit entity.Toolkit) error
+	LoadToolkit(ctx context.Context, name string) (entity.Toolkit, error)
 	Append(ctx context.Context, name string, entry entity.TimelineEntry) error
 	Timeline(ctx context.Context, name string) ([]entity.TimelineEntry, error)
 }

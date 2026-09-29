@@ -234,6 +234,8 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		changesetStub{},
 		tokens,
 		driverStub{},
+		toolkitStub{},
+		sessions,
 		dir,
 		config.Runner{Capacity: 2, Retention: keeping()},
 		config.App{Version: "test"},
@@ -358,6 +360,14 @@ func (uploadStub) Line(context.Context, string, entity.LogLine) {}
 func (uploadStub) Flush(context.Context, string) error { return nil }
 
 func (uploadStub) Close(context.Context, string) {}
+
+type toolkitStub struct{}
+
+func (toolkitStub) InstallSkill(context.Context, entity.ToolkitSkill, string) error { return nil }
+
+func (toolkitStub) Installed(string) bool { return true }
+
+func (toolkitStub) ReachNorn(context.Context, string) error { return nil }
 
 type driverStub struct{}
 

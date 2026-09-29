@@ -105,6 +105,7 @@ func TestRetiringARunLeavesWhatExplainsItAndTakesTheRunTokenWithIt(t *testing.T)
 		filepath.Join(path, entity.RunWorkspaceDir, "code.go"):               "package main",
 		filepath.Join(path, entity.RunArtifactsDir, "shot.png"):              "image",
 		filepath.Join(path, entity.RunMetadataDir, entity.RunMCPFile):        "{}",
+		filepath.Join(path, entity.RunMetadataDir, entity.RunToolkitFile):    "{}",
 		filepath.Join(path, entity.RunMetadataDir, entity.ExecutionTaskFile): "{}",
 		filepath.Join(path, entity.RunLogsDir, entity.RunTimelineFile):       "{}",
 	}
