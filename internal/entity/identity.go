@@ -235,7 +235,7 @@ func (p PreviewService) Serving() bool {
 	return p.Gateway != "" && p.Domain != ""
 }
 
-func (p PreviewService) Address(name, executionID, path string) string {
+func (p PreviewService) Address(executionID string, preview Preview) string {
 	if !p.Serving() {
 		return ""
 	}
@@ -246,7 +246,10 @@ func (p PreviewService) Address(name, executionID, path string) string {
 	}
 
 	return scheme + "://" +
-		channelv1.PreviewHost(name, executionID, channelv1.PreviewBySubdomain, p.Domain) + path
+		channelv1.PreviewHost(
+			preview.IssueKey, preview.IssueTitle, executionID, preview.Port,
+			channelv1.PreviewBySubdomain, p.Domain,
+		) + preview.Path
 }
 
 func (s Session) Live(now time.Time) bool {

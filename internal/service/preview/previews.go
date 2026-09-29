@@ -49,18 +49,25 @@ func (s *previewsService) Expose(
 		return entity.Preview{}, err
 	}
 
+	task, err := s.claim(ctx, executionID)
+	if err != nil {
+		return entity.Preview{}, err
+	}
+
 	serving, err := s.serving(ctx, executionID, wanted.Service)
 	if err != nil {
 		return entity.Preview{}, err
 	}
 
 	exposed := entity.Preview{
-		Name:      wanted.Name,
-		Service:   wanted.Service,
-		Path:      wanted.Path,
-		Port:      serving.Port,
-		URL:       entity.PreviewURL(serving.Port, wanted.Path),
-		ExposedAt: s.now(),
+		Name:       wanted.Name,
+		Service:    wanted.Service,
+		Path:       wanted.Path,
+		Port:       serving.Port,
+		URL:        entity.PreviewURL(serving.Port, wanted.Path),
+		IssueKey:   task.IssueKey,
+		IssueTitle: task.Title,
+		ExposedAt:  s.now(),
 	}
 
 	s.mu.Lock()
@@ -277,6 +284,7 @@ func (s *previewsService) register(
 		Name:     preview.Name,
 		Service:  preview.Service,
 		Path:     preview.Path,
+		Port:     preview.Port,
 		State:    state,
 		Occurred: occurred,
 	})

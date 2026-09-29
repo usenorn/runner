@@ -20,12 +20,14 @@ var (
 )
 
 type Preview struct {
-	Name      string
-	Service   string
-	Path      string
-	Port      int
-	URL       string
-	ExposedAt time.Time
+	Name       string
+	Service    string
+	Path       string
+	Port       int
+	URL        string
+	IssueKey   string
+	IssueTitle string
+	ExposedAt  time.Time
 }
 
 func (p Preview) Valid() error {
