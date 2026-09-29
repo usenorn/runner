@@ -392,3 +392,24 @@ func repoNamed(changes channelv1.ChangeSet, name string) (channelv1.RepoChange, 
 
 	return channelv1.RepoChange{}, false
 }
+
+func TestNothingLeavesTheMachineWhileTheChangesWaitForReview(t *testing.T) {
+	h := newHarness(t, defaults())
+	h.changed(1, entity.Diffstat{Additions: 1, Files: 1})
+	h.keeps("f8b0a1c2-0000-4000-8000-000000000001")
+
+	h.worktrees.EXPECT().Push(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	h.forges.EXPECT().Open(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	changes := h.collect(t, "ready for review")
+
+	if len(changes.Repositories) == 0 {
+		t.Fatal("a run that committed work reported nothing to review")
+	}
+
+	for _, change := range changes.Repositories {
+		if change.PullRequest != "" {
+			t.Fatalf("%s claims a pull request before anybody approved the work", change.Repository)
+		}
+	}
+}

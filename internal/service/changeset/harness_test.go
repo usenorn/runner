@@ -152,12 +152,25 @@ func (h *harness) noForge() {
 		AnyTimes()
 }
 
+func (h *harness) collect(t *testing.T, summary string) entity.ChangeSet {
+	t.Helper()
+
+	changes, err := h.service.Collect(
+		context.Background(), h.execution, h.snapshot, entity.Completion{Summary: summary},
+	)
+	if err != nil {
+		t.Fatalf("collect what the run changed: %v", err)
+	}
+
+	return changes
+}
+
 func (h *harness) publish(t *testing.T, summary string) entity.ChangeSet {
 	t.Helper()
 
-	changes, err := h.service.Publish(
-		context.Background(), h.execution, h.snapshot, entity.Completion{Summary: summary},
-	)
+	h.collect(t, summary)
+
+	changes, err := h.service.Publish(context.Background(), h.execution, h.snapshot)
 	if err != nil {
 		t.Fatalf("publish what the run changed: %v", err)
 	}

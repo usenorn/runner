@@ -442,8 +442,14 @@ func (changesetStub) Uncommitted(
 	return nil, nil
 }
 
-func (changesetStub) Publish(
+func (changesetStub) Collect(
 	context.Context, entity.Execution, entity.Snapshot, entity.Completion,
+) (entity.ChangeSet, error) {
+	return entity.ChangeSet{}, nil
+}
+
+func (changesetStub) Publish(
+	context.Context, entity.Execution, entity.Snapshot,
 ) (entity.ChangeSet, error) {
 	return entity.ChangeSet{}, nil
 }

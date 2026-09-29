@@ -19,7 +19,7 @@ func working(h *harness) {
 	h.stat = entity.Diffstat{Additions: 40, Deletions: 3, Files: 4}
 }
 
-func TestAFinishedRunPushesItsBranchAndTellsNornWhatItChanged(t *testing.T) {
+func TestAFinishedRunTellsNornWhatItChangedAndPushesOnlyOnceApproved(t *testing.T) {
 	h := newHarness(t, 2, 0)
 	working(h)
 	h.drivers.scripts = []script{finishes("session-01", "added a median helper")}
@@ -36,14 +36,10 @@ func TestAFinishedRunPushesItsBranchAndTellsNornWhatItChanged(t *testing.T) {
 
 	h.awaitReview(t, "exec-01ABC")
 
-	h.mu.Lock()
-	pushed := append([]string(nil), h.pushed...)
-	h.mu.Unlock()
-
-	if len(pushed) != 1 || !strings.Contains(pushed[0], "NORN-47") {
+	if pushed := h.pushes(); len(pushed) != 0 {
 		t.Fatalf(
-			"a finished run pushed %v; without a push the work never leaves this machine and "+
-				"nobody can review it",
+			"a run waiting for review pushed %v; nothing leaves this machine until a person has "+
+				"reviewed the changes in norn and approved them",
 			pushed,
 		)
 	}
@@ -62,6 +58,16 @@ func TestAFinishedRunPushesItsBranchAndTellsNornWhatItChanged(t *testing.T) {
 			"the run's result says %q; that summary is what a person reads first on the review "+
 				"screen",
 			result.Summary,
+		)
+	}
+
+	approved(t, h, "exec-01ABC")
+	h.awaitState(t, "exec-01ABC", channelv1.StateCompleted)
+
+	if pushed := h.pushes(); len(pushed) != 1 || !strings.Contains(pushed[0], "NORN-47") {
+		t.Fatalf(
+			"an approved run pushed %v; approving is what publishes the branch",
+			pushed,
 		)
 	}
 }
@@ -276,14 +282,9 @@ func TestARunAskedForChangesCarriesOnRatherThanBeingDropped(t *testing.T) {
 		)
 	}
 
-	h.mu.Lock()
-	pushed := append([]string(nil), h.pushed...)
-	h.mu.Unlock()
-
-	if len(pushed) != 2 || pushed[0] != pushed[1] {
+	if pushed := h.pushes(); len(pushed) != 0 {
 		t.Fatalf(
-			"the second pass pushed %v; asking for changes has to add commits to the branch the "+
-				"first pass opened, not start a second one",
+			"asking for changes pushed %v; the second pass goes back to review in norn first",
 			pushed,
 		)
 	}
@@ -356,4 +357,11 @@ func TestARunApprovedJustBeforeTheMachineStoppedIsCompletedAfterItRestarts(t *te
 	if kept := restarted.service.Report(context.Background()).Executions; len(kept) != 0 {
 		t.Fatalf("a run somebody approved is still held after the restart: %+v", kept)
 	}
+}
+
+func (h *harness) pushes() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return append([]string(nil), h.pushed...)
 }

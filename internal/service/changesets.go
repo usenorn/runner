@@ -10,10 +10,15 @@ import (
 
 type ChangeSets interface {
 	Uncommitted(ctx context.Context, snapshot entity.Snapshot) ([]entity.UncommittedWork, error)
-	Publish(
+	Collect(
 		ctx context.Context,
 		execution entity.Execution,
 		snapshot entity.Snapshot,
 		completion entity.Completion,
+	) (entity.ChangeSet, error)
+	Publish(
+		ctx context.Context,
+		execution entity.Execution,
+		snapshot entity.Snapshot,
 	) (entity.ChangeSet, error)
 }

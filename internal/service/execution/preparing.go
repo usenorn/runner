@@ -181,7 +181,9 @@ func (s *executionsService) recover(ctx context.Context, execution entity.Execut
 
 		return true, nil
 	case channelv1.StateApproved:
-		return true, s.conclude(ctx, execution)
+		s.hold(ctx, execution, "a run was approved and still to be published when this machine last stopped")
+
+		return true, s.publish(ctx, execution)
 	default:
 		return false, nil
 	}

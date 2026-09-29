@@ -16,6 +16,19 @@ func (s *executionsService) approve(ctx context.Context, execution entity.Execut
 		return err
 	}
 
+	return s.publish(ctx, execution)
+}
+
+func (s *executionsService) publish(ctx context.Context, execution entity.Execution) error {
+	snapshot, err := s.runs.Load(ctx, execution.ID)
+	if err != nil {
+		return s.fail(ctx, execution, entity.Failure(entity.StepPublish, err))
+	}
+
+	if _, err := s.changesets.Publish(ctx, execution, snapshot); err != nil {
+		return s.fail(ctx, execution, entity.Failure(entity.StepPublish, err))
+	}
+
 	return s.conclude(ctx, execution)
 }
 
