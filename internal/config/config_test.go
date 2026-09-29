@@ -53,6 +53,10 @@ func TestDefaultsProduceAUsableConfigWithoutAnyFile(t *testing.T) {
 		)
 	}
 
+	if cfg.Docker.Image == "" || cfg.Docker.Ports < 1 {
+		t.Fatalf("docker defaulted to %+v, and a run asking for docker would have nowhere to run", cfg.Docker)
+	}
+
 	if cfg.Session.RefreshLead != 2*time.Minute {
 		t.Fatalf("session.refresh_lead defaulted to %s, want 2m", cfg.Session.RefreshLead)
 	}
@@ -245,6 +249,14 @@ func TestAConfigurationThatCannotWorkIsRefused(t *testing.T) {
 		{
 			name: "a coding agent given no time to answer whether it is there",
 			body: "driver:\n  probe_timeout: 0s\n",
+		},
+		{
+			name: "a container with no published ports",
+			body: "docker:\n  ports: 0\n",
+		},
+		{
+			name: "a bridge that is not somewhere to listen",
+			body: "docker:\n  bridge: nowhere\n",
 		},
 		{
 			name: "a batch larger than norn takes at once",

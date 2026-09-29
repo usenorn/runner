@@ -86,3 +86,18 @@ func (mr *MockEnrolmentsMockRecorder) Disconnect(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockEnrolments)(nil).Disconnect), ctx)
 }
+
+// SaveAgentToken mocks base method.
+func (m *MockEnrolments) SaveAgentToken(ctx context.Context, token string) (entity.Store, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveAgentToken", ctx, token)
+	ret0, _ := ret[0].(entity.Store)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SaveAgentToken indicates an expected call of SaveAgentToken.
+func (mr *MockEnrolmentsMockRecorder) SaveAgentToken(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveAgentToken", reflect.TypeOf((*MockEnrolments)(nil).SaveAgentToken), ctx, token)
+}

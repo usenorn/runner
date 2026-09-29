@@ -10,6 +10,7 @@ import (
 
 type Worktree interface {
 	Head(ctx context.Context, repository string) (string, error)
+	CommonDir(ctx context.Context, repository string) (string, error)
 	Resolve(ctx context.Context, repository string, revisions ...string) (string, error)
 	Fetch(ctx context.Context, repository, branch string) error
 	Add(ctx context.Context, repository, dest, sha string) error
@@ -28,4 +29,5 @@ type Worktree interface {
 	Patch(ctx context.Context, dest, base string) ([]byte, error)
 	Push(ctx context.Context, dest, url, branch string) error
 	Remove(ctx context.Context, repository, dest string) error
+	Keep(ctx context.Context, repository, dest, branch, run string) (string, error)
 }

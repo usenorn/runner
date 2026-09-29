@@ -13,10 +13,16 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 	channelrepo "github.com/usenorn/runner/internal/repository/channel"
+	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
+	identityrepo "github.com/usenorn/runner/internal/repository/identity"
+	portrepo "github.com/usenorn/runner/internal/repository/port"
+	processrepo "github.com/usenorn/runner/internal/repository/process"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	"github.com/usenorn/runner/internal/service"
 	channelsvc "github.com/usenorn/runner/internal/service/channel"
@@ -208,6 +214,12 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		runStub{}, h.spool, config.Questions{SoftWait: time.Millisecond, MaxWait: time.Second},
 	)
 
+	identities := identityrepo.NewMockIdentity(ctrl)
+	identities.EXPECT().Load(gomock.Any()).Return(entity.Identity{}, entity.ErrNotEnrolled).AnyTimes()
+
+	credentials := credentialrepo.NewMockCredential(ctrl)
+	credentials.EXPECT().LoadAgentToken(gomock.Any(), gomock.Any()).Return("sk-ant-oat01-test", nil).AnyTimes()
+
 	h.executions = executionsvc.New(
 		runStub{},
 		h.spool,
@@ -224,6 +236,9 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		runtokenrepo.New(),
 		driverStub{},
 		toolkitStub{},
+		sandboxes(t, dir, processrepo.New()),
+		identities,
+		credentials,
 		h.sessions,
 		dir,
 		config.Runner{Capacity: 2},
@@ -403,4 +418,23 @@ func (changesetStub) Publish(
 	context.Context, entity.Execution, entity.Snapshot, entity.Completion,
 ) (entity.ChangeSet, error) {
 	return entity.ChangeSet{}, nil
+}
+
+func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) repository.Sandbox {
+	t.Helper()
+
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatalf("listen for containers: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	return sandboxrepo.New(
+		processes,
+		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
+		dir,
+		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		bridged,
+	)
 }

@@ -70,6 +70,21 @@ func (mr *MockCredentialMockRecorder) Load(ctx, store any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockCredential)(nil).Load), ctx, store)
 }
 
+// LoadAgentToken mocks base method.
+func (m *MockCredential) LoadAgentToken(ctx context.Context, store entity.Store) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadAgentToken", ctx, store)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadAgentToken indicates an expected call of LoadAgentToken.
+func (mr *MockCredentialMockRecorder) LoadAgentToken(ctx, store any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadAgentToken", reflect.TypeOf((*MockCredential)(nil).LoadAgentToken), ctx, store)
+}
+
 // Save mocks base method.
 func (m *MockCredential) Save(ctx context.Context, store entity.Store, credentials entity.Credentials) error {
 	m.ctrl.T.Helper()
@@ -82,6 +97,20 @@ func (m *MockCredential) Save(ctx context.Context, store entity.Store, credentia
 func (mr *MockCredentialMockRecorder) Save(ctx, store, credentials any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockCredential)(nil).Save), ctx, store, credentials)
+}
+
+// SaveAgentToken mocks base method.
+func (m *MockCredential) SaveAgentToken(ctx context.Context, store entity.Store, token string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveAgentToken", ctx, store, token)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveAgentToken indicates an expected call of SaveAgentToken.
+func (mr *MockCredentialMockRecorder) SaveAgentToken(ctx, store, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveAgentToken", reflect.TypeOf((*MockCredential)(nil).SaveAgentToken), ctx, store, token)
 }
 
 // Usable mocks base method.

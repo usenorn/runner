@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/repository"
@@ -195,7 +196,7 @@ func (toolkitStub) NornHandler(accessToken string) http.Handler {
 
 type driverStub struct{}
 
-func (driverStub) Preflight(context.Context, entity.DriverKind) entity.DriverHealth {
+func (driverStub) Preflight(context.Context, entity.DriverKind, string) entity.DriverHealth {
 	return entity.DriverHealth{Kind: entity.DriverClaude, Installed: true, SignedIn: true}
 }
 
@@ -230,3 +231,19 @@ type schedulingStub struct{}
 func (schedulingStub) Paused(context.Context) (bool, error) { return false, nil }
 
 func (schedulingStub) Pause(context.Context, bool) error { return nil }
+
+func (runStub) SaveQuestion(context.Context, string, entity.OpenQuestion) error { return nil }
+
+func (runStub) LoadQuestion(context.Context, string) (entity.OpenQuestion, error) {
+	return entity.OpenQuestion{}, entity.ErrSnapshotMissing
+}
+
+func (runStub) ClearQuestion(context.Context, string) error { return nil }
+
+func (runStub) SaveResume(context.Context, string, channelv1.Instruction) error { return nil }
+
+func (runStub) LoadResume(context.Context, string) (channelv1.Instruction, error) {
+	return channelv1.Instruction{}, entity.ErrSnapshotMissing
+}
+
+func (runStub) ClearResume(context.Context, string) error { return nil }

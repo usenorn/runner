@@ -10,8 +10,10 @@ import (
 	"github.com/goforj/wire"
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
+	"github.com/usenorn/runner/internal/mcpbridge"
 	"github.com/usenorn/runner/internal/mcpserver"
 	"github.com/usenorn/runner/internal/observability/logging"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/buildinfo"
 	"github.com/usenorn/runner/internal/pkg/dashboardclient"
 	"github.com/usenorn/runner/internal/pkg/hostfacts"
@@ -33,6 +35,7 @@ import (
 	"github.com/usenorn/runner/internal/repository/release"
 	"github.com/usenorn/runner/internal/repository/run"
 	"github.com/usenorn/runner/internal/repository/runtoken"
+	"github.com/usenorn/runner/internal/repository/sandbox"
 	"github.com/usenorn/runner/internal/repository/scanner"
 	"github.com/usenorn/runner/internal/repository/scheduling"
 	"github.com/usenorn/runner/internal/repository/servicelog"
@@ -110,12 +113,18 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	snapshots := snapshot.New(repositoryWorktree, repositoryMaterialiser, repositorySettings, repositoryInventory, repositoryRun, configSnapshot)
 	repositoryProcess := process.New()
 	repositoryPort := port.New(runner)
+	docker := config.NewDocker(configConfig)
+	listener, cleanup, err := bridge.New(docker)
+	if err != nil {
+		return nil, nil, err
+	}
+	repositorySandbox := sandbox.New(repositoryProcess, repositoryPort, dir, docker, listener)
 	serviceLog := servicelog.New(dir)
 	repositoryUpload := upload.New(client, runner)
 	configUpload := config.NewUpload(configConfig)
 	uploads := upload2.New(repositoryUpload, repositoryRun, repositoryDashboard, sessions, configUpload)
 	configSupervisor := config.NewSupervisor(configConfig)
-	services := supervisor.New(repositoryProcess, repositoryPort, serviceLog, repositoryRun, repositorySpool, uploads, configSupervisor)
+	services := supervisor.New(repositoryProcess, repositorySandbox, repositoryPort, serviceLog, repositoryRun, repositorySpool, uploads, configSupervisor)
 	questions := config.NewQuestions(configConfig)
 	serviceQuestions := question.New(repositoryRun, repositorySpool, questions)
 	previews := preview.New(repositoryRun, repositorySpool)
@@ -123,28 +132,34 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	changeSets := changeset.New(repositoryRun, repositorySpool, repositoryWorktree, repositoryForge, uploads, results)
 	runToken := runtoken.New()
 	configDriver := config.NewDriver(configConfig)
-	repositoryDriver := driver.New(repositoryProcess, configDriver)
+	repositoryDriver := driver.New(repositorySandbox, configDriver)
 	repositoryToolkit := toolkit.New(runner, app, configDriver)
 	scheduler := config.NewScheduler(configConfig)
-	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, repositoryToolkit, sessions, dir, runner, app, scheduler, configDriver)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, repositoryToolkit, repositorySandbox, repositoryIdentity, repositoryCredential, sessions, dir, runner, app, scheduler, configDriver)
 	configSpool := config.NewSpool(configConfig)
 	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, serviceQuestions, configChannel, configSpool, app)
 	configTunnel := config.NewTunnel(configConfig)
 	repositoryTunnel := tunnel.New(app, configTunnel)
 	tunnels := tunnel2.New(repositoryTunnel, sessions, previews, configTunnel)
 	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, tunnels, executions, services, serviceQuestions, previews, uploads, runToken, repositoryToolkit, build)
-	listener, cleanup, err := socket.New(dir)
-	if err != nil {
-		return nil, nil, err
-	}
-	log := config.NewLog(configConfig)
-	logger, cleanup2, err := logging.New(app, log, dir)
+	socketListener, cleanup2, err := socket.New(dir)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	daemon := NewDaemon(configControl, server, listener, sessions, updates, codebases, channels, tunnels, executions, services, uploads, logger)
+	mcpbridgeBridge, cleanup3 := mcpbridge.New(configControl, questions, dir, app)
+	log := config.NewLog(configConfig)
+	logger, cleanup4, err := logging.New(app, log, dir)
+	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	daemon := NewDaemon(configControl, server, socketListener, listener, mcpbridgeBridge, sessions, updates, codebases, channels, tunnels, executions, services, uploads, logger)
 	return daemon, func() {
+		cleanup4()
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -349,7 +364,7 @@ func InitMCPServer(cfgFile string, overrides config.Overrides) (*mcpserver.Serve
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, port.Set, servicelog.Set, driver.Set, toolkit.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, bridge.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, sandbox.Set, port.Set, servicelog.Set, driver.Set, toolkit.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, mcpbridge.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,

@@ -22,7 +22,9 @@ import (
 const interruptedNote = "this machine restarted while the run was under way, so the work it had " +
 	"started was left unfinished"
 
-const waitingToPrepare = 64
+const waitingToWork = 64
+
+const overflowing = "this machine has more runs waiting to be worked on than it can hold"
 
 type executionsService struct {
 	runs        repository.Run
@@ -40,6 +42,9 @@ type executionsService struct {
 	tokens      repository.RunToken
 	drivers     repository.Driver
 	toolkits    repository.Toolkit
+	sandboxes   repository.Sandbox
+	identities  repository.Identity
+	credentials repository.Credential
 	access      service.Sessions
 	dir         *statedir.Dir
 	runner      config.Runner
@@ -50,9 +55,12 @@ type executionsService struct {
 
 	preparing chan string
 	resuming  chan resumption
+	woken     chan struct{}
 
 	mu       sync.Mutex
 	held     map[string]entity.Execution
+	waiting  []admission
+	admitted map[string]bool
 	work     map[string]context.CancelFunc
 	owed     map[string]bool
 	done     map[string]entity.Completion
@@ -78,6 +86,9 @@ func New(
 	tokens repository.RunToken,
 	drivers repository.Driver,
 	toolkits repository.Toolkit,
+	sandboxes repository.Sandbox,
+	identities repository.Identity,
+	credentials repository.Credential,
 	sessions service.Sessions,
 	dir *statedir.Dir,
 	runner config.Runner,
@@ -101,6 +112,9 @@ func New(
 		tokens:      tokens,
 		drivers:     drivers,
 		toolkits:    toolkits,
+		sandboxes:   sandboxes,
+		identities:  identities,
+		credentials: credentials,
 		access:      sessions,
 		dir:         dir,
 		runner:      runner,
@@ -108,9 +122,11 @@ func New(
 		scheduler:   scheduler,
 		driver:      driver,
 		now:         func() time.Time { return time.Now().UTC() },
-		preparing:   make(chan string, waitingToPrepare),
-		resuming:    make(chan resumption, waitingToPrepare),
+		preparing:   make(chan string, waitingToWork),
+		resuming:    make(chan resumption, waitingToWork),
+		woken:       make(chan struct{}, 1),
 		held:        map[string]entity.Execution{},
+		admitted:    map[string]bool{},
 		work:        map[string]context.CancelFunc{},
 		owed:        map[string]bool{},
 		done:        map[string]entity.Completion{},
@@ -141,12 +157,46 @@ func (s *executionsService) Offer(ctx context.Context, offer channelv1.Offer) er
 		return s.decline(ctx, offer.ExecutionID, reason, report)
 	}
 
-	execution := entity.ExecutionOf(offer, s.dir.Runs(), s.now())
-	s.held[execution.ID] = execution
+	s.mu.Unlock()
 
+	runtime, why, err := entity.ChooseRuntime(offer.Params.Runtime, string(s.runner.Runtime))
+	if err == nil {
+		err = s.sandboxes.Check(ctx, runtime)
+	}
+
+	if err != nil {
+		return s.unrunnable(ctx, offer.ExecutionID, err)
+	}
+
+	execution := entity.ExecutionOf(offer, s.dir.Runs(), s.now())
+	execution.Runtime = string(runtime)
+	execution.RuntimeWhy = why
+
+	s.mu.Lock()
+	if _, already := s.held[offer.ExecutionID]; already {
+		s.mu.Unlock()
+
+		return nil
+	}
+
+	s.held[execution.ID] = execution
 	s.mu.Unlock()
 
 	return s.send(ctx, channelv1.ExecutionAccepted, execution.ID, struct{}{})
+}
+
+func (s *executionsService) unrunnable(ctx context.Context, executionID string, err error) error {
+	logging.From(ctx).InfoContext(
+		ctx,
+		"this machine turned work down because it cannot run it the way it asked",
+		slog.String("execution_id", executionID),
+		slog.String("error", err.Error()),
+	)
+
+	return s.send(ctx, channelv1.ExecutionDeclined, executionID, channelv1.Decline{
+		Code:   string(entity.DeclineRuntimeUnavailable),
+		Detail: err.Error(),
+	})
 }
 
 func (s *executionsService) decline(
@@ -199,15 +249,11 @@ func (s *executionsService) Start(
 
 	execution.StartedAt = s.now()
 
-	if err := s.move(ctx, execution, channelv1.StatePreparing, ""); err != nil {
-		return err
-	}
+	s.mu.Lock()
+	s.held[execution.ID] = execution
+	s.mu.Unlock()
 
-	select {
-	case s.preparing <- execution.ID:
-	default:
-		return s.fail(ctx, execution, "this machine has more runs waiting to be prepared than it can hold")
-	}
+	s.admit(ctx, admission{executionID: execution.ID})
 
 	return nil
 }
@@ -317,9 +363,13 @@ func (s *executionsService) Configure(configuration channelv1.Configuration) {
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.capacity = *configuration.Capacity
+	s.mu.Unlock()
+
+	select {
+	case s.woken <- struct{}{}:
+	default:
+	}
 }
 
 func (s *executionsService) Greeting() channelv1.Hello {
@@ -587,7 +637,7 @@ func (s *executionsService) record(
 }
 
 func (s *executionsService) teardown(ctx context.Context, executionID string) error {
-	s.questions.Forget(executionID)
+	s.complain(ctx, executionID, s.questions.Forget(context.WithoutCancel(ctx), executionID))
 	s.previews.Release(context.WithoutCancel(ctx), executionID)
 	s.tokens.Release(context.WithoutCancel(ctx), executionID)
 	s.forget(executionID)
@@ -599,6 +649,17 @@ func (s *executionsService) teardown(ctx context.Context, executionID string) er
 			slog.String("execution_id", executionID),
 			slog.String("error", err.Error()),
 		)
+	}
+
+	if held, err := s.runs.LoadTask(ctx, executionID); err == nil {
+		if err := s.sandboxes.Close(context.WithoutCancel(ctx), held.Sandbox()); err != nil {
+			logging.From(ctx).WarnContext(
+				ctx,
+				"this machine could not take a run's container down",
+				slog.String("execution_id", executionID),
+				slog.String("error", err.Error()),
+			)
+		}
 	}
 
 	if err := s.snapshots.Release(context.WithoutCancel(ctx), executionID); err != nil {

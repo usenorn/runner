@@ -62,6 +62,8 @@ type harness struct {
 	cloned     []string
 	branched   []string
 	removed    []string
+	kept       []string
+	ahead      int
 	fetchFails error
 	addFails   error
 	branchFail error
@@ -111,6 +113,12 @@ func (h *harness) expect() {
 		Return(baseSHA, nil).
 		AnyTimes()
 	h.worktrees.EXPECT().
+		CommonDir(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, source string) (string, error) {
+			return filepath.Join(source, ".git"), nil
+		}).
+		AnyTimes()
+	h.worktrees.EXPECT().
 		Resolve(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(baseSHA, nil).
 		AnyTimes()
@@ -153,6 +161,22 @@ func (h *harness) expect() {
 	h.worktrees.EXPECT().Submodules(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	h.worktrees.EXPECT().Changed(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	h.worktrees.EXPECT().Untracked(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	h.worktrees.EXPECT().
+		Commits(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string) (int, error) { return h.ahead, nil }).
+		AnyTimes()
+	h.worktrees.EXPECT().
+		Keep(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _, dest, branch, _ string) (string, error) {
+			if _, err := os.Stat(dest); err != nil {
+				return "", err
+			}
+
+			h.kept = append(h.kept, branch)
+
+			return "refs/heads/" + branch, nil
+		}).
+		AnyTimes()
 	h.worktrees.EXPECT().
 		Remove(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, _, dest string) error {

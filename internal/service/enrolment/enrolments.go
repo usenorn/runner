@@ -114,6 +114,25 @@ func (s *enrolmentsService) Disconnect(ctx context.Context) (entity.Identity, er
 	return identity, nil
 }
 
+func (s *enrolmentsService) SaveAgentToken(ctx context.Context, token string) (entity.Store, error) {
+	if err := entity.ValidateAgentToken(token); err != nil {
+		return "", err
+	}
+
+	store := entity.StoreKeyring
+
+	identity, err := s.identities.Load(ctx)
+	if err == nil && identity.Store.Valid() {
+		store = identity.Store
+	}
+
+	if err := s.credentials.SaveAgentToken(ctx, store, token); err != nil {
+		return "", err
+	}
+
+	return store, nil
+}
+
 func (s *enrolmentsService) forget(ctx context.Context) error {
 	s.sessions.Forget()
 

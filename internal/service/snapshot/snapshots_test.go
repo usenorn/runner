@@ -192,6 +192,54 @@ func TestDiscardingASnapshotGivesEveryWorktreeBackBeforeTheFolderGoes(t *testing
 	}
 }
 
+func TestAClonesUnpublishedCommitsAreKeptBeforeItsFolderGoes(t *testing.T) {
+	cfg := defaults()
+	cfg.GitMode = "clone"
+	h := newHarness(t, cfg)
+	h.ahead = 2
+
+	taken, err := h.take()
+	if err != nil {
+		t.Fatalf("take a snapshot: %v", err)
+	}
+
+	if err := h.service.Release(context.Background(), taken.Name); err != nil {
+		t.Fatalf("release %s: %v", taken.Name, err)
+	}
+
+	if len(h.kept) != len(h.cloned) {
+		t.Fatalf(
+			"%d of %d clones had their branch kept before the workspace was deleted. A clone's "+
+				"commits live only in its folder, so a run torn down before it pushed would "+
+				"lose the work a person was about to review",
+			len(h.kept), len(h.cloned),
+		)
+	}
+
+	if _, err := os.Stat(taken.Workspace); err == nil {
+		t.Fatalf("%s is still on disk after it was released", taken.Workspace)
+	}
+}
+
+func TestAClonesFolderGoesWithoutKeepingAnythingWhenNothingWasCommitted(t *testing.T) {
+	cfg := defaults()
+	cfg.GitMode = "clone"
+	h := newHarness(t, cfg)
+
+	taken, err := h.take()
+	if err != nil {
+		t.Fatalf("take a snapshot: %v", err)
+	}
+
+	if err := h.service.Release(context.Background(), taken.Name); err != nil {
+		t.Fatalf("release %s: %v", taken.Name, err)
+	}
+
+	if len(h.kept) != 0 {
+		t.Fatalf("branches with no work on them were copied into the person's repository: %v", h.kept)
+	}
+}
+
 func TestListingSaysWhatThisMachineIsHolding(t *testing.T) {
 	h := newHarness(t, defaults())
 

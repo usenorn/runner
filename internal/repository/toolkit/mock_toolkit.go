@@ -56,20 +56,6 @@ func (mr *MockToolkitMockRecorder) InstallSkill(ctx, skill, plugin any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstallSkill", reflect.TypeOf((*MockToolkit)(nil).InstallSkill), ctx, skill, plugin)
 }
 
-// Installed mocks base method.
-func (m *MockToolkit) Installed(command string) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Installed", command)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// Installed indicates an expected call of Installed.
-func (mr *MockToolkitMockRecorder) Installed(command any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Installed", reflect.TypeOf((*MockToolkit)(nil).Installed), command)
-}
-
 // NornHandler mocks base method.
 func (m *MockToolkit) NornHandler(accessToken string) http.Handler {
 	m.ctrl.T.Helper()

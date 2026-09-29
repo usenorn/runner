@@ -3,7 +3,9 @@ package entity
 import (
 	"errors"
 	"slices"
+	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -14,6 +16,8 @@ const (
 
 	ExecutionVariable      = "NORN_EXEC_ID"
 	ExecutionTokenVariable = "NORN_EXEC_TOKEN"
+
+	AgentTokenAccount = "the token kept with 'norn runner agent-token'"
 )
 
 var (
@@ -23,16 +27,19 @@ var (
 	ErrDriverMissing = errors.New(
 		"the coding agent is not installed on this machine",
 	)
-	ErrDriverSignedOut = errors.New(
-		"the coding agent is installed but not signed in; run 'claude auth login' as the user " +
-			"this machine's runner runs as",
-	)
 	ErrDriverCrashed = errors.New(
 		"the coding agent stopped before it said it was finished",
 	)
 	ErrDriverUnanswerable = errors.New(
 		"the coding agent stopped for something it wanted to be asked directly, which nothing " +
 			"outside its own session can answer; a question for a person goes through 'norn ask'",
+	)
+	ErrAgentTokenMissing = errors.New(
+		"this machine has no token for the coding agent; run 'claude setup-token' and hand what " +
+			"it prints to 'norn runner agent-token'",
+	)
+	ErrAgentTokenMalformed = errors.New(
+		"that is not a coding agent token; paste exactly what 'claude setup-token' printed",
 	)
 	ErrDriverSessionUnknown = errors.New(
 		"this run has no coding agent session to carry on from",
@@ -140,12 +147,24 @@ func (h DriverHealth) Ready() bool {
 	return h.Installed && h.SignedIn
 }
 
+func (h DriverHealth) FaultIn(runtime Runtime) error {
+	if runtime == RuntimeDocker && !h.SignedIn {
+		return ErrAgentTokenMissing
+	}
+
+	if runtime == RuntimeDocker {
+		return nil
+	}
+
+	return h.Fault()
+}
+
 func (h DriverHealth) Fault() error {
 	switch {
 	case !h.Installed:
 		return ErrDriverMissing
 	case !h.SignedIn:
-		return ErrDriverSignedOut
+		return ErrAgentTokenMissing
 	default:
 		return nil
 	}
@@ -153,6 +172,8 @@ func (h DriverHealth) Fault() error {
 
 type ExecEnv struct {
 	ExecutionID  string
+	Sandbox      Sandbox
+	AgentToken   string
 	Workspace    string
 	Environment  []string
 	MCPConfig    string
@@ -227,3 +248,11 @@ type UploadReceipt struct {
 const DriverResumeInjection = "Your session stopped before you said you were finished. Carry on " +
 	"from where you left off: check what you had already changed in this workspace, then finish " +
 	"the work and commit it."
+
+func ValidateAgentToken(token string) error {
+	if token == "" || strings.ContainsFunc(token, unicode.IsSpace) {
+		return ErrAgentTokenMalformed
+	}
+
+	return nil
+}

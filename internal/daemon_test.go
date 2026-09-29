@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +17,8 @@ import (
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/mcpbridge"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	channelsvc "github.com/usenorn/runner/internal/service/channel"
@@ -27,8 +31,41 @@ import (
 	uploadsvc "github.com/usenorn/runner/internal/service/upload"
 )
 
+type startup struct {
+	mu    sync.Mutex
+	order []string
+}
+
+func (s *startup) saw(what string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.order = append(s.order, what)
+}
+
+func (s *startup) seen() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return slices.Clone(s.order)
+}
+
 func newDaemon(t *testing.T, shutdown time.Duration, handler http.Handler) (*internal.Daemon, *statedir.Dir) {
 	t.Helper()
+
+	daemon, dir, _ := newDaemonRecording(t, shutdown, handler)
+
+	return daemon, dir
+}
+
+func newDaemonRecording(
+	t *testing.T,
+	shutdown time.Duration,
+	handler http.Handler,
+) (*internal.Daemon, *statedir.Dir, *startup) {
+	t.Helper()
+
+	started := &startup{}
 
 	root, err := os.MkdirTemp("/tmp", "nrn")
 	if err != nil {
@@ -70,12 +107,24 @@ func newDaemon(t *testing.T, shutdown time.Duration, handler http.Handler) (*int
 	codebases.EXPECT().Run(gomock.Any()).AnyTimes()
 
 	channels := channelsvc.NewMockChannels(ctrl)
-	channels.EXPECT().Run(gomock.Any()).AnyTimes()
+	channels.EXPECT().
+		Run(gomock.Any()).
+		Do(func(context.Context) { started.saw("channel") }).
+		AnyTimes()
 
 	tunnels := tunnelsvc.NewMockTunnels(ctrl)
 	tunnels.EXPECT().Run(gomock.Any()).AnyTimes()
 
 	runs := executionsvc.NewMockExecutions(ctrl)
+	runs.EXPECT().
+		Reclaim(gomock.Any()).
+		DoAndReturn(func(context.Context) error {
+			time.Sleep(20 * time.Millisecond)
+			started.saw("reclaim")
+
+			return nil
+		}).
+		AnyTimes()
 	runs.EXPECT().Run(gomock.Any()).AnyTimes()
 
 	services := supervisorsvc.NewMockServices(ctrl)
@@ -84,10 +133,44 @@ func newDaemon(t *testing.T, shutdown time.Duration, handler http.Handler) (*int
 	uploads := uploadsvc.NewMockUploads(ctrl)
 	uploads.EXPECT().Run(gomock.Any()).AnyTimes()
 
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatalf("listen for containers: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	tools, closeTools := mcpbridge.New(cfg, config.Questions{}, dir, config.App{Version: "test"})
+	t.Cleanup(closeTools)
+
 	return internal.NewDaemon(
-		cfg, handler, listener, sessions, updates, codebases, channels, tunnels, runs, services,
-		uploads, logger,
-	), dir
+		cfg, handler, listener, bridged, tools, sessions, updates, codebases, channels, tunnels,
+		runs, services, uploads, logger,
+	), dir, started
+}
+
+func TestTheRunsAMachineWasHoldingAreReadBackBeforeItTalksToNorn(t *testing.T) {
+	daemon, _, started := newDaemonRecording(t, 2*time.Second, http.NewServeMux())
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+
+	go func() { done <- daemon.Run(ctx) }()
+
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+	<-done
+
+	order := started.seen()
+	if !slices.Equal(order, []string{"reclaim", "channel"}) {
+		t.Fatalf(
+			"the machine started in the order %v. Norn's first message lists the runs it "+
+				"believes this machine holds, and one heard before the machine has read its own "+
+				"back is taken for a run it lost and failed",
+			order,
+		)
+	}
 }
 
 func TestCancellingTheContextDrainsAndReturnsNothing(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 	entity "github.com/usenorn/runner/internal/entity"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -53,6 +54,34 @@ func (m *MockRun) Append(ctx context.Context, name string, entry entity.Timeline
 func (mr *MockRunMockRecorder) Append(ctx, name, entry any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Append", reflect.TypeOf((*MockRun)(nil).Append), ctx, name, entry)
+}
+
+// ClearQuestion mocks base method.
+func (m *MockRun) ClearQuestion(ctx context.Context, name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearQuestion", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearQuestion indicates an expected call of ClearQuestion.
+func (mr *MockRunMockRecorder) ClearQuestion(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearQuestion", reflect.TypeOf((*MockRun)(nil).ClearQuestion), ctx, name)
+}
+
+// ClearResume mocks base method.
+func (m *MockRun) ClearResume(ctx context.Context, name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearResume", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearResume indicates an expected call of ClearResume.
+func (mr *MockRunMockRecorder) ClearResume(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearResume", reflect.TypeOf((*MockRun)(nil).ClearResume), ctx, name)
 }
 
 // List mocks base method.
@@ -98,6 +127,36 @@ func (m *MockRun) LoadDriver(ctx context.Context, name string) (entity.RunDriver
 func (mr *MockRunMockRecorder) LoadDriver(ctx, name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadDriver", reflect.TypeOf((*MockRun)(nil).LoadDriver), ctx, name)
+}
+
+// LoadQuestion mocks base method.
+func (m *MockRun) LoadQuestion(ctx context.Context, name string) (entity.OpenQuestion, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadQuestion", ctx, name)
+	ret0, _ := ret[0].(entity.OpenQuestion)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadQuestion indicates an expected call of LoadQuestion.
+func (mr *MockRunMockRecorder) LoadQuestion(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadQuestion", reflect.TypeOf((*MockRun)(nil).LoadQuestion), ctx, name)
+}
+
+// LoadResume mocks base method.
+func (m *MockRun) LoadResume(ctx context.Context, name string) (channelv1.Instruction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadResume", ctx, name)
+	ret0, _ := ret[0].(channelv1.Instruction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadResume indicates an expected call of LoadResume.
+func (mr *MockRunMockRecorder) LoadResume(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadResume", reflect.TypeOf((*MockRun)(nil).LoadResume), ctx, name)
 }
 
 // LoadServices mocks base method.
@@ -273,6 +332,34 @@ func (m *MockRun) SaveDriver(ctx context.Context, name string, driver entity.Run
 func (mr *MockRunMockRecorder) SaveDriver(ctx, name, driver any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveDriver", reflect.TypeOf((*MockRun)(nil).SaveDriver), ctx, name, driver)
+}
+
+// SaveQuestion mocks base method.
+func (m *MockRun) SaveQuestion(ctx context.Context, name string, open entity.OpenQuestion) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveQuestion", ctx, name, open)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveQuestion indicates an expected call of SaveQuestion.
+func (mr *MockRunMockRecorder) SaveQuestion(ctx, name, open any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveQuestion", reflect.TypeOf((*MockRun)(nil).SaveQuestion), ctx, name, open)
+}
+
+// SaveResume mocks base method.
+func (m *MockRun) SaveResume(ctx context.Context, name string, instruction channelv1.Instruction) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveResume", ctx, name, instruction)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveResume indicates an expected call of SaveResume.
+func (mr *MockRunMockRecorder) SaveResume(ctx, name, instruction any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveResume", reflect.TypeOf((*MockRun)(nil).SaveResume), ctx, name, instruction)
 }
 
 // SaveServices mocks base method.

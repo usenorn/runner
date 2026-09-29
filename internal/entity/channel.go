@@ -91,10 +91,12 @@ const (
 	DeclineAtCapacity   DeclineReason = channelv1.DeclineAtCapacity
 	DeclineDiskPressure DeclineReason = channelv1.DeclineDiskPressure
 	DeclinePaused       DeclineReason = channelv1.DeclinePaused
+
+	DeclineRuntimeUnavailable DeclineReason = channelv1.DeclineRuntimeUnavailable
 )
 
 func DeclineReasons() []DeclineReason {
-	return []DeclineReason{DeclineAtCapacity, DeclineDiskPressure, DeclinePaused}
+	return []DeclineReason{DeclineAtCapacity, DeclineDiskPressure, DeclinePaused, DeclineRuntimeUnavailable}
 }
 
 func (r DeclineReason) Valid() bool {
@@ -114,6 +116,8 @@ func (r DeclineReason) Because(report SchedulerReport) string {
 		)
 	case DeclinePaused:
 		return "this machine has been paused and is not taking work"
+	case DeclineRuntimeUnavailable:
+		return ErrRuntimeUnavailable.Error()
 	default:
 		return string(r)
 	}

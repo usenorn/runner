@@ -3,6 +3,7 @@ package driver_test
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -209,41 +210,65 @@ func TestCarryingOnWithNoSessionToCarryOnFromIsRefusedByName(t *testing.T) {
 	}
 }
 
-func TestAnInstalledAndSignedInAgentIsReportedReadyWithItsVersionAndAccount(t *testing.T) {
+func TestAnInstalledAgentWithATokenIsReportedReadyWithItsVersion(t *testing.T) {
 	h := newHarness(t)
 
-	health := h.driver.Preflight(t.Context(), entity.DriverClaude)
+	health := h.driver.Preflight(t.Context(), entity.DriverClaude, "sk-ant-oat01-test")
 
 	if !health.Ready() {
-		t.Fatalf("an installed and signed-in agent reads %+v", health)
+		t.Fatalf("an installed agent with a token reads %+v", health)
 	}
 
 	if health.Version != "2.1.239" {
 		t.Fatalf("the agent's version came back as %q", health.Version)
 	}
+}
 
-	if health.Account != "runner@example.test" {
-		t.Fatalf("the account it is signed in as came back as %q", health.Account)
+func TestAnAgentWithNoTokenIsAProblemWithTheMachineAndSaysHowToFixIt(t *testing.T) {
+	h := newHarness(t)
+
+	health := h.driver.Preflight(t.Context(), entity.DriverClaude, "")
+
+	if health.Ready() || !health.Installed {
+		t.Fatalf("an agent that is installed but has no token reads %+v", health)
+	}
+
+	if !errors.Is(health.Fault(), entity.ErrAgentTokenMissing) {
+		t.Fatalf("an agent with no token is faulted as %v", health.Fault())
+	}
+
+	if !strings.Contains(health.Problem, "claude setup-token") {
+		t.Fatalf("nothing said how to give the agent a token: %q", health.Problem)
 	}
 }
 
-func TestAnAgentThatIsNotSignedInIsAProblemWithTheMachineAndSaysHowToFixIt(t *testing.T) {
+func TestTheAgentIsHandedTheTokenInItsEnvironmentAndNowhereElse(t *testing.T) {
 	h := newHarness(t)
 
-	t.Setenv("NORN_TEST_AUTH", write(t, h.dir, "out.json", `{"loggedIn":false}`))
+	seen := filepath.Join(h.dir, "env")
+	t.Setenv("NORN_TEST_ENV", seen)
 
-	health := h.driver.Preflight(t.Context(), entity.DriverClaude)
+	env := h.env(t, entity.ProfileStandard)
+	env.AgentToken = "sk-ant-oat01-handed"
 
-	if health.Ready() || !health.Installed {
-		t.Fatalf("an agent that is installed but signed out reads %+v", health)
+	session, err := h.driver.Start(t.Context(), env, entity.Task{Prompt: "do the work"})
+	if err != nil {
+		t.Fatalf("start the coding agent: %v", err)
 	}
 
-	if !errors.Is(health.Fault(), entity.ErrDriverSignedOut) {
-		t.Fatalf("an agent that is signed out is faulted as %v", health.Fault())
+	h.drain(t, session)
+
+	body, err := os.ReadFile(seen)
+	if err != nil {
+		t.Fatalf("read what the agent was started with: %v", err)
 	}
 
-	if !strings.Contains(health.Problem, "claude auth login") {
-		t.Fatalf("nothing said how to sign the agent in: %q", health.Problem)
+	if !strings.Contains(string(body), "CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-handed") {
+		t.Fatalf("the agent was not started with its token:\n%s", body)
+	}
+
+	if slices.ContainsFunc(h.asked(t), func(arg string) bool { return strings.Contains(arg, "sk-ant-oat01") }) {
+		t.Fatal("the token was passed on the command line, where anybody listing processes can read it")
 	}
 }
 
@@ -254,7 +279,7 @@ func TestAnAgentThatIsNotOnThisMachineIsSaidToBeMissingRatherThanSignedOut(t *te
 		t.Fatalf("take the agent off this machine: %v", err)
 	}
 
-	health := h.driver.Preflight(t.Context(), entity.DriverClaude)
+	health := h.driver.Preflight(t.Context(), entity.DriverClaude, "sk-ant-oat01-test")
 
 	if health.Installed {
 		t.Fatalf("an agent that is not installed reads %+v", health)
@@ -268,7 +293,7 @@ func TestAnAgentThatIsNotOnThisMachineIsSaidToBeMissingRatherThanSignedOut(t *te
 func TestACodingAgentThisReleaseCannotDriveIsRefusedByName(t *testing.T) {
 	h := newHarness(t)
 
-	health := h.driver.Preflight(t.Context(), entity.DriverCodex)
+	health := h.driver.Preflight(t.Context(), entity.DriverCodex, "sk-ant-oat01-test")
 
 	if health.Installed || health.Ready() {
 		t.Fatalf("a coding agent this release cannot drive reads %+v", health)

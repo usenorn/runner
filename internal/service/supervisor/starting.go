@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/repository"
@@ -233,7 +232,7 @@ func (s *servicesSupervisor) spawn(
 
 	s.forward(ctx, execution.ID, wanted.Name, entry.stream)
 
-	child, err := s.processes.Start(ctx, repository.Launch{
+	child, err := s.sandboxes.Start(ctx, execution.Sandbox(), repository.Launch{
 		Dir:         filepath.Join(execution.Directory, entity.RunWorkspaceDir, wanted.Dir),
 		Command:     wanted.Command,
 		Environment: environment(execution, wanted, ports),
@@ -273,7 +272,10 @@ func environment(
 	wanted entity.Service,
 	ports map[string]int,
 ) []string {
-	values := slices.Clone(os.Environ())
+	hostHome, _ := os.UserHomeDir()
+	values := entity.TaskEnvironment(
+		execution.Sandbox().Runtime, os.Environ(), hostHome, entity.RunHomeOf(execution.Directory), exists,
+	)
 
 	values = append(values, entity.ExecutionVariable+"="+execution.ID)
 
@@ -286,6 +288,12 @@ func environment(
 	}
 
 	return values
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+
+	return err == nil
 }
 
 func (s *servicesSupervisor) Stop(

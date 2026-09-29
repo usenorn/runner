@@ -54,7 +54,7 @@ func (s *servicesSupervisor) Step(
 
 	began := s.now()
 
-	code, err := s.processes.Run(ctx, repository.Launch{
+	code, err := s.sandboxes.Run(ctx, execution.Sandbox(), repository.Launch{
 		Dir:         filepath.Join(execution.Directory, entity.RunWorkspaceDir, dir),
 		Command:     command,
 		Environment: environment(execution, entity.Service{}, ports),

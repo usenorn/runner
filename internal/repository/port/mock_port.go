@@ -40,6 +40,21 @@ func (m *MockPort) EXPECT() *MockPortMockRecorder {
 	return m.recorder
 }
 
+// Block mocks base method.
+func (m *MockPort) Block(ctx context.Context, run string, size int) ([]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Block", ctx, run, size)
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Block indicates an expected call of Block.
+func (mr *MockPortMockRecorder) Block(ctx, run, size any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Block", reflect.TypeOf((*MockPort)(nil).Block), ctx, run, size)
+}
+
 // Held mocks base method.
 func (m *MockPort) Held(ctx context.Context, run string) (map[string]int, error) {
 	m.ctrl.T.Helper()

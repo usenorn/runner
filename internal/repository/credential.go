@@ -13,4 +13,6 @@ type Credential interface {
 	Load(ctx context.Context, store entity.Store) (entity.Credentials, error)
 	Save(ctx context.Context, store entity.Store, credentials entity.Credentials) error
 	Clear(ctx context.Context) error
+	LoadAgentToken(ctx context.Context, store entity.Store) (string, error)
+	SaveAgentToken(ctx context.Context, store entity.Store, token string) error
 }

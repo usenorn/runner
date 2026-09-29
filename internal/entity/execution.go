@@ -39,6 +39,7 @@ type Execution struct {
 	Tool         string
 	Model        string
 	Runtime      string
+	RuntimeWhy   string
 	BaseRef      string
 	IncludeDirty bool
 	Profile      string

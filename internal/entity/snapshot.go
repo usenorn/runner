@@ -108,6 +108,7 @@ type SnapshotRepository struct {
 	RelPath string
 	Kind    RepositoryKind
 	Source  string
+	Common  string
 	Path    string
 	Mode    GitMode
 	Base    BasePolicy
@@ -147,6 +148,10 @@ func BranchFor(issueKey, repository string, attempt int) string {
 	}
 
 	return branch
+}
+
+func KeptRef(run, branch string) string {
+	return "refs/" + BranchNamespace + "/kept/" + sanitiseRef(run) + "/" + branch
 }
 
 func RunNameFor(issueKey string, attempt int) string {

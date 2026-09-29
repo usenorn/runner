@@ -19,6 +19,7 @@ type Config struct {
 	Scheduler  Scheduler  `mapstructure:"scheduler"`
 	Supervisor Supervisor `mapstructure:"supervisor"`
 	Driver     Driver     `mapstructure:"driver"`
+	Docker     Docker     `mapstructure:"docker"`
 	Upload     Upload     `mapstructure:"upload"`
 	Questions  Questions  `mapstructure:"questions"`
 	Results    Results    `mapstructure:"results"`
@@ -31,6 +32,14 @@ type Driver struct {
 	StopGrace      time.Duration `mapstructure:"stop_grace"`
 	ResumeAttempts int           `mapstructure:"resume_attempts"`
 	ToolkitTimeout time.Duration `mapstructure:"toolkit_timeout"`
+}
+
+type Docker struct {
+	Image       string        `mapstructure:"image"`
+	Ports       int           `mapstructure:"ports"`
+	Timeout     time.Duration `mapstructure:"timeout"`
+	PullTimeout time.Duration `mapstructure:"pull_timeout"`
+	Bridge      string        `mapstructure:"bridge"`
 }
 
 type Results struct {

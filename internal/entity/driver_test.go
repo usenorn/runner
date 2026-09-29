@@ -62,7 +62,7 @@ func TestAWorkspaceOnMinimalKeepsItsLogsAndNotItsTranscript(t *testing.T) {
 func TestAnAgentIsOnlyReadyWhenItIsBothInstalledAndSignedIn(t *testing.T) {
 	for health, fault := range map[entity.DriverHealth]error{
 		{Installed: true, SignedIn: true}:  nil,
-		{Installed: true, SignedIn: false}: entity.ErrDriverSignedOut,
+		{Installed: true, SignedIn: false}: entity.ErrAgentTokenMissing,
 		{Installed: false}:                 entity.ErrDriverMissing,
 	} {
 		if health.Ready() != (fault == nil) {

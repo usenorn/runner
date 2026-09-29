@@ -139,17 +139,17 @@ func (m *MockDriver) EXPECT() *MockDriverMockRecorder {
 }
 
 // Preflight mocks base method.
-func (m *MockDriver) Preflight(ctx context.Context, kind entity.DriverKind) entity.DriverHealth {
+func (m *MockDriver) Preflight(ctx context.Context, kind entity.DriverKind, token string) entity.DriverHealth {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Preflight", ctx, kind)
+	ret := m.ctrl.Call(m, "Preflight", ctx, kind, token)
 	ret0, _ := ret[0].(entity.DriverHealth)
 	return ret0
 }
 
 // Preflight indicates an expected call of Preflight.
-func (mr *MockDriverMockRecorder) Preflight(ctx, kind any) *gomock.Call {
+func (mr *MockDriverMockRecorder) Preflight(ctx, kind, token any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Preflight", reflect.TypeOf((*MockDriver)(nil).Preflight), ctx, kind)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Preflight", reflect.TypeOf((*MockDriver)(nil).Preflight), ctx, kind, token)
 }
 
 // Resume mocks base method.

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
@@ -21,14 +23,27 @@ const (
 type gitWorktree struct {
 	cfg     config.Snapshot
 	results config.Results
+	locks   sync.Map
 }
 
 func New(cfg config.Snapshot, results config.Results) repository.Worktree {
 	return &gitWorktree{cfg: cfg, results: results}
 }
 
+func (r *gitWorktree) hold(repository string) func() {
+	held, _ := r.locks.LoadOrStore(filepath.Clean(repository), &sync.Mutex{})
+	lock, _ := held.(*sync.Mutex)
+	lock.Lock()
+
+	return lock.Unlock
+}
+
 func (r *gitWorktree) Head(ctx context.Context, repository string) (string, error) {
 	return r.Resolve(ctx, repository, "HEAD")
+}
+
+func (r *gitWorktree) CommonDir(ctx context.Context, repository string) (string, error) {
+	return r.run(ctx, repository, "rev-parse", "--path-format=absolute", "--git-common-dir")
 }
 
 func (r *gitWorktree) Resolve(
@@ -51,6 +66,8 @@ func (r *gitWorktree) Resolve(
 }
 
 func (r *gitWorktree) Fetch(ctx context.Context, repository, branch string) error {
+	defer r.hold(repository)()
+
 	ctx, cancel := context.WithTimeout(ctx, r.cfg.FetchTimeout)
 	defer cancel()
 
@@ -62,6 +79,8 @@ func (r *gitWorktree) Fetch(ctx context.Context, repository, branch string) erro
 }
 
 func (r *gitWorktree) Add(ctx context.Context, repository, dest, sha string) error {
+	defer r.hold(repository)()
+
 	_, err := r.run(ctx, repository, "worktree", "add", "--detach", "--quiet", dest, sha)
 
 	return err
@@ -246,6 +265,8 @@ func counted(column string) int {
 }
 
 func (r *gitWorktree) Remove(ctx context.Context, repository, dest string) error {
+	defer r.hold(repository)()
+
 	_, removed := r.run(ctx, repository, "worktree", "remove", "--force", dest)
 
 	if _, err := r.run(ctx, repository, "worktree", "prune"); err != nil {
@@ -253,6 +274,25 @@ func (r *gitWorktree) Remove(ctx context.Context, repository, dest string) error
 	}
 
 	return removed
+}
+
+func (r *gitWorktree) Keep(
+	ctx context.Context,
+	repository, dest, branch, run string,
+) (string, error) {
+	defer r.hold(repository)()
+
+	named := "refs/heads/" + branch
+	if _, err := r.run(ctx, repository, "fetch", "--no-tags", "--quiet", dest, named+":"+named); err == nil {
+		return named, nil
+	}
+
+	aside := entity.KeptRef(run, branch)
+	if _, err := r.run(ctx, repository, "fetch", "--no-tags", "--quiet", dest, "+"+named+":"+aside); err != nil {
+		return "", fmt.Errorf("keep %s from %s in %s: %w", branch, dest, repository, err)
+	}
+
+	return aside, nil
 }
 
 func (r *gitWorktree) paths(

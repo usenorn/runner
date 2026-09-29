@@ -3,6 +3,7 @@ package execution_test
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -15,19 +16,25 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
+	credentialrepo "github.com/usenorn/runner/internal/repository/credential"
 	dashboardrepo "github.com/usenorn/runner/internal/repository/dashboard"
 	diskrepo "github.com/usenorn/runner/internal/repository/disk"
 	forgerepo "github.com/usenorn/runner/internal/repository/forge"
+	identityrepo "github.com/usenorn/runner/internal/repository/identity"
 	inventoryrepo "github.com/usenorn/runner/internal/repository/inventory"
+	portrepo "github.com/usenorn/runner/internal/repository/port"
+	processrepo "github.com/usenorn/runner/internal/repository/process"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	schedulingrepo "github.com/usenorn/runner/internal/repository/scheduling"
 	settingsrepo "github.com/usenorn/runner/internal/repository/settings"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
-	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	toolkitrepo "github.com/usenorn/runner/internal/repository/toolkit"
+	uploadrepo "github.com/usenorn/runner/internal/repository/upload"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
 	"github.com/usenorn/runner/internal/service"
 	changesetsvc "github.com/usenorn/runner/internal/service/changeset"
@@ -84,7 +91,10 @@ type harness struct {
 	openErr  error
 	existing string
 
-	missing   map[string]bool
+	agentToken string
+	boxes      repository.Sandbox
+
+	bin       string
 	skillErrs map[string]error
 	nornErr   error
 	installed []string
@@ -108,7 +118,7 @@ func newHarness(t *testing.T, capacity int, watermark int64) *harness {
 		t.Fatalf("make a state directory: %v", err)
 	}
 
-	return build(t, dir, capacity, watermark, 100<<30, keeping(), config.ProfileStandard)
+	return build(t, dir, capacity, watermark, 100<<30, keeping(), config.ProfileStandard, nil)
 }
 
 func newHarnessUnder(t *testing.T, profile config.Profile) *harness {
@@ -119,7 +129,7 @@ func newHarnessUnder(t *testing.T, profile config.Profile) *harness {
 		t.Fatalf("make a state directory: %v", err)
 	}
 
-	return build(t, dir, 2, 0, 100<<30, keeping(), profile)
+	return build(t, dir, 2, 0, 100<<30, keeping(), profile, nil)
 }
 
 func newHarnessKeeping(t *testing.T, retention config.Retention) *harness {
@@ -130,7 +140,7 @@ func newHarnessKeeping(t *testing.T, retention config.Retention) *harness {
 		t.Fatalf("make a state directory: %v", err)
 	}
 
-	return build(t, dir, 2, 0, 100<<30, retention, config.ProfileStandard)
+	return build(t, dir, 2, 0, 100<<30, retention, config.ProfileStandard, nil)
 }
 
 func keeping() config.Retention {
@@ -142,10 +152,27 @@ func keeping() config.Retention {
 	}
 }
 
+func newHarnessBoxed(t *testing.T, boxes repository.Sandbox) *harness {
+	t.Helper()
+
+	dir, err := statedir.New(config.State{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("make a state directory: %v", err)
+	}
+
+	return build(t, dir, 2, 0, 100<<30, keeping(), config.ProfileStandard, boxes)
+}
+
+func buildOver(t *testing.T, first *harness, boxes repository.Sandbox) *harness {
+	t.Helper()
+
+	return build(t, first.dir, 2, 0, first.free, keeping(), config.ProfileStandard, boxes)
+}
+
 func newHarnessOver(t *testing.T, first *harness, capacity int, watermark int64) *harness {
 	t.Helper()
 
-	return build(t, first.dir, capacity, watermark, first.free, keeping(), config.ProfileStandard)
+	return build(t, first.dir, capacity, watermark, first.free, keeping(), config.ProfileStandard, nil)
 }
 
 func newHarnessOverKeeping(
@@ -155,7 +182,7 @@ func newHarnessOverKeeping(
 ) *harness {
 	t.Helper()
 
-	return build(t, first.dir, 2, 0, first.free, retention, config.ProfileStandard)
+	return build(t, first.dir, 2, 0, first.free, retention, config.ProfileStandard, nil)
 }
 
 func build(
@@ -165,12 +192,14 @@ func build(
 	watermark, free int64,
 	retention config.Retention,
 	profile config.Profile,
+	boxes repository.Sandbox,
 ) *harness {
 	t.Helper()
 
 	controller := gomock.NewController(t)
 
 	h := &harness{
+		boxes:       boxes,
 		dir:         dir,
 		runs:        runrepo.New(dir),
 		spool:       spoolrepo.New(dir),
@@ -186,7 +215,7 @@ func build(
 		worktrees:   worktreerepo.NewMockWorktree(controller),
 		forges:      forgerepo.NewMockForge(controller),
 		toolkits:    toolkitrepo.NewMockToolkit(controller),
-		missing:     map[string]bool{},
+		agentToken:  "sk-ant-oat01-test",
 		skillErrs:   map[string]error{},
 		free:        free,
 		connected:   []entity.Codebase{connected("/codebase")},
@@ -198,6 +227,11 @@ func build(
 	}
 
 	h.expect()
+	h.bin = commands(t, "pg-mcp")
+
+	if h.boxes == nil {
+		h.boxes = sandboxes(t, dir, processrepo.New())
+	}
 
 	h.uploads = uploadsvc.New(h.posts, h.runs, h.dashboard, h.sessions, config.Upload{
 		Enabled:          true,
@@ -218,6 +252,21 @@ func build(
 	)
 	h.tokens = runtokenrepo.New()
 
+	identities := identityrepo.NewMockIdentity(controller)
+	identities.EXPECT().Load(gomock.Any()).Return(entity.Identity{}, entity.ErrNotEnrolled).AnyTimes()
+
+	credentials := credentialrepo.NewMockCredential(controller)
+	credentials.EXPECT().
+		LoadAgentToken(gomock.Any(), entity.StoreKeyring).
+		DoAndReturn(func(context.Context, entity.Store) (string, error) {
+			if h.agentToken == "" {
+				return "", entity.ErrAgentTokenMissing
+			}
+
+			return h.agentToken, nil
+		}).
+		AnyTimes()
+
 	h.service = executionsvc.New(
 		h.runs,
 		h.spool,
@@ -234,6 +283,9 @@ func build(
 		h.tokens,
 		h.drivers,
 		h.toolkits,
+		h.boxes,
+		identities,
+		credentials,
 		h.sessions,
 		dir,
 		config.Runner{Capacity: capacity, Retention: retention},
@@ -280,11 +332,6 @@ func (h *harness) expect() {
 
 			return nil
 		}).
-		AnyTimes()
-
-	h.toolkits.EXPECT().
-		Installed(gomock.Any()).
-		DoAndReturn(func(command string) bool { return !h.missing[command] }).
 		AnyTimes()
 
 	h.toolkits.EXPECT().
@@ -590,6 +637,10 @@ func (h *harness) start(t *testing.T) func() {
 		h.uploads.Run(ctx)
 	}()
 
+	if err := h.service.Reclaim(ctx); err != nil {
+		t.Fatalf("reclaim the runs this machine was holding: %v", err)
+	}
+
 	go func() {
 		defer close(done)
 
@@ -774,4 +825,39 @@ func results() config.Results {
 		ForgeTimeout: time.Second,
 		MaxDiffBytes: 1 << 20,
 	}
+}
+
+func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) repository.Sandbox {
+	t.Helper()
+
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "203.0.113.1:0"})
+	if err != nil {
+		t.Fatalf("stand up a bridge no container can reach: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	return sandboxrepo.New(
+		processes,
+		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
+		dir,
+		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		bridged,
+	)
+}
+
+func commands(t *testing.T, names ...string) string {
+	t.Helper()
+
+	bin := t.TempDir()
+
+	for _, name := range names {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n"), 0o700); err != nil {
+			t.Fatalf("stand in for %s: %v", name, err)
+		}
+	}
+
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	return bin
 }

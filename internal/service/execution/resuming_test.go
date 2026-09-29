@@ -200,3 +200,140 @@ func held(reports []channelv1.Report, state channelv1.State) bool {
 
 	return false
 }
+
+func TestARunNornAskedToCarryOnWritesThatDownBeforeItGoesAnyFurther(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.drivers.scripts = []script{asking(t, h, "exec-01ABC")}
+
+	stop := h.start(t)
+
+	begun(t, h, "exec-01ABC")
+
+	h.await(t, "waited for the run to park on its question", func() bool {
+		return held(h.reports(t), channelv1.StateWaitingForInput)
+	})
+
+	stop()
+
+	instruction := channelv1.Instruction{
+		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+	}
+
+	if err := h.service.Continue(context.Background(), "exec-01ABC", instruction); err != nil {
+		t.Fatalf("ask the run to carry on: %v", err)
+	}
+
+	kept, err := h.runs.LoadResume(context.Background(), "exec-01ABC")
+	if err != nil || kept != instruction {
+		t.Fatalf(
+			"the machine kept %+v (%v) of being asked to carry on. Norn counts the message as "+
+				"delivered once this returns, so a machine that stops before the agent starts "+
+				"again would never hear it a second time",
+			kept, err,
+		)
+	}
+
+	task, err := h.runs.LoadTask(context.Background(), "exec-01ABC")
+	if err != nil || task.State != channelv1.StateQueuedForResume {
+		t.Fatalf("the run is written down as %s (%v), want %s", task.State, err, channelv1.StateQueuedForResume)
+	}
+}
+
+func TestARunWaitingOnAnAnswerSurvivesTheMachineRestartingAndCarriesOnInItsSession(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.drivers.scripts = []script{asking(t, h, "exec-01ABC")}
+
+	stop := h.start(t)
+
+	begun(t, h, "exec-01ABC")
+
+	h.await(t, "waited for the run to park on its question", func() bool {
+		return held(h.reports(t), channelv1.StateWaitingForInput)
+	})
+
+	stop()
+
+	restarted := newHarnessOver(t, h, 2, 0)
+	restarted.drivers.scripts = []script{finishes("session-01", "the work is committed")}
+
+	settled := restarted.start(t)
+	defer settled()
+
+	ctx := context.Background()
+
+	if kept := restarted.service.Report(ctx).Executions; len(kept) != 1 ||
+		kept[0].State != channelv1.StateWaitingForInput {
+		t.Fatalf(
+			"after a restart the machine holds %+v. A run waiting on a person has no process to "+
+				"lose, so a restart that throws it away costs somebody an answer they already "+
+				"gave or are about to",
+			kept,
+		)
+	}
+
+	if question, waiting := restarted.questions.Waiting("exec-01ABC"); !waiting ||
+		question.Message != stopped().Message {
+		t.Fatalf("after a restart the run is waiting=%v on %+v, want the question it asked", waiting, question)
+	}
+
+	if err := restarted.service.Continue(ctx, "exec-01ABC", channelv1.Instruction{
+		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+	}); err != nil {
+		t.Fatalf("ask the run to carry on: %v", err)
+	}
+
+	restarted.await(t, "waited for the answered run to finish", func() bool {
+		return held(restarted.reports(t), channelv1.StateFinalizing)
+	})
+
+	carried := restarted.drivers.carried()
+	if len(carried) != 1 || carried[0].ID != "session-01" {
+		t.Fatalf("after a restart the run carried on in %+v, want session-01", carried)
+	}
+
+	said := restarted.drivers.injections()
+	if len(said) != 1 || !strings.Contains(said[0], "Keep the old endpoint?") ||
+		!strings.Contains(said[0], "Remove now") {
+		t.Fatalf("after a restart the agent was told %q, want the question and its answer", said)
+	}
+}
+
+func TestARunTheMachineWasAboutToCarryOnWithIsCarriedOnAfterARestart(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.drivers.scripts = []script{asking(t, h, "exec-01ABC")}
+
+	stop := h.start(t)
+
+	begun(t, h, "exec-01ABC")
+
+	h.await(t, "waited for the run to park on its question", func() bool {
+		return held(h.reports(t), channelv1.StateWaitingForInput)
+	})
+
+	stop()
+
+	if err := h.service.Continue(context.Background(), "exec-01ABC", channelv1.Instruction{
+		Reason: channelv1.ResumeAnswer, Instruction: "Remove now", QuestionID: "q-1",
+	}); err != nil {
+		t.Fatalf("ask the run to carry on: %v", err)
+	}
+
+	restarted := newHarnessOver(t, h, 2, 0)
+	restarted.drivers.scripts = []script{finishes("session-01", "the work is committed")}
+
+	settled := restarted.start(t)
+	defer settled()
+
+	restarted.await(t, "waited for the run to carry on by itself after the restart", func() bool {
+		return held(restarted.reports(t), channelv1.StateFinalizing)
+	})
+
+	said := restarted.drivers.injections()
+	if len(said) != 1 || !strings.Contains(said[0], "Remove now") {
+		t.Fatalf(
+			"the agent was told %q. Norn delivered the answer once and counts it as heard, so "+
+				"a machine that forgets it leaves the run queued for good",
+			said,
+		)
+	}
+}

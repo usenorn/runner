@@ -13,6 +13,7 @@ const (
 	VersionPath    = "/v1/version"
 	ConnectPath    = "/v1/connect"
 	DisconnectPath = "/v1/disconnect"
+	AgentTokenPath = "/v1/agent-token"
 	InspectPath    = "/v1/inspect"
 	AcceptPath     = "/v1/inspect/accept"
 	PausePath      = "/v1/pause"
@@ -357,6 +358,14 @@ type Connected struct {
 	Session       string     `json:"session"`
 	SessionDetail string     `json:"sessionDetail,omitempty"`
 	Expires       *time.Time `json:"expires,omitempty"`
+}
+
+type AgentTokenRequest struct {
+	Token string `json:"token"`
+}
+
+type AgentTokenSaved struct {
+	Store string `json:"store"`
 }
 
 type Disconnected struct {

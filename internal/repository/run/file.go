@@ -30,6 +30,8 @@ func children(path string) []string {
 		filepath.Join(path, entity.RunMetadataDir),
 		filepath.Join(path, entity.RunLogsDir),
 		filepath.Join(path, entity.RunArtifactsDir),
+		filepath.Join(path, entity.RunHomeDir),
+		filepath.Join(path, entity.RunTmpDir),
 	}
 }
 
@@ -46,6 +48,7 @@ type storedTask struct {
 	Tool         string    `json:"tool,omitempty"`
 	Model        string    `json:"model,omitempty"`
 	Runtime      string    `json:"runtime,omitempty"`
+	RuntimeWhy   string    `json:"runtimeWhy,omitempty"`
 	BaseRef      string    `json:"baseRef,omitempty"`
 	IncludeDirty bool      `json:"includeDirty,omitempty"`
 	Profile      string    `json:"profile,omitempty"`
@@ -69,6 +72,7 @@ type storedRepository struct {
 	RelPath string       `json:"relPath"`
 	Kind    string       `json:"kind"`
 	Source  string       `json:"source"`
+	Common  string       `json:"common,omitempty"`
 	Path    string       `json:"path"`
 	Mode    string       `json:"mode"`
 	Base    string       `json:"base"`
@@ -126,7 +130,26 @@ func (r *fileRun) Open(_ context.Context, name string) (string, error) {
 		}
 	}
 
+	if err := furnish(entity.RunHomeOf(path)); err != nil {
+		return "", err
+	}
+
 	return path, nil
+}
+
+func furnish(home entity.RunHome) error {
+	hostHome, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("find the home this runner runs under: %w", err)
+	}
+
+	config := entity.TaskGitConfig(entity.HostGitConfigs(hostHome, os.Getenv("XDG_CONFIG_HOME")))
+
+	if err := os.WriteFile(home.GitConfig(), []byte(config), fileMode); err != nil {
+		return fmt.Errorf("write %s: %w", home.GitConfig(), err)
+	}
+
+	return nil
 }
 
 func (r *fileRun) Retire(_ context.Context, name string) error {
@@ -138,6 +161,8 @@ func (r *fileRun) Retire(_ context.Context, name string) error {
 		filepath.Join(path, entity.RunMetadataDir, entity.RunMCPFile),
 		filepath.Join(path, entity.RunMetadataDir, entity.RunToolkitFile),
 		filepath.Join(path, entity.RunMetadataDir, entity.RunToolkitDir),
+		filepath.Join(path, entity.RunHomeDir),
+		filepath.Join(path, entity.RunTmpDir),
 	}
 
 	for _, child := range leaving {
@@ -324,6 +349,7 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 		Tool:         held.Tool,
 		Model:        held.Model,
 		Runtime:      held.Runtime,
+		RuntimeWhy:   held.RuntimeWhy,
 		BaseRef:      held.BaseRef,
 		IncludeDirty: held.IncludeDirty,
 		Profile:      held.Profile,
@@ -351,6 +377,7 @@ func storedTaskOf(execution entity.Execution) storedTask {
 		Tool:         execution.Tool,
 		Model:        execution.Model,
 		Runtime:      execution.Runtime,
+		RuntimeWhy:   execution.RuntimeWhy,
 		BaseRef:      execution.BaseRef,
 		IncludeDirty: execution.IncludeDirty,
 		Profile:      execution.Profile,
@@ -426,6 +453,7 @@ func storedRepositoryOf(repository entity.SnapshotRepository) storedRepository {
 		RelPath: repository.RelPath,
 		Kind:    string(repository.Kind),
 		Source:  repository.Source,
+		Common:  repository.Common,
 		Path:    repository.Path,
 		Mode:    string(repository.Mode),
 		Base:    string(repository.Base),
@@ -483,6 +511,7 @@ func repositoryOf(held storedRepository) entity.SnapshotRepository {
 		RelPath: held.RelPath,
 		Kind:    entity.RepositoryKind(held.Kind),
 		Source:  held.Source,
+		Common:  held.Common,
 		Path:    held.Path,
 		Mode:    entity.GitMode(held.Mode),
 		Base:    entity.BasePolicy(held.Base),

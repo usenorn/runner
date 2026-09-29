@@ -29,17 +29,21 @@ func (f failure) Unwrap() error {
 	return f.err
 }
 
-func (s *executionsService) Run(ctx context.Context) {
+func (s *executionsService) Reclaim(ctx context.Context) error {
 	s.standing(ctx)
 
-	if err := s.reclaim(ctx); err != nil {
+	if err := s.sandboxes.Sweep(ctx); err != nil {
 		logging.From(ctx).WarnContext(
 			ctx,
-			"this machine could not read back the runs it was holding",
+			"this machine could not clear away the containers its runs left behind",
 			slog.String("error", err.Error()),
 		)
 	}
 
+	return s.reclaim(ctx)
+}
+
+func (s *executionsService) Run(ctx context.Context) {
 	var working sync.WaitGroup
 
 	working.Add(1)
@@ -61,6 +65,7 @@ func (s *executionsService) Run(ctx context.Context) {
 
 			go func() {
 				defer working.Done()
+				defer s.vacate(context.WithoutCancel(ctx), executionID)
 
 				s.prepare(ctx, executionID)
 			}()
@@ -69,9 +74,12 @@ func (s *executionsService) Run(ctx context.Context) {
 
 			go func() {
 				defer working.Done()
+				defer s.vacate(context.WithoutCancel(ctx), held.executionID)
 
 				s.resume(ctx, held)
 			}()
+		case <-s.woken:
+			s.dispatch(ctx)
 		}
 	}
 }
@@ -113,17 +121,12 @@ func (s *executionsService) reclaim(ctx context.Context) error {
 			continue
 		}
 
-		if execution.State == channelv1.StateAwaitingReview {
-			s.mu.Lock()
-			s.held[execution.ID] = execution
-			s.mu.Unlock()
+		kept, err := s.recover(ctx, execution)
+		if err != nil {
+			return err
+		}
 
-			logging.From(ctx).InfoContext(
-				ctx,
-				"a run was waiting for somebody to review it when this machine last stopped",
-				slog.String("execution_id", execution.ID),
-			)
-
+		if kept {
 			continue
 		}
 
@@ -146,6 +149,55 @@ func (s *executionsService) reclaim(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *executionsService) recover(ctx context.Context, execution entity.Execution) (bool, error) {
+	switch execution.State {
+	case channelv1.StateAwaitingReview:
+		s.hold(ctx, execution, "a run was waiting for somebody to review it when this machine last stopped")
+
+		return true, nil
+	case channelv1.StateWaitingForInput:
+		if err := s.questions.Restore(ctx, execution.ID); err != nil {
+			return false, err
+		}
+
+		s.hold(ctx, execution, "a run was waiting for somebody to answer it when this machine last stopped")
+
+		return true, nil
+	case channelv1.StateQueuedForResume:
+		instruction, err := s.runs.LoadResume(ctx, execution.ID)
+		if err != nil {
+			return false, nil
+		}
+
+		if err := s.questions.Restore(ctx, execution.ID); err != nil {
+			return false, err
+		}
+
+		s.hold(ctx, execution, "a run was about to carry on when this machine last stopped")
+
+		s.admit(ctx, resuming(execution.ID, instruction))
+
+		return true, nil
+	case channelv1.StateApproved:
+		return true, s.conclude(ctx, execution)
+	default:
+		return false, nil
+	}
+}
+
+func (s *executionsService) hold(ctx context.Context, execution entity.Execution, why string) {
+	s.mu.Lock()
+	s.held[execution.ID] = execution
+	s.mu.Unlock()
+
+	logging.From(ctx).InfoContext(
+		ctx,
+		why,
+		slog.String("execution_id", execution.ID),
+		slog.String("state", string(execution.State)),
+	)
 }
 
 func (s *executionsService) prepare(base context.Context, executionID string) {
@@ -236,9 +288,14 @@ func (s *executionsService) fill(
 		return entity.Snapshot{}, entity.RunSetup{}, err
 	}
 
-	health := s.drivers.Preflight(ctx, setup.Driver.Kind)
+	token, err := s.agentToken(ctx)
+	if err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}
+	}
 
-	if err := health.Fault(); err != nil {
+	health := s.drivers.Preflight(ctx, setup.Driver.Kind, token)
+
+	if err := health.FaultIn(execution.Sandbox().Runtime); err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}
 	}
 
@@ -258,6 +315,14 @@ func (s *executionsService) fill(
 	})
 	if err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSnapshot, err: err}
+	}
+
+	if err := s.sandboxes.Open(ctx, entity.SandboxSpecFor(execution, snapshot)); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSandbox, err: err}
+	}
+
+	if err := s.commands(ctx, execution); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepToolkit, err: err}
 	}
 
 	for _, warning := range snapshot.Warnings {
@@ -305,7 +370,7 @@ func (s *executionsService) setup(
 		Permissions: profileFor(execution, s.driver.Profile),
 		Plan:        plan,
 		Driver:      driverFor(execution, codebase),
-		Services:    runtimeFor(execution, s.runner.Runtime),
+		Services:    entity.RunServices{Runtime: entity.Runtime(execution.Runtime), Chosen: execution.RuntimeWhy},
 	}
 
 	return setup, s.runs.SaveSetup(ctx, execution.ID, setup)
@@ -384,24 +449,6 @@ func driverFor(execution entity.Execution, codebase entity.Codebase) entity.RunD
 	}
 
 	return driver
-}
-
-func runtimeFor(execution entity.Execution, asked config.Runtime) entity.RunServices {
-	if named := entity.Runtime(execution.Runtime); named.Valid() {
-		return entity.RunServices{Runtime: named, Chosen: "the delegation asked for it"}
-	}
-
-	if named := entity.Runtime(asked); named.Valid() {
-		return entity.RunServices{
-			Runtime: named, Chosen: "this machine's configuration asks for it",
-		}
-	}
-
-	return entity.RunServices{
-		Runtime: entity.RuntimeProcess,
-		Chosen: "nothing asked for anything else, and this release cannot yet read a run plan " +
-			"to know whether the services want docker",
-	}
 }
 
 func told(setup entity.RunSetup) string {

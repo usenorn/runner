@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
+
 	"github.com/usenorn/runner/internal/entity"
 )
 
@@ -29,6 +31,12 @@ type Run interface {
 	LoadServices(ctx context.Context, name string) (entity.RunServices, error)
 	SaveToolkit(ctx context.Context, name string, toolkit entity.Toolkit) error
 	LoadToolkit(ctx context.Context, name string) (entity.Toolkit, error)
+	SaveQuestion(ctx context.Context, name string, open entity.OpenQuestion) error
+	LoadQuestion(ctx context.Context, name string) (entity.OpenQuestion, error)
+	ClearQuestion(ctx context.Context, name string) error
+	SaveResume(ctx context.Context, name string, instruction channelv1.Instruction) error
+	LoadResume(ctx context.Context, name string) (channelv1.Instruction, error)
+	ClearResume(ctx context.Context, name string) error
 	Append(ctx context.Context, name string, entry entity.TimelineEntry) error
 	Timeline(ctx context.Context, name string) ([]entity.TimelineEntry, error)
 }

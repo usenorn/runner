@@ -3,10 +3,13 @@ package worktree_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -407,5 +410,121 @@ func results() config.Results {
 		PushTimeout:  60 * time.Second,
 		ForgeTimeout: 30 * time.Second,
 		MaxDiffBytes: 3 << 20,
+	}
+}
+
+func TestRunsPreparingAtOnceDoNotTripOverTheSameRepository(t *testing.T) {
+	source, _ := origin(t)
+	worktrees := maker(t)
+	base := git(t, source, "rev-parse", "HEAD")
+	root := t.TempDir()
+
+	const runs = 12
+
+	failures := make(chan error, runs)
+
+	var group sync.WaitGroup
+
+	for run := range runs {
+		group.Go(func() {
+			into := filepath.Join(root, "run-"+strconv.Itoa(run), "workspace", "runner")
+			ctx := context.Background()
+
+			if err := worktrees.Fetch(ctx, source, "main"); err != nil {
+				failures <- fmt.Errorf("run %d fetch: %w", run, err)
+
+				return
+			}
+
+			if err := worktrees.Add(ctx, source, into, base); err != nil {
+				failures <- fmt.Errorf("run %d add: %w", run, err)
+
+				return
+			}
+
+			if err := worktrees.Branch(ctx, into, "norn/NORN-226/run-"+strconv.Itoa(run)); err != nil {
+				failures <- fmt.Errorf("run %d branch: %w", run, err)
+
+				return
+			}
+
+			if err := worktrees.Remove(ctx, source, into); err != nil {
+				failures <- fmt.Errorf("run %d remove: %w", run, err)
+			}
+		})
+	}
+
+	group.Wait()
+	close(failures)
+
+	for err := range failures {
+		t.Errorf(
+			"%v. Every run on this machine shares the person's repository, and one run's "+
+				"prune or fetch must not fail another's preparation",
+			err,
+		)
+	}
+}
+
+func cloned(t *testing.T, source, branch string) string {
+	t.Helper()
+
+	into := filepath.Join(t.TempDir(), "workspace", "runner")
+	worktrees := maker(t)
+
+	if err := worktrees.Clone(context.Background(), source, into, git(t, source, "rev-parse", "HEAD")); err != nil {
+		t.Fatalf("clone %s: %v", source, err)
+	}
+
+	if err := worktrees.Branch(context.Background(), into, branch); err != nil {
+		t.Fatalf("branch the clone: %v", err)
+	}
+
+	return into
+}
+
+func TestAClonesCommitsLandOnTheirBranchInThePersonsRepository(t *testing.T) {
+	source, _ := origin(t)
+	into := cloned(t, source, "norn/NORN-226/runner")
+	made := commit(t, into, "b.txt", "two\n")
+
+	kept, err := maker(t).Keep(context.Background(), source, into, "norn/NORN-226/runner", "exec-1")
+	if err != nil {
+		t.Fatalf("keep the clone's work: %v", err)
+	}
+
+	if kept != "refs/heads/norn/NORN-226/runner" {
+		t.Fatalf("the work was kept at %s, want the branch itself", kept)
+	}
+
+	if got := git(t, source, "rev-parse", kept); got != made {
+		t.Fatalf(
+			"the branch in the person's repository is at %s, want %s. A clone's commits live "+
+				"only in its own folder, so deleting that folder without this loses them",
+			got, made,
+		)
+	}
+}
+
+func TestAClonesCommitsNeverOverwriteABranchThatMovedElsewhere(t *testing.T) {
+	source, _ := origin(t)
+	into := cloned(t, source, "norn/NORN-226/runner")
+	made := commit(t, into, "b.txt", "two\n")
+
+	git(t, source, "switch", "-q", "-c", "norn/NORN-226/runner")
+	theirs := commit(t, source, "c.txt", "somebody else's\n")
+	git(t, source, "switch", "-q", "main")
+
+	kept, err := maker(t).Keep(context.Background(), source, into, "norn/NORN-226/runner", "exec-1")
+	if err != nil {
+		t.Fatalf("keep the clone's work: %v", err)
+	}
+
+	if got := git(t, source, "rev-parse", "refs/heads/norn/NORN-226/runner"); got != theirs {
+		t.Fatalf("the branch somebody else moved is now at %s, want it left at %s", got, theirs)
+	}
+
+	if got := git(t, source, "rev-parse", kept); got != made {
+		t.Fatalf("the clone's work was kept at %s as %s, want %s", kept, got, made)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/socket"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
@@ -28,6 +29,7 @@ import (
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
 	schedulingrepo "github.com/usenorn/runner/internal/repository/scheduling"
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
@@ -163,6 +165,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 
 	dashboard := dashboardrepo.NewMockDashboard(ctrl)
 	credentials := credentialrepo.NewMockCredential(ctrl)
+	credentials.EXPECT().LoadAgentToken(gomock.Any(), gomock.Any()).Return("sk-ant-oat01-test", nil).AnyTimes()
 	identities := identityrepo.New(dir)
 
 	releases := releaserepo.NewMockRelease(ctrl)
@@ -201,6 +204,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 
 	services := supervisorsvc.New(
 		processrepo.New(),
+		sandboxes(t, dir, processrepo.New()),
 		portrepo.New(config.Runner{PortRange: [2]int{45100, 45199}}),
 		servicelogrepo.New(dir),
 		runrepo.New(dir),
@@ -235,6 +239,9 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		tokens,
 		driverStub{},
 		toolkitStub{},
+		sandboxes(t, dir, processrepo.New()),
+		identities,
+		credentials,
 		sessions,
 		dir,
 		config.Runner{Capacity: 2, Retention: keeping()},
@@ -378,7 +385,7 @@ func (toolkitStub) NornHandler(accessToken string) http.Handler {
 
 type driverStub struct{}
 
-func (driverStub) Preflight(context.Context, entity.DriverKind) entity.DriverHealth {
+func (driverStub) Preflight(context.Context, entity.DriverKind, string) entity.DriverHealth {
 	return entity.DriverHealth{
 		Kind:      entity.DriverClaude,
 		Installed: true,
@@ -448,4 +455,23 @@ func (uploadStub) Attach(
 	[]byte,
 ) (entity.ArtifactReceipt, error) {
 	return entity.ArtifactReceipt{}, nil
+}
+
+func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) repository.Sandbox {
+	t.Helper()
+
+	bridged, closeBridge, err := bridge.New(config.Docker{Bridge: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatalf("listen for containers: %v", err)
+	}
+
+	t.Cleanup(closeBridge)
+
+	return sandboxrepo.New(
+		processes,
+		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
+		dir,
+		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		bridged,
+	)
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -53,6 +54,8 @@ const (
 	defaultTunnelStreams   = 256
 
 	defaultResumeAttempts   = 1
+	defaultSandboxImage     = "ghcr.io/usenorn/runner-sandbox:latest"
+	defaultSandboxPorts     = 10
 	defaultUploadBatch      = 200
 	defaultMaxChunkBytes    = 1 << 20
 	defaultMaxArtifactBytes = 32 << 20
@@ -256,6 +259,12 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("driver.stop_grace", 15*time.Second)
 	v.SetDefault("driver.toolkit_timeout", time.Minute)
 	v.SetDefault("driver.resume_attempts", defaultResumeAttempts)
+	v.SetDefault("docker.image", defaultSandboxImage)
+	v.SetDefault("docker.ports", defaultSandboxPorts)
+	v.SetDefault("docker.timeout", 30*time.Second)
+	v.SetDefault("docker.pull_timeout", 10*time.Minute)
+	v.SetDefault("docker.bridge", "")
+
 	v.SetDefault("results.create_prs", string(PullRequestsAuto))
 	v.SetDefault("results.push_timeout", 2*time.Minute)
 	v.SetDefault("results.forge_timeout", time.Minute)
@@ -489,6 +498,10 @@ func validate(cfg Config) error {
 		return err
 	}
 
+	if err := validateDocker(cfg.Docker); err != nil {
+		return err
+	}
+
 	if err := validateUpload(cfg.Upload); err != nil {
 		return err
 	}
@@ -522,6 +535,32 @@ func validateDriver(driver Driver) error {
 
 	if driver.ResumeAttempts < 0 {
 		return fmt.Errorf("driver.resume_attempts cannot be negative")
+	}
+
+	return nil
+}
+
+func validateDocker(docker Docker) error {
+	if strings.TrimSpace(docker.Image) == "" {
+		return fmt.Errorf("docker.image must name the image a run's container starts from")
+	}
+
+	if docker.Ports < 1 {
+		return fmt.Errorf(
+			"docker.ports is %d, and a container with no published ports can serve nothing a "+
+				"preview or a health check could reach",
+			docker.Ports,
+		)
+	}
+
+	if docker.Timeout <= 0 || docker.PullTimeout <= 0 {
+		return fmt.Errorf("docker.timeout and docker.pull_timeout must both be positive")
+	}
+
+	if docker.Bridge != "" {
+		if _, _, err := net.SplitHostPort(docker.Bridge); err != nil {
+			return fmt.Errorf("docker.bridge (%q) must be a host:port to listen on: %w", docker.Bridge, err)
+		}
 	}
 
 	return nil

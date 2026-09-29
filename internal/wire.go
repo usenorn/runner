@@ -9,8 +9,10 @@ import (
 
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/control"
+	"github.com/usenorn/runner/internal/mcpbridge"
 	"github.com/usenorn/runner/internal/mcpserver"
 	"github.com/usenorn/runner/internal/observability/logging"
+	"github.com/usenorn/runner/internal/pkg/bridge"
 	"github.com/usenorn/runner/internal/pkg/buildinfo"
 	"github.com/usenorn/runner/internal/pkg/dashboardclient"
 	"github.com/usenorn/runner/internal/pkg/hostfacts"
@@ -32,6 +34,7 @@ import (
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	scannerrepo "github.com/usenorn/runner/internal/repository/scanner"
 	schedulingrepo "github.com/usenorn/runner/internal/repository/scheduling"
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
@@ -62,6 +65,7 @@ var baseSet = wire.NewSet(
 
 	statedir.Set,
 	socket.Set,
+	bridge.Set,
 	servicemanager.Set,
 	dashboardclient.Set,
 	hostfacts.Set,
@@ -84,6 +88,7 @@ var baseSet = wire.NewSet(
 	tunnelrepo.Set,
 	diskrepo.Set,
 	processrepo.Set,
+	sandboxrepo.Set,
 	portrepo.Set,
 	servicelogrepo.Set,
 	driverrepo.Set,
@@ -108,6 +113,7 @@ var baseSet = wire.NewSet(
 
 	control.Set,
 	mcpserver.Set,
+	mcpbridge.Set,
 	wire.Bind(new(http.Handler), new(*control.Server)),
 
 	NewDaemon,

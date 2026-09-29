@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/usenorn/runner/internal/config"
@@ -10,13 +11,13 @@ import (
 )
 
 type claudeDriver struct {
-	processes repository.Process
+	sandboxes repository.Sandbox
 	cfg       config.Driver
 	now       func() time.Time
 }
 
-func New(processes repository.Process, cfg config.Driver) repository.Driver {
-	return &claudeDriver{processes: processes, cfg: cfg, now: func() time.Time {
+func New(sandboxes repository.Sandbox, cfg config.Driver) repository.Driver {
+	return &claudeDriver{sandboxes: sandboxes, cfg: cfg, now: func() time.Time {
 		return time.Now().UTC()
 	}}
 }
@@ -35,10 +36,10 @@ func (r *claudeDriver) spawn(
 
 	spoken, complained := session.spoken(), session.complained()
 
-	child, err := r.processes.Start(ctx, repository.Launch{
+	child, err := r.sandboxes.Start(ctx, env.Sandbox, repository.Launch{
 		Dir:         env.Workspace,
 		Command:     args,
-		Environment: env.Environment,
+		Environment: append(slices.Clone(env.Environment), tokenVariable+"="+env.AgentToken),
 		Output:      spoken,
 		Errors:      complained,
 	})

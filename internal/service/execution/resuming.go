@@ -46,11 +46,23 @@ func (s *executionsService) Continue(
 		return nil
 	}
 
-	select {
-	case s.resuming <- resumption{executionID: executionID, instruction: instruction}:
-		return nil
-	default:
-		return fmt.Errorf("%w: %s", entity.ErrExecutionRefused, executionID)
+	if err := s.runs.SaveResume(ctx, executionID, instruction); err != nil {
+		return err
+	}
+
+	if _, err := s.queued(ctx, execution); err != nil {
+		return err
+	}
+
+	s.admit(ctx, resuming(executionID, instruction))
+
+	return nil
+}
+
+func resuming(executionID string, instruction channelv1.Instruction) admission {
+	return admission{
+		executionID: executionID,
+		resume:      &resumption{executionID: executionID, instruction: instruction},
 	}
 }
 
@@ -138,16 +150,13 @@ func (s *executionsService) carryOn(
 
 	s.restarting(execution.ID)
 
-	execution, err = s.queued(ctx, execution)
-	if err != nil {
-		return err
-	}
-
 	if err := s.move(ctx, execution, channelv1.StateRunning, resumed(instruction)); err != nil {
 		return err
 	}
 
 	execution.State = channelv1.StateRunning
+
+	s.complain(ctx, execution.ID, s.runs.ClearResume(ctx, execution.ID))
 
 	if _, err := s.uploads.Open(ctx, execution.ID); err != nil {
 		if err := s.note(ctx, execution.ID, channelv1.EventNote, quiet(err)); err != nil {
@@ -166,6 +175,10 @@ func (s *executionsService) again(
 	held resumable,
 	injected string,
 ) error {
+	if err := s.sandboxes.Open(ctx, entity.SandboxSpecFor(execution, held.snapshot)); err != nil {
+		return failure{step: entity.StepSandbox, err: err}
+	}
+
 	env, err := s.tooling(ctx, execution, held.snapshot, held.setup)
 	if err != nil {
 		return failure{step: entity.StepDriver, err: err}
@@ -226,7 +239,9 @@ func (s *executionsService) injection(
 		}))
 	}
 
-	question, answer, held := s.questions.Take(executionID)
+	question, answer, held, err := s.questions.Take(ctx, executionID)
+	s.complain(ctx, executionID, err)
+
 	if !held {
 		return strings.TrimSpace(instruction.Instruction)
 	}

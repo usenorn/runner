@@ -16,6 +16,10 @@ func (s *executionsService) approve(ctx context.Context, execution entity.Execut
 		return err
 	}
 
+	return s.conclude(ctx, execution)
+}
+
+func (s *executionsService) conclude(ctx context.Context, execution entity.Execution) error {
 	s.mu.Lock()
 	s.held[execution.ID] = execution
 	s.mu.Unlock()
@@ -32,7 +36,7 @@ func (s *executionsService) finished(ctx context.Context, executionID string) er
 	delete(s.held, executionID)
 	s.mu.Unlock()
 
-	s.questions.Forget(executionID)
+	s.complain(ctx, executionID, s.questions.Forget(context.WithoutCancel(ctx), executionID))
 	s.tokens.Release(context.WithoutCancel(ctx), executionID)
 	s.forget(executionID)
 

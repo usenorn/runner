@@ -12,6 +12,7 @@ import (
 //go:generate go tool mockgen -source=executions.go -destination=execution/mock_executions.go -package=execution -mock_names=Executions=MockExecutions
 
 type Executions interface {
+	Reclaim(ctx context.Context) error
 	Run(ctx context.Context)
 	Offer(ctx context.Context, offer channelv1.Offer) error
 	Start(ctx context.Context, executionID string, start channelv1.Start) error

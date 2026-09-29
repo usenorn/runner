@@ -18,7 +18,7 @@ type Session interface {
 }
 
 type Driver interface {
-	Preflight(ctx context.Context, kind entity.DriverKind) entity.DriverHealth
+	Preflight(ctx context.Context, kind entity.DriverKind, token string) entity.DriverHealth
 	Start(ctx context.Context, env entity.ExecEnv, task entity.Task) (Session, error)
 	Resume(
 		ctx context.Context,

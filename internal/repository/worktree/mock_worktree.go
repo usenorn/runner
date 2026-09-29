@@ -142,6 +142,21 @@ func (mr *MockWorktreeMockRecorder) Commits(ctx, dest, base any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commits", reflect.TypeOf((*MockWorktree)(nil).Commits), ctx, dest, base)
 }
 
+// CommonDir mocks base method.
+func (m *MockWorktree) CommonDir(ctx context.Context, repository string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommonDir", ctx, repository)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommonDir indicates an expected call of CommonDir.
+func (mr *MockWorktreeMockRecorder) CommonDir(ctx, repository any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommonDir", reflect.TypeOf((*MockWorktree)(nil).CommonDir), ctx, repository)
+}
+
 // Diff mocks base method.
 func (m *MockWorktree) Diff(ctx context.Context, repository string, paths []string) ([]byte, error) {
 	m.ctrl.T.Helper()
@@ -199,6 +214,21 @@ func (m *MockWorktree) Head(ctx context.Context, repository string) (string, err
 func (mr *MockWorktreeMockRecorder) Head(ctx, repository any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Head", reflect.TypeOf((*MockWorktree)(nil).Head), ctx, repository)
+}
+
+// Keep mocks base method.
+func (m *MockWorktree) Keep(ctx context.Context, repository, dest, branch, run string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Keep", ctx, repository, dest, branch, run)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Keep indicates an expected call of Keep.
+func (mr *MockWorktreeMockRecorder) Keep(ctx, repository, dest, branch, run any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Keep", reflect.TypeOf((*MockWorktree)(nil).Keep), ctx, repository, dest, branch, run)
 }
 
 // Patch mocks base method.

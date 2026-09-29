@@ -86,6 +86,10 @@ func adviceFor(err error) (int, string, string) {
 			"this machine's credentials are no longer in the store. Run 'norn runner disconnect' " +
 				"and connect again"
 
+	case errors.Is(err, entity.ErrAgentTokenMalformed):
+		return http.StatusUnprocessableEntity, ReasonRefused,
+			err.Error()
+
 	case errors.Is(err, entity.ErrEnrolmentInvalid):
 		return http.StatusUnprocessableEntity, ReasonRefused,
 			err.Error()

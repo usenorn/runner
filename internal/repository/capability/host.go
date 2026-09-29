@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -15,8 +14,6 @@ import (
 )
 
 const (
-	kvmDevice = "/dev/kvm"
-
 	gatewayHealthPath = "/__norn/healthz"
 	probeLimit        = 4 << 10
 )
@@ -75,10 +72,6 @@ func (r *hostCapability) runtimes(ctx context.Context) []entity.Runtime {
 
 	if _, ok := r.ask(ctx, "docker", "info", "--format", "{{.ServerVersion}}"); ok {
 		runtimes = append(runtimes, entity.RuntimeDocker)
-	}
-
-	if _, err := os.Stat(kvmDevice); err == nil {
-		runtimes = append(runtimes, entity.RuntimeKVM)
 	}
 
 	return runtimes

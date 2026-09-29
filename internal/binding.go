@@ -70,6 +70,21 @@ func (b *Binding) Disconnect(ctx context.Context) error {
 	return nil
 }
 
+func (b *Binding) SaveAgentToken(ctx context.Context, token string) error {
+	saved, err := b.client.SaveAgentToken(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(
+		b.out, "kept the coding agent's token in the %s; every run signs in with it\n", saved.Store,
+	); err != nil {
+		return fmt.Errorf("write the token report: %w", err)
+	}
+
+	return nil
+}
+
 func (b *Binding) sessionLine(state, detail string) error {
 	line := "session " + state
 	if detail != "" {

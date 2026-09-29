@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -21,7 +20,31 @@ import (
 const timelineToolMax = 500
 
 func (s *executionsService) Driver(ctx context.Context) entity.DriverHealth {
-	return s.drivers.Preflight(ctx, entity.DriverClaude)
+	token, err := s.agentToken(ctx)
+	if err != nil {
+		health := s.drivers.Preflight(ctx, entity.DriverClaude, "")
+		health.Problem = err.Error()
+
+		return health
+	}
+
+	return s.drivers.Preflight(ctx, entity.DriverClaude, token)
+}
+
+func (s *executionsService) agentToken(ctx context.Context) (string, error) {
+	store := entity.StoreKeyring
+
+	identity, err := s.identities.Load(ctx)
+	if err == nil && identity.Store.Valid() {
+		store = identity.Store
+	}
+
+	token, err := s.credentials.LoadAgentToken(ctx, store)
+	if errors.Is(err, entity.ErrAgentTokenMissing) {
+		return "", nil
+	}
+
+	return token, err
 }
 
 func (s *executionsService) drive(
@@ -280,17 +303,32 @@ func (s *executionsService) env(
 	token string,
 	config string,
 ) entity.ExecEnv {
-	values := slices.Clone(os.Environ())
+	values := taskEnvironment(execution)
 	values = append(values, entity.ExecutionVariable+"="+execution.ID)
 	values = append(values, entity.ExecutionTokenVariable+"="+token)
 
 	return entity.ExecEnv{
 		ExecutionID: execution.ID,
+		Sandbox:     execution.Sandbox(),
 		Workspace:   workspaceOf(execution, snapshot),
 		Environment: values,
 		MCPConfig:   config,
 		Profile:     setup.Permissions.Profile,
 	}
+}
+
+func taskEnvironment(execution entity.Execution) []string {
+	hostHome, _ := os.UserHomeDir()
+
+	return entity.TaskEnvironment(
+		execution.Sandbox().Runtime, os.Environ(), hostHome, entity.RunHomeOf(execution.Directory), exists,
+	)
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+
+	return err == nil
 }
 
 func workspaceOf(execution entity.Execution, snapshot entity.Snapshot) string {

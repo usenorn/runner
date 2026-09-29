@@ -14,7 +14,7 @@ import (
 	"github.com/usenorn/runner/internal/entity"
 )
 
-func TestAnAcceptedOfferHoldsItsSlotOnlyOnceItIsActuallyPreparing(t *testing.T) {
+func TestAnAcceptedOfferHoldsItsSlotFromTheMomentItIsAccepted(t *testing.T) {
 	h := newHarness(t, 2, 0)
 	ctx := context.Background()
 
@@ -28,8 +28,13 @@ func TestAnAcceptedOfferHoldsItsSlotOnlyOnceItIsActuallyPreparing(t *testing.T) 
 
 	report := h.service.Report(ctx)
 
-	if report.Used != 0 || len(report.Executions) != 1 {
-		t.Fatalf("a run that has only been accepted uses %d of %d slots", report.Used, report.Capacity)
+	if report.Used != 1 || len(report.Executions) != 1 {
+		t.Fatalf(
+			"a run that has been accepted uses %d of %d slots, want 1. Norn starts what a "+
+				"machine accepted, so an acceptance that holds nothing lets it offer a full "+
+				"machine more",
+			report.Used, report.Capacity,
+		)
 	}
 
 	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
@@ -236,6 +241,52 @@ func TestNornMayChangeHowMuchAMachineHoldsWithoutRestartingIt(t *testing.T) {
 
 	if capacity := h.service.Report(ctx).Capacity; capacity != 1 {
 		t.Fatalf("a capacity of nothing was accepted and left the machine at %d", capacity)
+	}
+}
+
+func TestWorkAskingForARuntimeThisMachineCannotRunIsTurnedDownSayingSo(t *testing.T) {
+	for asked, wanted := range map[string]string{
+		"kvm":    "not in kvm",
+		"docker": "docker",
+	} {
+		h := newHarness(t, 2, 0)
+		ctx := context.Background()
+
+		offer := h.offer("exec-01ABC")
+		offer.Params.Runtime = asked
+
+		if err := h.service.Offer(ctx, offer); err != nil {
+			t.Fatalf("offer: %v", err)
+		}
+
+		turned := decodeInto[channelv1.Decline](t, h.only(t, channelv1.ExecutionDeclined))
+
+		if turned.Code != string(entity.DeclineRuntimeUnavailable) || !strings.Contains(turned.Detail, wanted) {
+			t.Fatalf(
+				"work asking for %s was turned down as %+v. A run this machine would otherwise "+
+					"have run on the host, without the isolation it asked for, has to be refused "+
+					"saying why",
+				asked, turned,
+			)
+		}
+
+		if held := h.service.Report(ctx).Executions; len(held) != 0 {
+			t.Fatalf("the machine holds %+v after turning the work down", held)
+		}
+	}
+}
+
+func TestAnAcceptedRunRemembersWhichRuntimeItRunsInAndWhy(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	held := h.service.Report(ctx).Executions
+	if len(held) != 1 || held[0].Runtime != string(entity.RuntimeProcess) || held[0].RuntimeWhy == "" {
+		t.Fatalf("an accepted run reads as %+v, want it set to run as host processes with a reason", held)
 	}
 }
 
@@ -707,7 +758,7 @@ func TestWhatTheMachineSaysHelloWithNamesTheBuildAndWhatItHolds(t *testing.T) {
 
 	pulse := h.service.Pulse(ctx)
 
-	if pulse.Capacity != 3 || pulse.Used != 0 || len(pulse.Phases) != 1 {
+	if pulse.Capacity != 3 || pulse.Used != 1 || len(pulse.Phases) != 1 {
 		t.Fatalf("the heartbeat reads %+v", pulse)
 	}
 

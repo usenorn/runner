@@ -12,7 +12,7 @@ require (
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/usenorn/norn v1.16.4-0.20260929152429-488239bcc366
+	github.com/usenorn/norn v1.16.4-0.20260929202948-49ebfcf92bda
 	github.com/zalando/go-keyring v0.2.8
 	go.uber.org/mock v0.6.0
 	golang.org/x/mod v0.40.0

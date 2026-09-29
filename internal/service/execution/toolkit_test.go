@@ -171,7 +171,10 @@ func TestAServerNamedNornIsRefusedRatherThanReplacingNornsOwnTools(t *testing.T)
 
 func TestAServerWhoseCommandIsNotInstalledFailsTheRunAndSaysWhich(t *testing.T) {
 	h := newHarness(t, 2, 0)
-	h.missing["pg-mcp"] = true
+
+	if err := os.Remove(filepath.Join(h.bin, "pg-mcp")); err != nil {
+		t.Fatalf("take pg-mcp off this machine: %v", err)
+	}
 
 	stop := h.start(t)
 	defer stop()
@@ -180,8 +183,8 @@ func TestAServerWhoseCommandIsNotInstalledFailsTheRunAndSaysWhich(t *testing.T) 
 
 	h.awaitFailure(t, "the mcp server postgres", entity.ErrToolkitCommandMissing.Error())
 
-	if len(h.requests()) != 0 {
-		t.Fatalf("a workspace was copied for a run that could never start")
+	if len(h.drivers.worked()) != 0 {
+		t.Fatal("the coding agent was started without a server it was promised")
 	}
 }
 

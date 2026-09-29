@@ -340,3 +340,20 @@ func TestARunWaitingForReviewSurvivesTheMachineRestarting(t *testing.T) {
 		)
 	}
 }
+
+func TestARunApprovedJustBeforeTheMachineStoppedIsCompletedAfterItRestarts(t *testing.T) {
+	h := newHarness(t, 2, 0)
+
+	fabricate(t, h, "exec-01ABC", channelv1.StateApproved)
+
+	restarted := newHarnessOver(t, h, 2, 0)
+	settled := restarted.start(t)
+
+	defer settled()
+
+	restarted.awaitState(t, "exec-01ABC", channelv1.StateCompleted)
+
+	if kept := restarted.service.Report(context.Background()).Executions; len(kept) != 0 {
+		t.Fatalf("a run somebody approved is still held after the restart: %+v", kept)
+	}
+}

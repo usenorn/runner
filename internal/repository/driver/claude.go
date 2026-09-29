@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -13,7 +12,8 @@ import (
 )
 
 const (
-	claudeBinary = "claude"
+	claudeBinary  = "claude"
+	tokenVariable = "CLAUDE_CODE_OAUTH_TOKEN"
 
 	outputFormat = "stream-json"
 
@@ -103,13 +103,11 @@ func command(env entity.ExecEnv, task entity.Task, held entity.DriverSession, as
 	return append(args, profileFlags(env.Profile)...)
 }
 
-type account struct {
-	LoggedIn bool   `json:"loggedIn"`
-	Method   string `json:"authMethod"`
-	Email    string `json:"email"`
-}
-
-func (r *claudeDriver) Preflight(ctx context.Context, kind entity.DriverKind) entity.DriverHealth {
+func (r *claudeDriver) Preflight(
+	ctx context.Context,
+	kind entity.DriverKind,
+	token string,
+) entity.DriverHealth {
 	health := entity.DriverHealth{Kind: kind}
 
 	if kind != entity.DriverClaude {
@@ -127,26 +125,14 @@ func (r *claudeDriver) Preflight(ctx context.Context, kind entity.DriverKind) en
 	health.Installed = true
 	health.Version = versionIn(r.ask(ctx, "--version"))
 
-	var signed account
-
-	if err := json.Unmarshal([]byte(r.ask(ctx, "auth", "status", "--json")), &signed); err != nil {
-		health.Problem = entity.ErrDriverSignedOut.Error()
-
-		return health
-	}
-
-	if !signed.LoggedIn {
-		health.Problem = entity.ErrDriverSignedOut.Error()
+	if token == "" {
+		health.Problem = entity.ErrAgentTokenMissing.Error()
 
 		return health
 	}
 
 	health.SignedIn = true
-	health.Account = strings.TrimSpace(signed.Email)
-
-	if health.Account == "" {
-		health.Account = strings.TrimSpace(signed.Method)
-	}
+	health.Account = entity.AgentTokenAccount
 
 	return health
 }

@@ -11,7 +11,6 @@ import (
 
 type Toolkit interface {
 	InstallSkill(ctx context.Context, skill entity.ToolkitSkill, plugin string) error
-	Installed(command string) bool
 	ReachNorn(ctx context.Context, accessToken string) error
 	NornHandler(accessToken string) http.Handler
 }

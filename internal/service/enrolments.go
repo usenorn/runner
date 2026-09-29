@@ -24,4 +24,5 @@ type Enrolments interface {
 	Current(ctx context.Context) (entity.Identity, error)
 	Connect(ctx context.Context, input ConnectInput) (Connected, error)
 	Disconnect(ctx context.Context) (entity.Identity, error)
+	SaveAgentToken(ctx context.Context, token string) (entity.Store, error)
 }
