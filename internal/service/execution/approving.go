@@ -16,6 +16,10 @@ func (s *executionsService) approve(ctx context.Context, execution entity.Execut
 		return err
 	}
 
+	return s.conclude(ctx, execution)
+}
+
+func (s *executionsService) conclude(ctx context.Context, execution entity.Execution) error {
 	s.mu.Lock()
 	s.held[execution.ID] = execution
 	s.mu.Unlock()

@@ -109,17 +109,12 @@ func (s *executionsService) reclaim(ctx context.Context) error {
 			continue
 		}
 
-		if execution.State == channelv1.StateAwaitingReview {
-			s.mu.Lock()
-			s.held[execution.ID] = execution
-			s.mu.Unlock()
+		kept, err := s.recover(ctx, execution)
+		if err != nil {
+			return err
+		}
 
-			logging.From(ctx).InfoContext(
-				ctx,
-				"a run was waiting for somebody to review it when this machine last stopped",
-				slog.String("execution_id", execution.ID),
-			)
-
+		if kept {
 			continue
 		}
 
@@ -142,6 +137,53 @@ func (s *executionsService) reclaim(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *executionsService) recover(ctx context.Context, execution entity.Execution) (bool, error) {
+	switch execution.State {
+	case channelv1.StateAwaitingReview:
+		s.hold(ctx, execution, "a run was waiting for somebody to review it when this machine last stopped")
+
+		return true, nil
+	case channelv1.StateWaitingForInput:
+		if err := s.questions.Restore(ctx, execution.ID); err != nil {
+			return false, err
+		}
+
+		s.hold(ctx, execution, "a run was waiting for somebody to answer it when this machine last stopped")
+
+		return true, nil
+	case channelv1.StateQueuedForResume:
+		instruction, err := s.runs.LoadResume(ctx, execution.ID)
+		if err != nil {
+			return false, nil
+		}
+
+		if err := s.questions.Restore(ctx, execution.ID); err != nil {
+			return false, err
+		}
+
+		s.hold(ctx, execution, "a run was about to carry on when this machine last stopped")
+
+		return true, s.enqueue(execution.ID, instruction)
+	case channelv1.StateApproved:
+		return true, s.conclude(ctx, execution)
+	default:
+		return false, nil
+	}
+}
+
+func (s *executionsService) hold(ctx context.Context, execution entity.Execution, why string) {
+	s.mu.Lock()
+	s.held[execution.ID] = execution
+	s.mu.Unlock()
+
+	logging.From(ctx).InfoContext(
+		ctx,
+		why,
+		slog.String("execution_id", execution.ID),
+		slog.String("state", string(execution.State)),
+	)
 }
 
 func (s *executionsService) prepare(base context.Context, executionID string) {
