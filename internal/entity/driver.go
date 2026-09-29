@@ -160,6 +160,7 @@ func (h DriverHealth) Fault() error {
 
 type ExecEnv struct {
 	ExecutionID  string
+	Sandbox      Sandbox
 	AgentToken   string
 	Workspace    string
 	Environment  []string

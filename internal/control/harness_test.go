@@ -25,6 +25,7 @@ import (
 	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
 	portrepo "github.com/usenorn/runner/internal/repository/port"
 	processrepo "github.com/usenorn/runner/internal/repository/process"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
@@ -202,6 +203,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 
 	services := supervisorsvc.New(
 		processrepo.New(),
+		sandboxrepo.New(processrepo.New()),
 		portrepo.New(config.Runner{PortRange: [2]int{45100, 45199}}),
 		servicelogrepo.New(dir),
 		runrepo.New(dir),

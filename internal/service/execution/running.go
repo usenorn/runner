@@ -309,6 +309,7 @@ func (s *executionsService) env(
 
 	return entity.ExecEnv{
 		ExecutionID: execution.ID,
+		Sandbox:     execution.Sandbox(),
 		Workspace:   workspaceOf(execution, snapshot),
 		Environment: values,
 		MCPConfig:   config,

@@ -22,6 +22,7 @@ import (
 	"github.com/usenorn/runner/internal/repository"
 	portrepo "github.com/usenorn/runner/internal/repository/port"
 	processrepo "github.com/usenorn/runner/internal/repository/process"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	servicelogrepo "github.com/usenorn/runner/internal/repository/servicelog"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
@@ -77,8 +78,11 @@ func over(t *testing.T, dir *statedir.Dir, lowest int, highest int) *harness {
 		}).
 		AnyTimes()
 
+	processes := processrepo.New()
+
 	h.service = supervisorsvc.New(
-		processrepo.New(),
+		processes,
+		sandboxrepo.New(processes),
 		h.ports,
 		servicelogrepo.New(dir),
 		h.runs,

@@ -232,7 +232,7 @@ func (s *servicesSupervisor) spawn(
 
 	s.forward(ctx, execution.ID, wanted.Name, entry.stream)
 
-	child, err := s.processes.Start(ctx, repository.Launch{
+	child, err := s.sandboxes.Start(ctx, execution.Sandbox(), repository.Launch{
 		Dir:         filepath.Join(execution.Directory, entity.RunWorkspaceDir, wanted.Dir),
 		Command:     wanted.Command,
 		Environment: environment(execution, wanted, ports),

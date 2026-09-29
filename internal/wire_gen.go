@@ -33,6 +33,7 @@ import (
 	"github.com/usenorn/runner/internal/repository/release"
 	"github.com/usenorn/runner/internal/repository/run"
 	"github.com/usenorn/runner/internal/repository/runtoken"
+	"github.com/usenorn/runner/internal/repository/sandbox"
 	"github.com/usenorn/runner/internal/repository/scanner"
 	"github.com/usenorn/runner/internal/repository/scheduling"
 	"github.com/usenorn/runner/internal/repository/servicelog"
@@ -109,13 +110,14 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	repositoryMaterialiser := materialiser.New()
 	snapshots := snapshot.New(repositoryWorktree, repositoryMaterialiser, repositorySettings, repositoryInventory, repositoryRun, configSnapshot)
 	repositoryProcess := process.New()
+	repositorySandbox := sandbox.New(repositoryProcess)
 	repositoryPort := port.New(runner)
 	serviceLog := servicelog.New(dir)
 	repositoryUpload := upload.New(client, runner)
 	configUpload := config.NewUpload(configConfig)
 	uploads := upload2.New(repositoryUpload, repositoryRun, repositoryDashboard, sessions, configUpload)
 	configSupervisor := config.NewSupervisor(configConfig)
-	services := supervisor.New(repositoryProcess, repositoryPort, serviceLog, repositoryRun, repositorySpool, uploads, configSupervisor)
+	services := supervisor.New(repositoryProcess, repositorySandbox, repositoryPort, serviceLog, repositoryRun, repositorySpool, uploads, configSupervisor)
 	questions := config.NewQuestions(configConfig)
 	serviceQuestions := question.New(repositoryRun, repositorySpool, questions)
 	previews := preview.New(repositoryRun, repositorySpool)
@@ -123,7 +125,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	changeSets := changeset.New(repositoryRun, repositorySpool, repositoryWorktree, repositoryForge, uploads, results)
 	runToken := runtoken.New()
 	configDriver := config.NewDriver(configConfig)
-	repositoryDriver := driver.New(repositoryProcess, configDriver)
+	repositoryDriver := driver.New(repositorySandbox, configDriver)
 	repositoryToolkit := toolkit.New(runner, app, configDriver)
 	scheduler := config.NewScheduler(configConfig)
 	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, repositoryToolkit, repositoryIdentity, repositoryCredential, sessions, dir, runner, app, scheduler, configDriver)
@@ -349,7 +351,7 @@ func InitMCPServer(cfgFile string, overrides config.Overrides) (*mcpserver.Serve
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, port.Set, servicelog.Set, driver.Set, toolkit.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, sandbox.Set, port.Set, servicelog.Set, driver.Set, toolkit.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,

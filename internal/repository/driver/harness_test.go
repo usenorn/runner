@@ -12,6 +12,7 @@ import (
 	"github.com/usenorn/runner/internal/repository"
 	driverrepo "github.com/usenorn/runner/internal/repository/driver"
 	processrepo "github.com/usenorn/runner/internal/repository/process"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 )
 
 const fake = `#!/bin/sh
@@ -52,7 +53,7 @@ func newHarness(t *testing.T) *harness {
 	t.Setenv("NORN_TEST_STREAM", os.DevNull)
 
 	return &harness{
-		driver: driverrepo.New(processrepo.New(), settings()),
+		driver: driverrepo.New(sandboxrepo.New(processrepo.New()), settings()),
 		dir:    dir,
 		argv:   argv,
 	}

@@ -29,6 +29,7 @@ import (
 	materialiserrepo "github.com/usenorn/runner/internal/repository/materialiser"
 	portrepo "github.com/usenorn/runner/internal/repository/port"
 	processrepo "github.com/usenorn/runner/internal/repository/process"
+	sandboxrepo "github.com/usenorn/runner/internal/repository/sandbox"
 	releaserepo "github.com/usenorn/runner/internal/repository/release"
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	runtokenrepo "github.com/usenorn/runner/internal/repository/runtoken"
@@ -84,6 +85,7 @@ var baseSet = wire.NewSet(
 	tunnelrepo.Set,
 	diskrepo.Set,
 	processrepo.Set,
+	sandboxrepo.Set,
 	portrepo.Set,
 	servicelogrepo.Set,
 	driverrepo.Set,

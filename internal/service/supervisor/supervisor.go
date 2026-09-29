@@ -45,6 +45,7 @@ type run struct {
 
 type servicesSupervisor struct {
 	processes repository.Process
+	sandboxes repository.Sandbox
 	ports     repository.Port
 	logs      repository.ServiceLog
 	runs      repository.Run
@@ -59,6 +60,7 @@ type servicesSupervisor struct {
 
 func New(
 	processes repository.Process,
+	sandboxes repository.Sandbox,
 	ports repository.Port,
 	logs repository.ServiceLog,
 	runs repository.Run,
@@ -68,6 +70,7 @@ func New(
 ) service.Services {
 	return &servicesSupervisor{
 		processes: processes,
+		sandboxes: sandboxes,
 		ports:     ports,
 		logs:      logs,
 		runs:      runs,
