@@ -98,7 +98,7 @@ exit 1
 func TestABranchThatAlreadyHasAPullRequestIsAnsweredWithIt(t *testing.T) {
 	forges := fake(t, "gh", `
 if [ "$1" = "auth" ]; then exit 0; fi
-if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
+if [ "$1" = "pr" ] && [ "$2" = "list" ] && [ "$5" = "--state" ] && [ "$6" = "open" ]; then
   echo "https://github.com/usenorn/runner/pull/231"
   exit 0
 fi
@@ -124,7 +124,7 @@ exit 1
 func TestABranchWithNoPullRequestIsNotAnErrorWorthStoppingFor(t *testing.T) {
 	forges := fake(t, "gh", `
 if [ "$1" = "auth" ]; then exit 0; fi
-echo "no pull requests found for branch" >&2
+if [ "$1" = "pr" ] && [ "$2" = "list" ]; then echo "null"; exit 0; fi
 exit 1
 `)
 
@@ -141,6 +141,21 @@ exit 1
 
 	if address != "" {
 		t.Fatalf("a pull request was invented: %q", address)
+	}
+}
+
+func TestALookupThatFailsIsAnErrorRatherThanNoPullRequest(t *testing.T) {
+	forges := fake(t, "gh", `
+if [ "$1" = "auth" ]; then exit 0; fi
+echo "HTTP 502: Bad Gateway" >&2
+exit 1
+`)
+
+	if _, err := forges.Existing(context.Background(), t.TempDir(), "norn/NORN-231/runner"); err == nil {
+		t.Fatal(
+			"a lookup github never answered read as no pull request, so publishing again would " +
+				"open a second one beside the first",
+		)
 	}
 }
 
