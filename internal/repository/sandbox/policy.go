@@ -94,7 +94,7 @@ func bubblewrap(policy hostPolicy, binary string, command []string) []string {
 	}
 
 	for _, path := range policy.protected {
-		args = append(args, "--ro-bind-try", path, path)
+		args = append(args, "--ro-bind", path, path)
 	}
 
 	return append(append(args, "--"), command...)

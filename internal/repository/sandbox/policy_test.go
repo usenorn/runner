@@ -76,8 +76,12 @@ func TestBubblewrapHidesTheHomeFolderAndBindsTheProtectedFilesLast(t *testing.T)
 		t.Fatalf("the home folder is not replaced with an empty one: %v", args)
 	}
 
-	if writable < home || protected < writable || args[protected-1] != "--ro-bind-try" {
-		t.Fatalf("the git config is not bound read-only after the common dir: %v", args)
+	if writable < home || protected < writable || args[protected-1] != "--ro-bind" {
+		t.Fatalf(
+			"the git config is not bound read-only after the common dir, or a missing one would "+
+				"be skipped rather than refused: %v",
+			args,
+		)
 	}
 
 	if tail := args[len(args)-3:]; !slices.Equal(tail, []string{"--", "claude", "--print"}) {
@@ -115,5 +119,27 @@ func TestNothingOnThePathOpensTheWholeHomeFolder(t *testing.T) {
 
 	if !slices.Contains(readable, canonical(bin)) {
 		t.Fatalf("a tool folder on the path under home is no longer readable: %v", readable)
+	}
+}
+
+func TestAProtectedGitPathThatIsMissingIsCreatedSoItCanBeHeldReadOnly(t *testing.T) {
+	common := filepath.Join(t.TempDir(), ".git")
+	hooks := filepath.Join(common, "hooks")
+	worktree := filepath.Join(common, "worktrees", "api", "config.worktree")
+
+	if err := os.MkdirAll(filepath.Dir(worktree), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := materialise([]string{hooks, worktree}); err != nil {
+		t.Fatalf("materialise: %v", err)
+	}
+
+	if info, err := os.Stat(hooks); err != nil || !info.IsDir() {
+		t.Fatalf("the missing hooks folder was not created, so the agent could create it first: %v", err)
+	}
+
+	if info, err := os.Stat(worktree); err != nil || info.IsDir() || info.Size() != 0 {
+		t.Fatalf("the missing worktree config was not created empty: %v", err)
 	}
 }

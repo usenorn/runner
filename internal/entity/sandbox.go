@@ -77,6 +77,12 @@ func SandboxSpecFor(execution Execution, snapshot Snapshot) SandboxSpec {
 	}
 }
 
+const GitHooksDir = "hooks"
+
+func ProtectedFolder(path string) bool {
+	return filepath.Base(path) == GitHooksDir
+}
+
 func protectedGit(snapshot Snapshot) []string {
 	var protected []string
 
@@ -84,7 +90,7 @@ func protectedGit(snapshot Snapshot) []string {
 		if repository.Common != "" {
 			protected = append(protected,
 				filepath.Join(repository.Common, "config"),
-				filepath.Join(repository.Common, "hooks"),
+				filepath.Join(repository.Common, GitHooksDir),
 			)
 		}
 
@@ -94,7 +100,7 @@ func protectedGit(snapshot Snapshot) []string {
 				filepath.Join(repository.GitDir, "config.worktree"),
 				filepath.Join(repository.GitDir, "commondir"),
 				filepath.Join(repository.GitDir, "gitdir"),
-				filepath.Join(repository.GitDir, "hooks"),
+				filepath.Join(repository.GitDir, GitHooksDir),
 			)
 		}
 

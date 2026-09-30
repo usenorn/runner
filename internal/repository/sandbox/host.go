@@ -52,6 +52,10 @@ func (r *hostSandbox) Check(ctx context.Context, _ entity.Runtime) error {
 }
 
 func (r *hostSandbox) Open(_ context.Context, spec entity.SandboxSpec) error {
+	if err := materialise(spec.Protected); err != nil {
+		return err
+	}
+
 	policy, err := r.policyFor(spec)
 	if err != nil {
 		return err
@@ -257,6 +261,30 @@ func within(root, path string) bool {
 
 func beneath(root, path string) bool {
 	return within(root, path) && canonical(root) != canonical(path)
+}
+
+func materialise(protected []string) error {
+	for _, path := range protected {
+		if _, err := os.Lstat(path); err == nil {
+			continue
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("inspect protected %s: %w", path, err)
+		}
+
+		if entity.ProtectedFolder(path) {
+			if err := os.MkdirAll(path, 0o755); err != nil {
+				return fmt.Errorf("create protected %s: %w", path, err)
+			}
+
+			continue
+		}
+
+		if err := os.WriteFile(path, nil, 0o644); err != nil {
+			return fmt.Errorf("create protected %s: %w", path, err)
+		}
+	}
+
+	return nil
 }
 
 func exists(path string) bool {
