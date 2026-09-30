@@ -76,11 +76,15 @@ type storedRepository struct {
 	Kind    string       `json:"kind"`
 	Source  string       `json:"source"`
 	Common  string       `json:"common,omitempty"`
+	GitDir  string       `json:"gitDir,omitempty"`
 	Path    string       `json:"path"`
 	Mode    string       `json:"mode"`
 	Base    string       `json:"base"`
 	BaseSHA string       `json:"baseSha"`
 	Branch  string       `json:"branch"`
+	Remote  string       `json:"remote,omitempty"`
+	Leased  bool         `json:"leased,omitempty"`
+	Lease   string       `json:"lease,omitempty"`
 	Local   *storedPatch `json:"localChanges,omitempty"`
 }
 
@@ -463,11 +467,15 @@ func storedRepositoryOf(repository entity.SnapshotRepository) storedRepository {
 		Kind:    string(repository.Kind),
 		Source:  repository.Source,
 		Common:  repository.Common,
+		GitDir:  repository.GitDir,
 		Path:    repository.Path,
 		Mode:    string(repository.Mode),
 		Base:    string(repository.Base),
 		BaseSHA: repository.BaseSHA,
 		Branch:  repository.Branch,
+		Remote:  repository.Remote,
+		Leased:  repository.Lease.Known,
+		Lease:   repository.Lease.Tip,
 	}
 
 	if repository.Local != nil {
@@ -521,11 +529,14 @@ func repositoryOf(held storedRepository) entity.SnapshotRepository {
 		Kind:    entity.RepositoryKind(held.Kind),
 		Source:  held.Source,
 		Common:  held.Common,
+		GitDir:  held.GitDir,
 		Path:    held.Path,
 		Mode:    entity.GitMode(held.Mode),
 		Base:    entity.BasePolicy(held.Base),
 		BaseSHA: held.BaseSHA,
 		Branch:  held.Branch,
+		Remote:  held.Remote,
+		Lease:   entity.Lease{Known: held.Leased, Tip: held.Lease},
 	}
 
 	if held.Local != nil {

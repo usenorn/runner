@@ -11,6 +11,7 @@ import (
 type Worktree interface {
 	Head(ctx context.Context, repository string) (string, error)
 	CommonDir(ctx context.Context, repository string) (string, error)
+	GitDir(ctx context.Context, dest string) (string, error)
 	Resolve(ctx context.Context, repository string, revisions ...string) (string, error)
 	Fetch(ctx context.Context, repository, branch string) error
 	Add(ctx context.Context, repository, dest, sha string) error
@@ -24,6 +25,7 @@ type Worktree interface {
 	Stage(ctx context.Context, dest string, paths []string) error
 	Commit(ctx context.Context, dest, message string) (string, error)
 	Remote(ctx context.Context, repository string) (string, error)
+	RemoteTip(ctx context.Context, url, branch string) (string, error)
 	Commits(ctx context.Context, dest, base string) (int, error)
 	History(ctx context.Context, dest, base string, limit int) ([]entity.Commit, error)
 	Diffstat(ctx context.Context, dest, base string) (entity.Diffstat, error)

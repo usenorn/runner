@@ -46,6 +46,10 @@ func (r *gitWorktree) CommonDir(ctx context.Context, repository string) (string,
 	return r.run(ctx, repository, "rev-parse", "--path-format=absolute", "--git-common-dir")
 }
 
+func (r *gitWorktree) GitDir(ctx context.Context, dest string) (string, error) {
+	return r.run(ctx, dest, "rev-parse", "--path-format=absolute", "--absolute-git-dir")
+}
+
 func (r *gitWorktree) Resolve(
 	ctx context.Context,
 	repository string,
@@ -204,6 +208,20 @@ func (r *gitWorktree) Remote(ctx context.Context, repository string) (string, er
 	}
 
 	return strings.TrimSpace(url), nil
+}
+
+func (r *gitWorktree) RemoteTip(ctx context.Context, url, branch string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.cfg.FetchTimeout)
+	defer cancel()
+
+	listed, err := gitcmd.Run(ctx, "", "ls-remote", "--heads", url, "refs/heads/"+branch)
+	if err != nil {
+		return "", err
+	}
+
+	sha, _, _ := strings.Cut(listed, "\t")
+
+	return strings.TrimSpace(sha), nil
 }
 
 func (r *gitWorktree) Commits(ctx context.Context, dest, base string) (int, error) {

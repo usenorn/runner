@@ -2,6 +2,7 @@ package snapshot_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
@@ -73,5 +74,52 @@ func TestARunWithNoBranchFromNornStillGetsOne(t *testing.T) {
 				"thing that stops a run",
 			h.branched,
 		)
+	}
+}
+
+func TestTheRemoteTipIsRecordedBeforeTheAgentCanTouchAnything(t *testing.T) {
+	h := newHarness(t, defaults())
+	h.remote = "git@github.com:usenorn/norn.git"
+	h.remoteTip = "7c5d2e1b9a8f7c6d5e4b3a298f2a1c9d4b6e0a3f"
+
+	taken, err := h.service.Take(context.Background(), service.TakeRequest{
+		Path: h.root, IssueKey: "NORN-231", Attempt: 1, Branch: "rae/norn-231",
+	})
+	if err != nil {
+		t.Fatalf("take a snapshot: %v", err)
+	}
+
+	held := taken.Repositories[0]
+	if held.Remote != h.remote || !held.Lease.Known || held.Lease.Tip != h.remoteTip {
+		t.Fatalf(
+			"the snapshot recorded remote %q and lease %+v; publishing must overwrite only the "+
+				"branch as it stood before the agent ran, never whatever a person pushed since",
+			held.Remote, held.Lease,
+		)
+	}
+
+	if held.GitDir == "" {
+		t.Fatal("the snapshot has no git dir, so nothing can be kept out of the agent's reach")
+	}
+}
+
+func TestARemoteThatCannotBeAskedLeavesTheLeaseUnknownAndSaysSo(t *testing.T) {
+	h := newHarness(t, defaults())
+	h.remote = "git@github.com:usenorn/norn.git"
+	h.tipFails = errors.New("could not resolve host")
+
+	taken, err := h.service.Take(context.Background(), service.TakeRequest{
+		Path: h.root, IssueKey: "NORN-231", Attempt: 1, Branch: "rae/norn-231",
+	})
+	if err != nil {
+		t.Fatalf("a remote that cannot be reached should not stop the run: %v", err)
+	}
+
+	if taken.Repositories[0].Lease.Known {
+		t.Fatal("a lease nobody could read was recorded as known")
+	}
+
+	if len(taken.Warnings) == 0 {
+		t.Fatal("the run never said its branch will only be fast-forwarded")
 	}
 }

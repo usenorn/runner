@@ -201,6 +201,21 @@ func (mr *MockWorktreeMockRecorder) Fetch(ctx, repository, branch any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fetch", reflect.TypeOf((*MockWorktree)(nil).Fetch), ctx, repository, branch)
 }
 
+// GitDir mocks base method.
+func (m *MockWorktree) GitDir(ctx context.Context, dest string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GitDir", ctx, dest)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GitDir indicates an expected call of GitDir.
+func (mr *MockWorktreeMockRecorder) GitDir(ctx, dest any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GitDir", reflect.TypeOf((*MockWorktree)(nil).GitDir), ctx, dest)
+}
+
 // Head mocks base method.
 func (m *MockWorktree) Head(ctx context.Context, repository string) (string, error) {
 	m.ctrl.T.Helper()
@@ -288,6 +303,21 @@ func (m *MockWorktree) Remote(ctx context.Context, repository string) (string, e
 func (mr *MockWorktreeMockRecorder) Remote(ctx, repository any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remote", reflect.TypeOf((*MockWorktree)(nil).Remote), ctx, repository)
+}
+
+// RemoteTip mocks base method.
+func (m *MockWorktree) RemoteTip(ctx context.Context, url, branch string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoteTip", ctx, url, branch)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RemoteTip indicates an expected call of RemoteTip.
+func (mr *MockWorktreeMockRecorder) RemoteTip(ctx, url, branch any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteTip", reflect.TypeOf((*MockWorktree)(nil).RemoteTip), ctx, url, branch)
 }
 
 // Remove mocks base method.
