@@ -86,11 +86,11 @@ func (r *hostCapability) runtimes(ctx context.Context) []entity.Runtime {
 func (r *hostCapability) confines(ctx context.Context) bool {
 	switch runtime.GOOS {
 	case "darwin":
-		_, err := os.Stat("/usr/bin/sandbox-exec")
+		_, err := os.Stat(entity.SeatbeltBinary)
 
 		return err == nil
 	case "linux":
-		_, ok := r.ask(ctx, "bwrap", "--version")
+		_, ok := r.ask(ctx, entity.BubblewrapBinary, "--version")
 
 		return ok
 	default:

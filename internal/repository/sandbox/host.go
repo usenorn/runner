@@ -134,9 +134,9 @@ func (r *hostSandbox) confined(box entity.Sandbox, launch repository.Launch) (re
 func (r *hostSandbox) confine(policy hostPolicy, command []string) ([]string, error) {
 	switch runtime.GOOS {
 	case "darwin":
-		return append([]string{seatbeltBinary, "-p", seatbelt(policy)}, command...), nil
+		return append([]string{entity.SeatbeltBinary, "-p", seatbelt(policy)}, command...), nil
 	case "linux":
-		binary, err := exec.LookPath(bwrapBinary)
+		binary, err := exec.LookPath(entity.BubblewrapBinary)
 		if err != nil {
 			return nil, fmt.Errorf("bubblewrap is not installed: %w", err)
 		}

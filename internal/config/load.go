@@ -494,6 +494,10 @@ func validate(cfg Config) error {
 		return err
 	}
 
+	if err := validateHost(cfg.Host); err != nil {
+		return err
+	}
+
 	if err := validateUpload(cfg.Upload); err != nil {
 		return err
 	}
@@ -527,6 +531,25 @@ func validateDriver(driver Driver) error {
 
 	if driver.ResumeAttempts < 0 {
 		return fmt.Errorf("driver.resume_attempts cannot be negative")
+	}
+
+	return nil
+}
+
+func validateHost(host Host) error {
+	if host.Timeout <= 0 {
+		return fmt.Errorf("host.timeout must be positive")
+	}
+
+	for _, path := range host.Readable {
+		trimmed := strings.TrimSpace(path)
+		if trimmed != "~" && !strings.HasPrefix(trimmed, "~/") && !filepath.IsAbs(trimmed) {
+			return fmt.Errorf(
+				"host.readable entry %q must be an absolute path or start with ~/, because a "+
+					"confined run is not started from any particular folder",
+				path,
+			)
+		}
 	}
 
 	return nil

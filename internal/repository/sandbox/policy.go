@@ -5,10 +5,8 @@ import (
 )
 
 const (
-	seatbeltBinary = "/usr/bin/sandbox-exec"
-	bwrapBinary    = "bwrap"
-	dnsSocket      = "/private/var/run/mDNSResponder"
-	resolverDir    = "/run/systemd/resolve"
+	dnsSocket   = "/private/var/run/mDNSResponder"
+	resolverDir = "/run/systemd/resolve"
 )
 
 type hostPolicy struct {

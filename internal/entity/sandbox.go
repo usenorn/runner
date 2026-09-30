@@ -77,7 +77,11 @@ func SandboxSpecFor(execution Execution, snapshot Snapshot) SandboxSpec {
 	}
 }
 
-const GitHooksDir = "hooks"
+const (
+	GitHooksDir      = "hooks"
+	SeatbeltBinary   = "/usr/bin/sandbox-exec"
+	BubblewrapBinary = "bwrap"
+)
 
 func ProtectedFolder(path string) bool {
 	return filepath.Base(path) == GitHooksDir

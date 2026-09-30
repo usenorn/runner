@@ -401,12 +401,6 @@ func TestNothingLeavesTheMachineWhileTheChangesWaitForReview(t *testing.T) {
 	if len(changes.Repositories) == 0 {
 		t.Fatal("a run that committed work reported nothing to review")
 	}
-
-	for _, change := range changes.Repositories {
-		if change.PullRequest != "" {
-			t.Fatalf("%s claims a pull request before anybody approved the work", change.Repository)
-		}
-	}
 }
 
 func TestARetryPublishesOnlyWhatIsLeftAndNeverOpensASecondPullRequest(t *testing.T) {

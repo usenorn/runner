@@ -14,7 +14,6 @@ const (
 	ChangeSetRepositoryMax   = 200
 	ChangeSetBranchMax       = 255
 	ChangeSetRevisionMax     = 64
-	ChangeSetPullRequestMax  = 2000
 	ChangeSetSummaryMax      = 16000
 	ChangeSetSubjectMax      = 500
 )
@@ -54,7 +53,6 @@ type RepositoryChange struct {
 	History      []Commit
 	Diffstat     Diffstat
 	DiffArtifact string
-	PullRequest  string
 }
 
 type ChangeSet struct {
@@ -86,17 +84,16 @@ func (c ChangeSet) Wire() channelv1.ChangeSet {
 
 func (r RepositoryChange) wire() channelv1.RepoChange {
 	return channelv1.RepoChange{
-		Repository:  clip(r.Repository, ChangeSetRepositoryMax),
-		Branch:      clip(r.Branch, ChangeSetBranchMax),
-		BaseSHA:     clip(r.BaseSHA, ChangeSetRevisionMax),
-		HeadSHA:     clip(r.HeadSHA, ChangeSetRevisionMax),
-		Commits:     max(r.Commits, 0),
-		Additions:   max(r.Diffstat.Additions, 0),
-		Deletions:   max(r.Diffstat.Deletions, 0),
-		Files:       max(r.Diffstat.Files, 0),
-		Diff:        r.DiffArtifact,
-		PullRequest: clip(r.PullRequest, ChangeSetPullRequestMax),
-		History:     historyOf(r.History),
+		Repository: clip(r.Repository, ChangeSetRepositoryMax),
+		Branch:     clip(r.Branch, ChangeSetBranchMax),
+		BaseSHA:    clip(r.BaseSHA, ChangeSetRevisionMax),
+		HeadSHA:    clip(r.HeadSHA, ChangeSetRevisionMax),
+		Commits:    max(r.Commits, 0),
+		Additions:  max(r.Diffstat.Additions, 0),
+		Deletions:  max(r.Diffstat.Deletions, 0),
+		Files:      max(r.Diffstat.Files, 0),
+		Diff:       r.DiffArtifact,
+		History:    historyOf(r.History),
 	}
 }
 

@@ -113,20 +113,23 @@ func readOnlyTools() []string {
 // question asked in a headless session is a refusal: a run under it can change a file and never
 // build or commit it.
 func profileFlags(profile entity.PermissionProfile) []string {
-	flags := []string{"--settings", sandboxSettings(nil)}
-
 	switch profile {
 	case entity.ProfileStrict:
-		flags = append(flags, "--permission-mode", modeDontAsk, "--allowedTools")
+		flags := []string{"--settings", sandboxSettings(nil), "--permission-mode", modeDontAsk, "--allowedTools"}
 		flags = append(flags, readOnlyTools()...)
 
 		return append(append(flags, "--disallowedTools"), publishingTools()...)
 	case entity.ProfileUnrestricted:
-		return append(append(flags, "--permission-mode", modeBypass, "--disallowedTools"), publishingTools()...)
-	default:
-		flags = []string{"--settings", sandboxSettings(map[string]any{"autoMode": autoModeSettings()})}
+		flags := []string{"--settings", sandboxSettings(nil), "--permission-mode", modeBypass, "--disallowedTools"}
 
-		return append(append(flags, "--permission-mode", modeAuto, "--disallowedTools"), deniedTools()...)
+		return append(flags, publishingTools()...)
+	default:
+		flags := []string{
+			"--settings", sandboxSettings(map[string]any{"autoMode": autoModeSettings()}),
+			"--permission-mode", modeAuto, "--disallowedTools",
+		}
+
+		return append(flags, deniedTools()...)
 	}
 }
 

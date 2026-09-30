@@ -162,7 +162,6 @@ exit 1
 func TestAPullRequestSomebodyElseAlreadyOpenedIsUsedRatherThanReportedAsAFailure(t *testing.T) {
 	forges := fake(t, "gh", `
 if [ "$1" = "auth" ]; then exit 0; fi
-if [ "$1" = "pr" ] && [ "$2" = "view" ]; then exit 1; fi
 echo "a pull request for branch norn/NORN-54/runner already exists: https://github.com/usenorn/runner/pull/9" >&2
 exit 1
 `)
