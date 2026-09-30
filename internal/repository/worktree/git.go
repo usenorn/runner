@@ -127,7 +127,7 @@ func (r *gitWorktree) Submodules(ctx context.Context, dest string) error {
 }
 
 func (r *gitWorktree) Changed(ctx context.Context, repository string) ([]string, error) {
-	return r.paths(ctx, repository, "diff", "HEAD", "--name-only", "-z")
+	return r.paths(ctx, repository, "diff", "HEAD", "--name-only", "--no-ext-diff", "-z")
 }
 
 func (r *gitWorktree) Untracked(ctx context.Context, repository string) ([]string, error) {
@@ -143,7 +143,10 @@ func (r *gitWorktree) Diff(
 		return nil, nil
 	}
 
-	args := append([]string{"diff", "HEAD", "--binary", "--no-color", "--"}, paths...)
+	args := append(
+		[]string{"diff", "HEAD", "--binary", "--no-color", "--no-ext-diff", "--no-textconv", "--"},
+		paths...,
+	)
 
 	return r.raw(ctx, repository, args...)
 }
@@ -223,7 +226,7 @@ func (r *gitWorktree) History(
 	limit int,
 ) ([]entity.Commit, error) {
 	lines, err := gitcmd.Lines(
-		ctx, dest, "log", "--no-color", "--format=%H%x00%s", "--max-count="+strconv.Itoa(limit),
+		ctx, dest, "log", "--no-color", "--no-ext-diff", "--no-textconv", "--format=%H%x00%s", "--max-count="+strconv.Itoa(limit),
 		base+"..HEAD",
 	)
 	if err != nil {
@@ -248,7 +251,9 @@ func (r *gitWorktree) Diffstat(
 	ctx context.Context,
 	dest, base string,
 ) (entity.Diffstat, error) {
-	lines, err := gitcmd.Lines(ctx, dest, "diff", "--numstat", "--no-color", base+"..HEAD")
+	lines, err := gitcmd.Lines(
+		ctx, dest, "diff", "--numstat", "--no-color", "--no-ext-diff", "--no-textconv", base+"..HEAD",
+	)
 	if err != nil {
 		return entity.Diffstat{}, err
 	}
@@ -270,7 +275,7 @@ func (r *gitWorktree) Diffstat(
 }
 
 func (r *gitWorktree) Patch(ctx context.Context, dest, base string) ([]byte, error) {
-	return r.raw(ctx, dest, "diff", "--binary", "--no-color", base+"..HEAD")
+	return r.raw(ctx, dest, "diff", "--binary", "--no-color", "--no-ext-diff", "--no-textconv", base+"..HEAD")
 }
 
 func (r *gitWorktree) Push(ctx context.Context, dest, url, branch string) error {
