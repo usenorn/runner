@@ -44,7 +44,7 @@ func TestSeatbeltHidesTheHomeFolderButTheRunCanStillReadWhatItNeeds(t *testing.T
 
 	for _, refused := range []string{
 		`(deny network-outbound (remote unix-socket))`,
-		`(path-literal "/Users/rae/.norn/runner.sock")`,
+		`(allow network-outbound (remote unix-socket (path-literal "/Users/rae/.norn/runner.sock")))`,
 		`(global-name "com.apple.SecurityServer")`,
 		`(deny appleevent-send)`,
 	} {

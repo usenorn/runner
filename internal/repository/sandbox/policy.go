@@ -34,8 +34,9 @@ func seatbelt(policy hostPolicy) string {
 	rule(&profile, "deny", "file-write*", subpaths(policy.protected...))
 
 	profile.WriteString("(deny network-outbound (remote unix-socket))\n")
-	profile.WriteString("(allow network-outbound (remote unix-socket (path-literal " +
-		quoted(dnsSocket) + ") (path-literal " + quoted(policy.socket) + ")))\n")
+	for _, socket := range []string{dnsSocket, policy.socket} {
+		profile.WriteString("(allow network-outbound (remote unix-socket (path-literal " + quoted(socket) + ")))\n")
+	}
 	profile.WriteString("(deny mach-lookup (global-name-regex #\"^com\\.apple\\.security\") " +
 		"(global-name \"com.apple.SecurityServer\") " +
 		"(global-name \"com.apple.coreservices.launchservicesd\"))\n")

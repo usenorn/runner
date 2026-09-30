@@ -81,6 +81,13 @@ func confinedHarness(t *testing.T) confinedRun {
 		t.Fatalf("make a state directory: %v", err)
 	}
 
+	runner, err := net.Listen("unix", dir.Socket())
+	if err != nil {
+		t.Fatalf("listen on the runner's socket: %v", err)
+	}
+
+	t.Cleanup(func() { _ = runner.Close() })
+
 	common := filepath.Join(source, ".git")
 	gitDir, err := gitcmd.Run(ctx, worktree, "rev-parse", "--absolute-git-dir")
 	if err != nil {
@@ -150,6 +157,18 @@ func TestAConfinedAgentCanStillCommitOnItsBranch(t *testing.T) {
 		"git -c user.name=Agent -c user.email=agent@norn.invalid commit --quiet --no-gpg-sign -m work")
 	if code != 0 {
 		t.Fatalf("committing inside the sandbox failed (%d): %s", code, said)
+	}
+}
+
+func TestAConfinedAgentStillReachesTheRunnersOwnSocket(t *testing.T) {
+	run := confinedHarness(t)
+
+	if code, said := run.sh(t, "nc -U -w 2 "+run.sandboxes.dir.Socket()+" </dev/null"); code != 0 {
+		t.Fatalf(
+			"a confined process could not reach the runner's socket (%d): %s; norn's own tools "+
+				"reach the runner through it, so without it the agent can neither ask nor finish",
+			code, said,
+		)
 	}
 }
 
