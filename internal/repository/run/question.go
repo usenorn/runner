@@ -15,20 +15,19 @@ import (
 )
 
 type storedQuestion struct {
-	Version       int           `json:"version"`
-	Ref           string        `json:"ref"`
-	Kind          string        `json:"kind"`
-	Blocking      bool          `json:"blocking"`
-	Message       string        `json:"message"`
-	Options       []string      `json:"options,omitempty"`
-	AllowFreeText bool          `json:"allowFreeText,omitempty"`
-	Default       string        `json:"default,omitempty"`
-	Wait          time.Duration `json:"wait,omitempty"`
-	Preview       string        `json:"preview,omitempty"`
-	Files         []string      `json:"files,omitempty"`
-	Artifacts     []string      `json:"artifacts,omitempty"`
-	Asked         time.Time     `json:"asked"`
-	Answer        *storedAnswer `json:"answer,omitempty"`
+	Version   int           `json:"version"`
+	Ref       string        `json:"ref"`
+	Kind      string        `json:"kind"`
+	Blocking  bool          `json:"blocking"`
+	Message   string        `json:"message"`
+	Options   []string      `json:"options,omitempty"`
+	Default   string        `json:"default,omitempty"`
+	Wait      time.Duration `json:"wait,omitempty"`
+	Preview   string        `json:"preview,omitempty"`
+	Files     []string      `json:"files,omitempty"`
+	Artifacts []string      `json:"artifacts,omitempty"`
+	Asked     time.Time     `json:"asked"`
+	Answer    *storedAnswer `json:"answer,omitempty"`
 }
 
 type storedAnswer struct {
@@ -53,19 +52,18 @@ func (r *fileRun) SaveQuestion(_ context.Context, name string, open entity.OpenQ
 
 	asked := open.Question
 	stored := storedQuestion{
-		Version:       version,
-		Ref:           asked.Ref,
-		Kind:          string(asked.Kind),
-		Blocking:      asked.Blocking,
-		Message:       asked.Message,
-		Options:       asked.Options,
-		AllowFreeText: asked.AllowFreeText,
-		Default:       asked.Default,
-		Wait:          asked.Wait,
-		Preview:       asked.Context.Preview,
-		Files:         asked.Context.Files,
-		Artifacts:     asked.Context.Artifacts,
-		Asked:         asked.Asked,
+		Version:   version,
+		Ref:       asked.Ref,
+		Kind:      string(asked.Kind),
+		Blocking:  asked.Blocking,
+		Message:   asked.Message,
+		Options:   asked.Options,
+		Default:   asked.Default,
+		Wait:      asked.Wait,
+		Preview:   asked.Context.Preview,
+		Files:     asked.Context.Files,
+		Artifacts: asked.Context.Artifacts,
+		Asked:     asked.Asked,
 	}
 
 	if open.Answer != nil {
@@ -89,14 +87,13 @@ func (r *fileRun) LoadQuestion(_ context.Context, name string) (entity.OpenQuest
 	}
 
 	open := entity.OpenQuestion{Question: entity.Question{
-		Ref:           stored.Ref,
-		Kind:          entity.QuestionKind(stored.Kind),
-		Blocking:      stored.Blocking,
-		Message:       stored.Message,
-		Options:       stored.Options,
-		AllowFreeText: stored.AllowFreeText,
-		Default:       stored.Default,
-		Wait:          stored.Wait,
+		Ref:      stored.Ref,
+		Kind:     entity.QuestionKind(stored.Kind),
+		Blocking: stored.Blocking,
+		Message:  stored.Message,
+		Options:  stored.Options,
+		Default:  stored.Default,
+		Wait:     stored.Wait,
 		Context: entity.QuestionContext{
 			Preview:   stored.Preview,
 			Files:     stored.Files,

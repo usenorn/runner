@@ -86,11 +86,10 @@ func restarted(runs repository.Run) service.Questions {
 
 func blocking() entity.Question {
 	return entity.Question{
-		Kind:          entity.QuestionDecision,
-		Blocking:      true,
-		Message:       "Keep the old endpoint?",
-		Options:       []string{"Keep for 30 days", "Remove now"},
-		AllowFreeText: true,
+		Kind:     entity.QuestionDecision,
+		Blocking: true,
+		Message:  "Keep the old endpoint?",
+		Options:  []string{"Keep for 30 days", "Remove now"},
 	}
 }
 
@@ -247,26 +246,6 @@ func TestAQuestionTheAgentIsNotWaitingOnDoesNotStopIt(t *testing.T) {
 	}
 }
 
-func TestAQuestionNobodyCouldAnswerIsRefusedBeforeItLeavesTheMachine(t *testing.T) {
-	questions, spool, _ := newQuestions(t, time.Second)
-
-	unanswerable := blocking()
-	unanswerable.Options = nil
-	unanswerable.AllowFreeText = false
-
-	if _, err := questions.Ask(context.Background(), run, unanswerable); !errors.Is(
-		err, entity.ErrQuestionUnreachable,
-	) {
-		t.Fatalf("a question with no options and no free text was accepted, answering %v", err)
-	}
-
-	select {
-	case <-spool.sent:
-		t.Fatal("a question nobody can answer was still sent to norn")
-	default:
-	}
-}
-
 func TestAQuestionTheAgentWillNotWaitOnHasToSayWhatItDoesMeanwhile(t *testing.T) {
 	questions, _, _ := newQuestions(t, time.Second)
 
@@ -399,5 +378,17 @@ func TestAnAnswerTheRunTookIsNotHandedOutAgainAfterARestart(t *testing.T) {
 
 	if _, waiting := again.Waiting(run); waiting {
 		t.Fatal("a question the agent already carried on past came back after a restart")
+	}
+}
+
+func TestAPersonCanAlwaysAnswerInTheirOwnWordsEvenWhenOptionsAreOffered(t *testing.T) {
+	questions, spool, _ := newQuestions(t, 20*time.Millisecond)
+
+	if _, err := questions.Ask(context.Background(), run, blocking()); err != nil {
+		t.Fatalf("ask a question: %v", err)
+	}
+
+	if asked := sentQuestion(t, spool); len(asked.Options) == 0 || !asked.AllowFreeText {
+		t.Fatalf("a question offering options went out refusing a written answer: %+v", asked)
 	}
 }

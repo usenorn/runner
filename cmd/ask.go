@@ -19,7 +19,6 @@ func newAskCommand() *cobra.Command {
 		files       []string
 		waitSeconds int
 		noWait      bool
-		freeText    bool
 		asJSON      bool
 	)
 
@@ -33,14 +32,13 @@ func newAskCommand() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			request := control.QuestionRequest{
-				Kind:          kind,
-				Blocking:      fallback == "",
-				Message:       args[0],
-				Options:       options,
-				AllowFreeText: freeText,
-				Default:       fallback,
-				Preview:       preview,
-				Files:         files,
+				Kind:     kind,
+				Blocking: fallback == "",
+				Message:  args[0],
+				Options:  options,
+				Default:  fallback,
+				Preview:  preview,
+				Files:    files,
 			}
 
 			if noWait {
@@ -66,7 +64,6 @@ func newAskCommand() *cobra.Command {
 	command.Flags().StringArrayVar(&files, "file", nil, "a file this question is about (repeatable)")
 	command.Flags().IntVar(&waitSeconds, "wait", 0, "seconds to hold this turn open for an answer")
 	command.Flags().BoolVar(&noWait, "no-wait", false, "do not hold the turn open at all")
-	command.Flags().BoolVar(&freeText, "free-text", true, "accept an answer that is not one of the options")
 	command.Flags().BoolVar(&asJSON, "json", false, "print the answer as JSON")
 
 	return command

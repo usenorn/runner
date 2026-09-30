@@ -14,11 +14,10 @@ import (
 
 func stopped() entity.Question {
 	return entity.Question{
-		Kind:          entity.QuestionDecision,
-		Blocking:      true,
-		Message:       "Keep the old endpoint?",
-		Options:       []string{"Keep for 30 days", "Remove now"},
-		AllowFreeText: true,
+		Kind:     entity.QuestionDecision,
+		Blocking: true,
+		Message:  "Keep the old endpoint?",
+		Options:  []string{"Keep for 30 days", "Remove now"},
 	}
 }
 

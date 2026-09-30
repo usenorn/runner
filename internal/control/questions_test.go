@@ -16,10 +16,9 @@ func TestAQuestionNobodyAnswersComesBackTellingTheAgentToStop(t *testing.T) {
 	running(t, h, "exec-01ASK")
 
 	answered, err := h.as(t, "exec-01ASK").Ask(context.Background(), "exec-01ASK", control.QuestionRequest{
-		Blocking:      true,
-		Message:       "Keep the old endpoint?",
-		Options:       []string{"Keep for 30 days", "Remove now"},
-		AllowFreeText: true,
+		Blocking: true,
+		Message:  "Keep the old endpoint?",
+		Options:  []string{"Keep for 30 days", "Remove now"},
 	})
 	if err != nil {
 		t.Fatalf("ask a question over the socket: %v", err)
@@ -53,9 +52,8 @@ func TestAskingHoldsTheSocketOpenForAsLongAsTheDaemonHoldsTheQuestion(t *testing
 	began := time.Now()
 
 	answered, err := client.Ask(context.Background(), "exec-01PATIENT", control.QuestionRequest{
-		Blocking:      true,
-		Message:       "Keep the old endpoint?",
-		AllowFreeText: true,
+		Blocking: true,
+		Message:  "Keep the old endpoint?",
 	})
 	if err != nil {
 		t.Fatalf(
@@ -79,9 +77,8 @@ func TestAQuestionAgainstARunThisMachineIsNotHoldingIsRefused(t *testing.T) {
 	h := newHarness(t, nil)
 
 	_, err := h.as(t, "exec-01NOSUCH").Ask(context.Background(), "exec-01NOSUCH", control.QuestionRequest{
-		Blocking:      true,
-		Message:       "Keep the old endpoint?",
-		AllowFreeText: true,
+		Blocking: true,
+		Message:  "Keep the old endpoint?",
 	})
 
 	if err == nil {

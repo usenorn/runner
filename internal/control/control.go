@@ -148,16 +148,15 @@ type Health struct {
 }
 
 type QuestionRequest struct {
-	Kind          string   `json:"kind,omitempty"`
-	Blocking      bool     `json:"blocking"`
-	Message       string   `json:"message"`
-	Options       []string `json:"options,omitempty"`
-	AllowFreeText bool     `json:"allowFreeText"`
-	Default       string   `json:"default,omitempty"`
-	WaitSeconds   int      `json:"waitSeconds,omitempty"`
-	Preview       string   `json:"preview,omitempty"`
-	Files         []string `json:"files,omitempty"`
-	Artifacts     []string `json:"artifacts,omitempty"`
+	Kind        string   `json:"kind,omitempty"`
+	Blocking    bool     `json:"blocking"`
+	Message     string   `json:"message"`
+	Options     []string `json:"options,omitempty"`
+	Default     string   `json:"default,omitempty"`
+	WaitSeconds int      `json:"waitSeconds,omitempty"`
+	Preview     string   `json:"preview,omitempty"`
+	Files       []string `json:"files,omitempty"`
+	Artifacts   []string `json:"artifacts,omitempty"`
 }
 
 type QuestionAnswer struct {
