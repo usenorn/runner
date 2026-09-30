@@ -18,6 +18,9 @@ const (
 	ServiceRing     = 500
 	ServiceTailLine = 4096
 	StepTailLines   = 20
+
+	ServiceLastWordsLines = 20
+	ServiceLastWordsMax   = 300
 )
 
 var (
