@@ -54,6 +54,7 @@ type storedTask struct {
 	Profile      string    `json:"profile,omitempty"`
 	State        string    `json:"state"`
 	Stage        string    `json:"stage,omitempty"`
+	Revision     int       `json:"revision,omitempty"`
 	Lease        time.Time `json:"leaseExpiresAt,omitzero"`
 	AcceptedAt   time.Time `json:"acceptedAt"`
 	StartedAt    time.Time `json:"startedAt,omitzero"`
@@ -361,6 +362,7 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 		AcceptedAt:   held.AcceptedAt,
 		StartedAt:    held.StartedAt,
 		SettledAt:    held.SettledAt,
+		Revision:     held.Revision,
 		KeepUntil:    held.KeepUntil,
 	}, nil
 }
@@ -385,6 +387,7 @@ func storedTaskOf(execution entity.Execution) storedTask {
 		Profile:      execution.Profile,
 		State:        string(execution.State),
 		Stage:        string(execution.Stage),
+		Revision:     execution.Revision,
 		Lease:        execution.Lease,
 		AcceptedAt:   execution.AcceptedAt,
 		StartedAt:    execution.StartedAt,

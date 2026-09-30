@@ -88,6 +88,10 @@ func (settingsStub) Load(context.Context, string) (repository.CodebaseSettings, 
 
 func (settingsStub) Plan(context.Context, string) (string, error) { return "", nil }
 
+func (settingsStub) Definition(context.Context, string) (entity.PlanDefinition, error) {
+	return entity.PlanDefinition{}, nil
+}
+
 func (settingsStub) Ignores(context.Context, string) ([]entity.IgnoreRule, error) {
 	return nil, nil
 }

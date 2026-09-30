@@ -52,6 +52,7 @@ type Execution struct {
 	Directory    string
 	State        ExecutionState
 	Stage        ExecutionStage
+	Revision     int
 	Lease        time.Time
 	AcceptedAt   time.Time
 	StartedAt    time.Time
