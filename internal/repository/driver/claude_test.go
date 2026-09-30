@@ -70,6 +70,38 @@ func TestTheStandardProfileNamesTheCommandsASessionMayNotRun(t *testing.T) {
 	}
 }
 
+func TestNoProfileLetsTheAgentPublishOrReadWhatPublishes(t *testing.T) {
+	for _, profile := range []entity.PermissionProfile{
+		entity.ProfileStrict, entity.ProfileStandard, entity.ProfileUnrestricted,
+	} {
+		t.Run(string(profile), func(t *testing.T) {
+			h := newHarness(t)
+
+			h.replays(t, "clean.ndjson")
+			h.drain(t, h.start(t, profile))
+
+			asked := h.asked(t)
+
+			for _, refused := range []string{
+				"Bash(git push:*)", "Bash(gh pr:*)", "Bash(gh api:*)", "Bash(glab mr:*)",
+				"Read(~/.ssh/**)", "Edit(**/.git/hooks/**)",
+			} {
+				if !slices.Contains(asked, refused) {
+					t.Fatalf(
+						"a %s session may %s; the runner publishes only after approval, so no "+
+							"profile may hand the agent the means to do it first: %v",
+						profile, refused, asked,
+					)
+				}
+			}
+
+			if !slices.Contains(asked, `{"sandbox":{"enabled":false}}`) {
+				t.Fatalf("the agent's own sandbox was left on inside the runner's: %v", asked)
+			}
+		})
+	}
+}
+
 func TestASessionIsAskedForTheStreamNornCanReadAndOnlyTheMcpServersItWasGiven(t *testing.T) {
 	h := newHarness(t)
 
@@ -344,7 +376,7 @@ func TestAPlanningSessionRunsInPlanModeWithOnlyAskingAndProgressAllowed(t *testi
 		)
 	}
 
-	settings := `{"plansDirectory":"` + env.Plans + `"}`
+	settings := `{"plansDirectory":"` + env.Plans + `","sandbox":{"enabled":false}}`
 	if !slices.Contains(asked, settings) {
 		t.Fatalf("the plan was not pinned to %s: %v", env.Plans, asked)
 	}

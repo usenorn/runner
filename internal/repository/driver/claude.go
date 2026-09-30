@@ -29,17 +29,42 @@ const (
 var release = regexp.MustCompile(`\d+(\.\d+)+(-[0-9A-Za-z.]+)?`)
 
 func deniedTools() []string {
-	return []string{
+	return append([]string{
 		"Bash(rm:*)",
 		"Bash(sudo:*)",
 		"Bash(shutdown:*)",
 		"Bash(reboot:*)",
 		"Bash(mkfs:*)",
 		"Bash(dd:*)",
+	}, publishingTools()...)
+}
+
+func publishingTools() []string {
+	return []string{
 		"Bash(git push:*)",
-		"Bash(gh pr create:*)",
+		"Bash(gh pr:*)",
+		"Bash(gh api:*)",
 		"Bash(gh release:*)",
+		"Bash(glab mr:*)",
+		"Bash(glab api:*)",
+		"Read(~/.ssh/**)",
+		"Read(~/.config/gh/**)",
+		"Read(~/.config/glab-cli/**)",
+		"Edit(**/.git/config)",
+		"Edit(**/.git/hooks/**)",
 	}
+}
+
+func sandboxSettings(extra map[string]any) string {
+	settings := map[string]any{"sandbox": map[string]any{"enabled": false}}
+
+	for key, value := range extra {
+		settings[key] = value
+	}
+
+	encoded, _ := json.Marshal(settings)
+
+	return string(encoded)
 }
 
 func planningTools() []string {
@@ -50,10 +75,12 @@ func planningTools() []string {
 }
 
 func planningFlags(plans string) []string {
-	settings, _ := json.Marshal(map[string]string{"plansDirectory": plans})
-
 	return append(
-		[]string{"--permission-mode", modePlan, "--settings", string(settings), "--allowedTools"},
+		[]string{
+			"--permission-mode", modePlan,
+			"--settings", sandboxSettings(map[string]any{"plansDirectory": plans}),
+			"--allowedTools",
+		},
 		planningTools()...,
 	)
 }
@@ -67,17 +94,18 @@ func readOnlyTools() []string {
 // question asked in a headless session is a refusal: a run under it can change a file and never
 // build or commit it.
 func profileFlags(profile entity.PermissionProfile) []string {
+	flags := []string{"--settings", sandboxSettings(nil)}
+
 	switch profile {
 	case entity.ProfileStrict:
-		return append(
-			[]string{"--permission-mode", modeDontAsk, "--allowedTools"}, readOnlyTools()...,
-		)
+		flags = append(flags, "--permission-mode", modeDontAsk, "--allowedTools")
+		flags = append(flags, readOnlyTools()...)
+
+		return append(append(flags, "--disallowedTools"), publishingTools()...)
 	case entity.ProfileUnrestricted:
-		return []string{"--permission-mode", modeBypass}
-	case entity.ProfileStandard:
-		return append([]string{"--permission-mode", modeAuto, "--disallowedTools"}, deniedTools()...)
+		return append(append(flags, "--permission-mode", modeBypass, "--disallowedTools"), publishingTools()...)
 	default:
-		return append([]string{"--permission-mode", modeAuto, "--disallowedTools"}, deniedTools()...)
+		return append(append(flags, "--permission-mode", modeAuto, "--disallowedTools"), deniedTools()...)
 	}
 }
 
