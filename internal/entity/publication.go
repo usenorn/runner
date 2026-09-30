@@ -12,21 +12,21 @@ import (
 
 const (
 	RunReviewFile      = "review.json"
+	RunApprovalFile    = "approval.json"
 	RunPublicationFile = "publish.json"
 )
 
 var (
-	ErrApprovalNotReviewing = errors.New("this run is not waiting on a review")
-	ErrApprovalStale        = errors.New("the approval names changes other than the ones this run holds")
-	ErrApprovalMoved        = errors.New("a branch moved on after its changes were reviewed")
-	ErrReviewMissing        = errors.New("this run never wrote down what was reviewed")
+	ErrApprovalStale   = errors.New("the approval names changes other than the ones this run holds")
+	ErrApprovalMoved   = errors.New("a branch moved on after its changes were reviewed")
+	ErrApprovalMissing = errors.New("this run never wrote down which changes were approved")
+	ErrReviewMissing   = errors.New("this run never wrote down what was reviewed")
 )
 
 type ReviewedRepository struct {
 	Name    string
 	Branch  string
 	Path    string
-	BaseSHA string
 	HeadSHA string
 	Remote  string
 	Lease   Lease
@@ -59,7 +59,6 @@ func ReviewOf(
 			Name:    change.Repository,
 			Branch:  change.Branch,
 			Path:    source.Path,
-			BaseSHA: change.BaseSHA,
 			HeadSHA: change.HeadSHA,
 			Remote:  source.Remote,
 			Lease:   source.Lease,

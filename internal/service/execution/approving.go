@@ -26,10 +26,9 @@ func (s *executionsService) approving(
 
 	allowed := execution.State == channelv1.StateAwaitingReview ||
 		(instruction.Reason == channelv1.ResumePublish && execution.State == channelv1.StateApproved)
+	s.mu.Unlock()
 
-	if !allowed || s.publishing[executionID] {
-		s.mu.Unlock()
-
+	if !allowed || !s.startPublishing(ctx, publishJob{executionID: executionID, approval: &instruction}) {
 		logging.From(ctx).InfoContext(
 			ctx,
 			"norn asked this machine to publish a run that is not waiting to be published",
@@ -37,16 +36,25 @@ func (s *executionsService) approving(
 			slog.String("state", string(execution.State)),
 			slog.String("reason", instruction.Reason),
 		)
-
-		return nil
 	}
 
-	s.publishing[executionID] = true
+	return nil
+}
+
+func (s *executionsService) startPublishing(ctx context.Context, job publishJob) bool {
+	s.mu.Lock()
+	if s.publishing[job.executionID] {
+		s.mu.Unlock()
+
+		return false
+	}
+
+	s.publishing[job.executionID] = true
 	s.mu.Unlock()
 
-	s.enqueuePublish(ctx, publishJob{executionID: executionID, approval: &instruction})
+	s.enqueuePublish(ctx, job)
 
-	return nil
+	return true
 }
 
 func (s *executionsService) enqueuePublish(ctx context.Context, job publishJob) {
@@ -93,15 +101,30 @@ func (s *executionsService) publishApproved(
 		return s.fail(ctx, execution, entity.Failure(entity.StepPublish, err))
 	}
 
-	if approval != nil {
-		live, err := s.changesets.Tips(ctx, review)
+	if approval == nil {
+		stored, err := s.runs.LoadApproval(ctx, execution.ID)
+		if errors.Is(err, entity.ErrApprovalMissing) {
+			return s.refuse(ctx, execution, review, err)
+		}
+
 		if err != nil {
 			return s.fail(ctx, execution, entity.Failure(entity.StepPublish, err))
 		}
 
-		if refusal := entity.ApprovalRefusal(review, *approval, live); refusal != nil {
-			return s.refuse(ctx, execution, review, refusal)
-		}
+		approval = &stored
+	}
+
+	live, err := s.changesets.Tips(ctx, review)
+	if err != nil {
+		return s.fail(ctx, execution, entity.Failure(entity.StepPublish, err))
+	}
+
+	if refusal := entity.ApprovalRefusal(review, *approval, live); refusal != nil {
+		return s.refuse(ctx, execution, review, refusal)
+	}
+
+	if err := s.runs.SaveApproval(ctx, execution.ID, *approval); err != nil {
+		return s.fail(ctx, execution, entity.Failure(entity.StepPublish, err))
 	}
 
 	if execution.State != channelv1.StateApproved {
@@ -118,7 +141,7 @@ func (s *executionsService) publishApproved(
 		return s.fail(ctx, execution, entity.Failure(entity.StepPublish, err))
 	}
 
-	if failed := publication.Failures(); len(failed) > 0 || !publication.Complete() {
+	if failed := publication.Failures(); len(failed) > 0 {
 		return s.note(ctx, execution.ID, channelv1.EventNote, entity.PublicationIncomplete(failed))
 	}
 
@@ -131,14 +154,12 @@ func (s *executionsService) refuse(
 	review entity.Review,
 	refusal error,
 ) error {
-	if execution.State != channelv1.StateAwaitingReview {
-		return s.note(ctx, execution.ID, channelv1.EventNote, entity.ApprovalRefused(refusal))
-	}
+	if execution.State != channelv1.StateApproved {
+		execution.State = channelv1.StateApproved
 
-	execution.State = channelv1.StateApproved
-
-	if err := s.keep(ctx, execution); err != nil {
-		return err
+		if err := s.keep(ctx, execution); err != nil {
+			return err
+		}
 	}
 
 	err := s.review(
@@ -157,10 +178,14 @@ func (s *executionsService) refuse(
 func (s *executionsService) abandon(ctx context.Context, executionID string) error {
 	s.mu.Lock()
 	execution, holding := s.held[executionID]
-	busy := s.publishing[executionID]
+	claimed := holding && !s.publishing[executionID] && execution.State == channelv1.StateApproved
+
+	if claimed {
+		s.publishing[executionID] = true
+	}
 	s.mu.Unlock()
 
-	if !holding || busy || execution.State != channelv1.StateApproved {
+	if !claimed {
 		logging.From(ctx).InfoContext(
 			ctx,
 			"norn asked this machine to give up on a publication it is not holding",
@@ -170,6 +195,12 @@ func (s *executionsService) abandon(ctx context.Context, executionID string) err
 
 		return nil
 	}
+
+	defer func() {
+		s.mu.Lock()
+		delete(s.publishing, executionID)
+		s.mu.Unlock()
+	}()
 
 	if err := s.move(ctx, execution, channelv1.StateFailed, entity.PublicationAbandoned()); err != nil {
 		return err

@@ -259,3 +259,9 @@ func (runStub) SavePublication(context.Context, string, entity.Publication) erro
 func (runStub) LoadPublication(context.Context, string) (entity.Publication, error) {
 	return entity.Publication{}, nil
 }
+
+func (runStub) SaveApproval(context.Context, string, channelv1.Instruction) error { return nil }
+
+func (runStub) LoadApproval(context.Context, string) (channelv1.Instruction, error) {
+	return channelv1.Instruction{}, entity.ErrApprovalMissing
+}

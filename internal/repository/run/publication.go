@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
+
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 )
@@ -16,7 +18,6 @@ type storedReviewed struct {
 	Name    string `json:"name"`
 	Branch  string `json:"branch"`
 	Path    string `json:"path"`
-	BaseSHA string `json:"baseSha"`
 	HeadSHA string `json:"headSha"`
 	Remote  string `json:"remote,omitempty"`
 	Leased  bool   `json:"leased,omitempty"`
@@ -59,7 +60,6 @@ func (r *fileRun) SaveReview(_ context.Context, name string, review entity.Revie
 			Name:    repository.Name,
 			Branch:  repository.Branch,
 			Path:    repository.Path,
-			BaseSHA: repository.BaseSHA,
 			HeadSHA: repository.HeadSHA,
 			Remote:  repository.Remote,
 			Leased:  repository.Lease.Known,
@@ -88,7 +88,6 @@ func (r *fileRun) LoadReview(_ context.Context, name string) (entity.Review, err
 			Name:    repository.Name,
 			Branch:  repository.Branch,
 			Path:    repository.Path,
-			BaseSHA: repository.BaseSHA,
 			HeadSHA: repository.HeadSHA,
 			Remote:  repository.Remote,
 			Lease:   entity.Lease{Known: repository.Leased, Tip: repository.Lease},
@@ -96,6 +95,32 @@ func (r *fileRun) LoadReview(_ context.Context, name string) (entity.Review, err
 	}
 
 	return review, nil
+}
+
+type storedApproval struct {
+	Version  int               `json:"version"`
+	Revision int               `json:"revision"`
+	Heads    map[string]string `json:"heads"`
+}
+
+func (r *fileRun) SaveApproval(_ context.Context, name string, approval channelv1.Instruction) error {
+	return r.keep(name, entity.RunApprovalFile, storedApproval{
+		Version: version, Revision: approval.Revision, Heads: approval.Heads,
+	})
+}
+
+func (r *fileRun) LoadApproval(_ context.Context, name string) (channelv1.Instruction, error) {
+	var stored storedApproval
+
+	if err := readInto(r.metadataPath(name, entity.RunApprovalFile), &stored); err != nil {
+		if errors.Is(err, entity.ErrSnapshotMissing) {
+			return channelv1.Instruction{}, entity.ErrApprovalMissing
+		}
+
+		return channelv1.Instruction{}, err
+	}
+
+	return channelv1.Instruction{Revision: stored.Revision, Heads: stored.Heads}, nil
 }
 
 func (r *fileRun) SavePublication(_ context.Context, name string, publication entity.Publication) error {

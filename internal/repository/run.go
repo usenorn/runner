@@ -40,6 +40,8 @@ type Run interface {
 	ClearResume(ctx context.Context, name string) error
 	SaveReview(ctx context.Context, name string, review entity.Review) error
 	LoadReview(ctx context.Context, name string) (entity.Review, error)
+	SaveApproval(ctx context.Context, name string, approval channelv1.Instruction) error
+	LoadApproval(ctx context.Context, name string) (channelv1.Instruction, error)
 	SavePublication(ctx context.Context, name string, publication entity.Publication) error
 	LoadPublication(ctx context.Context, name string) (entity.Publication, error)
 	Append(ctx context.Context, name string, entry entity.TimelineEntry) error

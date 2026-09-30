@@ -195,11 +195,7 @@ func (s *executionsService) recover(ctx context.Context, execution entity.Execut
 	case channelv1.StateApproved:
 		s.hold(ctx, execution, "a run was approved and still to be published when this machine last stopped")
 
-		s.mu.Lock()
-		s.publishing[execution.ID] = true
-		s.mu.Unlock()
-
-		s.enqueuePublish(ctx, publishJob{executionID: execution.ID})
+		s.startPublishing(ctx, publishJob{executionID: execution.ID})
 
 		return true, nil
 	default:
