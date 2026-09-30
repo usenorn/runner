@@ -76,12 +76,13 @@ func ambient() []string {
 		"CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN",
 		"SSH_AUTH_SOCK", "SSH_AGENT_PID", "SSH_ASKPASS", "GIT_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND",
 		"GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
-		"GITLAB_TOKEN", "GLAB_TOKEN", "BITBUCKET_TOKEN",
+		"GITLAB_TOKEN", "GLAB_TOKEN", "BITBUCKET_TOKEN", "CI_JOB_TOKEN",
+		"NPM_TOKEN", "NODE_AUTH_TOKEN", "CARGO_REGISTRY_TOKEN", "TWINE_USERNAME", "TWINE_PASSWORD",
 	}
 }
 
 func ambientPrefixes() []string {
-	return []string{"XDG_", "NORN_", "GIT_CONFIG_"}
+	return []string{"XDG_", "NORN_", "GIT_CONFIG_", "AWS_"}
 }
 
 func TaskEnvironment(
@@ -130,24 +131,30 @@ func hasAnyPrefix(name string, prefixes []string) bool {
 	return false
 }
 
-func HostGitConfigs(hostHome, hostConfigHome string) []string {
-	if hostConfigHome == "" {
-		hostConfigHome = filepath.Join(hostHome, ".config")
-	}
-
-	return []string{filepath.Join(hostConfigHome, "git", "config"), filepath.Join(hostHome, GitConfigFile)}
+type GitIdentity struct {
+	Name  string
+	Email string
 }
 
-func TaskGitConfig(includes []string) string {
+func TaskGitConfig(identity GitIdentity) string {
 	var config strings.Builder
 
-	config.WriteString("[include]\n")
-
-	for _, path := range includes {
-		config.WriteString("\tpath = " + path + "\n")
+	if identity.Name != "" || identity.Email != "" {
+		config.WriteString("[user]\n")
+		writeGitValue(&config, "name", identity.Name)
+		writeGitValue(&config, "email", identity.Email)
 	}
 
 	config.WriteString("[credential]\n\thelper =\n")
 
 	return config.String()
+}
+
+func writeGitValue(config *strings.Builder, key, value string) {
+	if value == "" {
+		return
+	}
+
+	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", " ").Replace(value)
+	config.WriteString("\t" + key + " = \"" + escaped + "\"\n")
 }

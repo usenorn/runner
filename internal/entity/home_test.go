@@ -96,12 +96,12 @@ func TestATaskStillFindsTheToolchainsInstalledUnderThePersonsHome(t *testing.T) 
 	}
 }
 
-func TestATasksGitConfigKeepsThePersonsSettingsButNoneOfTheirCredentialHelpers(t *testing.T) {
-	config := entity.TaskGitConfig(entity.HostGitConfigs("/Users/vlad", ""))
+func TestATasksGitConfigSignsAsThePersonAndReachesNothingElseOfTheirs(t *testing.T) {
+	config := entity.TaskGitConfig(entity.GitIdentity{Name: `Rae "R" Okafor`, Email: "rae@example.com"})
 
 	for _, want := range []string{
-		"path = /Users/vlad/.config/git/config",
-		"path = /Users/vlad/.gitconfig",
+		"\tname = \"Rae \\\"R\\\" Okafor\"\n",
+		"\temail = \"rae@example.com\"\n",
 		"[credential]\n\thelper =\n",
 	} {
 		if !strings.Contains(config, want) {
@@ -109,8 +109,12 @@ func TestATasksGitConfigKeepsThePersonsSettingsButNoneOfTheirCredentialHelpers(t
 		}
 	}
 
-	if strings.Index(config, "[credential]") < strings.Index(config, "[include]") {
-		t.Fatalf("the credential reset comes before the includes it has to override:\n%s", config)
+	if strings.Contains(config, "[include]") {
+		t.Fatalf(
+			"the task's git config still includes the person's own, which carries their helpers "+
+				"and insteadOf rewrites and is out of the sandbox's reach:\n%s",
+			config,
+		)
 	}
 }
 

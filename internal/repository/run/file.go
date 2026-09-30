@@ -9,11 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/gitcmd"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 )
@@ -128,7 +130,7 @@ func (r *fileRun) Prepare(ctx context.Context, name string) (string, error) {
 	return r.Open(ctx, name)
 }
 
-func (r *fileRun) Open(_ context.Context, name string) (string, error) {
+func (r *fileRun) Open(ctx context.Context, name string) (string, error) {
 	path := r.dir.Run(name)
 
 	for _, child := range children(path) {
@@ -137,26 +139,33 @@ func (r *fileRun) Open(_ context.Context, name string) (string, error) {
 		}
 	}
 
-	if err := furnish(entity.RunHomeOf(path)); err != nil {
+	if err := furnish(ctx, entity.RunHomeOf(path)); err != nil {
 		return "", err
 	}
 
 	return path, nil
 }
 
-func furnish(home entity.RunHome) error {
-	hostHome, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("find the home this runner runs under: %w", err)
-	}
-
-	config := entity.TaskGitConfig(entity.HostGitConfigs(hostHome, os.Getenv("XDG_CONFIG_HOME")))
+func furnish(ctx context.Context, home entity.RunHome) error {
+	config := entity.TaskGitConfig(entity.GitIdentity{
+		Name:  personal(ctx, "user.name"),
+		Email: personal(ctx, "user.email"),
+	})
 
 	if err := os.WriteFile(home.GitConfig(), []byte(config), fileMode); err != nil {
 		return fmt.Errorf("write %s: %w", home.GitConfig(), err)
 	}
 
 	return nil
+}
+
+func personal(ctx context.Context, key string) string {
+	value, err := gitcmd.Run(ctx, "", "config", "--global", "--get", key)
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(value)
 }
 
 func (r *fileRun) Retire(_ context.Context, name string) error {
