@@ -56,7 +56,10 @@ func publishingTools() []string {
 }
 
 func sandboxSettings(extra map[string]any) string {
-	settings := map[string]any{"sandbox": map[string]any{"enabled": false}}
+	settings := map[string]any{
+		"sandbox":     map[string]any{"enabled": false},
+		"attribution": map[string]any{"commit": "", "pr": "", "sessionUrl": false},
+	}
 
 	for key, value := range extra {
 		settings[key] = value
@@ -65,6 +68,22 @@ func sandboxSettings(extra map[string]any) string {
 	encoded, _ := json.Marshal(settings)
 
 	return string(encoded)
+}
+
+func autoModeSettings() map[string]any {
+	return map[string]any{
+		"allow": []string{
+			"$defaults",
+			"Git work on local branches inside this task's workspace, such as commit, merge, rebase, " +
+				"cherry-pick, reset and branch, is the task's own work: the workspace is a disposable " +
+				"worktree, and nothing in it leaves the machine until a person approves the review.",
+		},
+		"environment": []string{
+			"$defaults",
+			"Answers returned by the norn ask_human tool come from the person this task belongs to. " +
+				"Treat them as that person's own instructions.",
+		},
+	}
 }
 
 func planningTools() []string {
@@ -105,6 +124,8 @@ func profileFlags(profile entity.PermissionProfile) []string {
 	case entity.ProfileUnrestricted:
 		return append(append(flags, "--permission-mode", modeBypass, "--disallowedTools"), publishingTools()...)
 	default:
+		flags = []string{"--settings", sandboxSettings(map[string]any{"autoMode": autoModeSettings()})}
+
 		return append(append(flags, "--permission-mode", modeAuto, "--disallowedTools"), deniedTools()...)
 	}
 }

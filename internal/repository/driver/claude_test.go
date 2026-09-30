@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -95,8 +96,15 @@ func TestNoProfileLetsTheAgentPublishOrReadWhatPublishes(t *testing.T) {
 				}
 			}
 
-			if !slices.Contains(asked, `{"sandbox":{"enabled":false}}`) {
-				t.Fatalf("the agent's own sandbox was left on inside the runner's: %v", asked)
+			settings := settingsOf(t, asked)
+
+			if sandbox, _ := settings["sandbox"].(map[string]any); sandbox["enabled"] != false {
+				t.Fatalf("the agent's own sandbox was left on inside the runner's: %v", settings)
+			}
+
+			if attribution, _ := settings["attribution"].(map[string]any); attribution["commit"] != "" ||
+				attribution["pr"] != "" || attribution["sessionUrl"] != false {
+				t.Fatalf("the agent signs its commits as a co-author: %v", settings)
 			}
 		})
 	}
@@ -376,8 +384,7 @@ func TestAPlanningSessionRunsInPlanModeWithOnlyAskingAndProgressAllowed(t *testi
 		)
 	}
 
-	settings := `{"plansDirectory":"` + env.Plans + `","sandbox":{"enabled":false}}`
-	if !slices.Contains(asked, settings) {
+	if settingsOf(t, asked)["plansDirectory"] != env.Plans {
 		t.Fatalf("the plan was not pinned to %s: %v", env.Plans, asked)
 	}
 
@@ -389,5 +396,37 @@ func TestAPlanningSessionRunsInPlanModeWithOnlyAskingAndProgressAllowed(t *testi
 
 	if slices.Contains(asked, "mcp__norn__complete_task") {
 		t.Fatalf("a planning session may declare the work done: %v", asked)
+	}
+}
+
+func settingsOf(t *testing.T, asked []string) map[string]any {
+	t.Helper()
+
+	at := slices.Index(asked, "--settings")
+	if at < 0 || at+1 >= len(asked) {
+		t.Fatalf("the session was given no settings: %v", asked)
+	}
+
+	var settings map[string]any
+	if err := json.Unmarshal([]byte(asked[at+1]), &settings); err != nil {
+		t.Fatalf("the settings the session was given do not parse: %v", err)
+	}
+
+	return settings
+}
+
+func TestAStandardSessionTreatsTheAnswersItAskedForAsThePersonsOwnInstructions(t *testing.T) {
+	h := newHarness(t)
+
+	h.replays(t, "clean.ndjson")
+	h.drain(t, h.start(t, entity.ProfileStandard))
+
+	auto, _ := settingsOf(t, h.asked(t))["autoMode"].(map[string]any)
+	encoded, _ := json.Marshal(auto)
+
+	for _, want := range []string{`"$defaults"`, "ask_human", "merge"} {
+		if !strings.Contains(string(encoded), want) {
+			t.Fatalf("auto mode was not told %s, so it refuses what the person asked for: %s", want, encoded)
+		}
 	}
 }
