@@ -222,6 +222,20 @@ func (mr *MockExecutionsMockRecorder) Reconcile(ctx, leased any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reconcile", reflect.TypeOf((*MockExecutions)(nil).Reconcile), ctx, leased)
 }
 
+// Reply mocks base method.
+func (m *MockExecutions) Reply(ctx context.Context, executionID string, reply entity.ReviewReply) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reply", ctx, executionID, reply)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Reply indicates an expected call of Reply.
+func (mr *MockExecutionsMockRecorder) Reply(ctx, executionID, reply any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reply", reflect.TypeOf((*MockExecutions)(nil).Reply), ctx, executionID, reply)
+}
+
 // Report mocks base method.
 func (m *MockExecutions) Report(ctx context.Context) entity.SchedulerReport {
 	m.ctrl.T.Helper()

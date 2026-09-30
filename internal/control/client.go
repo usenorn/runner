@@ -308,6 +308,14 @@ func (c *Client) Complete(
 	return ask[Completed](ctx, c, http.MethodPost, path, request)
 }
 
+func (c *Client) ReplyToReview(
+	ctx context.Context,
+	executionID string,
+	request ReviewReplyRequest,
+) (ReviewReplyRequest, error) {
+	return ask[ReviewReplyRequest](ctx, c, http.MethodPost, forRun(ReviewRepliesPath, executionID), request)
+}
+
 func (c *Client) RunStep(
 	ctx context.Context,
 	executionID string,

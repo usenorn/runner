@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -19,6 +20,12 @@ var (
 	ErrProgressRange = errors.New("progress is a percentage, so it lies between 0 and 100")
 	ErrCompleteEmpty = errors.New("finishing needs a summary of what changed")
 	ErrCompleteLong  = errors.New("that summary is longer than norn keeps")
+	ErrReplyEmpty    = errors.New("a reply to a review thread needs something to say")
+	ErrReplyLong     = errors.New("that reply is longer than a review comment can be")
+	ErrReplyUnasked  = errors.New(
+		"that is not a review thread this run was asked to answer; use a thread id from the " +
+			"review feedback",
+	)
 )
 
 type Progress struct {
@@ -77,4 +84,26 @@ func (c Completion) Line() string {
 	}
 
 	return summary
+}
+
+const ReviewReplyMax = 4000
+
+type ReviewReply struct {
+	CommentID string
+	Body      string
+}
+
+func (r ReviewReply) Valid() error {
+	body := strings.TrimSpace(r.Body)
+
+	if body == "" {
+		return ErrReplyEmpty
+	}
+
+	if utf8.RuneCountInString(body) > ReviewReplyMax {
+		return fmt.Errorf("%w: it is %d characters and a comment holds %d",
+			ErrReplyLong, utf8.RuneCountInString(body), ReviewReplyMax)
+	}
+
+	return nil
 }

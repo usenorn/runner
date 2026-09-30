@@ -33,6 +33,7 @@ const (
 	ProgressPath       = "/v1/executions/{executionId}/progress"
 	ArtifactsPath      = "/v1/executions/{executionId}/artifacts"
 	CompletePath       = "/v1/executions/{executionId}/complete"
+	ReviewRepliesPath  = "/v1/executions/{executionId}/review/replies"
 	NornToolsPath      = "/v1/executions/{executionId}/norn"
 )
 
@@ -258,6 +259,11 @@ type CompleteRequest struct {
 
 type Completed struct {
 	Advice string `json:"advice"`
+}
+
+type ReviewReplyRequest struct {
+	CommentID string `json:"commentId"`
+	Body      string `json:"body"`
 }
 
 type TimelineEntry struct {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
@@ -63,6 +65,38 @@ func (s *executionsService) Complete(
 
 	return s.note(ctx, executionID, channelv1.EventPhase, "the coding agent says it is done: "+
 		completion.Line())
+}
+
+func (s *executionsService) Reply(
+	ctx context.Context,
+	executionID string,
+	reply entity.ReviewReply,
+) error {
+	if err := reply.Valid(); err != nil {
+		return err
+	}
+
+	execution, err := s.runs.LoadTask(ctx, executionID)
+	if err != nil {
+		return err
+	}
+
+	if execution.Finished() {
+		return fmt.Errorf(
+			"%w: %s has already finished as %s",
+			entity.ErrExecutionRefused, executionID, execution.State,
+		)
+	}
+
+	if !slices.Contains(execution.ReviewThreads, reply.CommentID) {
+		return fmt.Errorf("%w: %q", entity.ErrReplyUnasked, reply.CommentID)
+	}
+
+	return s.send(ctx, channelv1.ReviewReplied, executionID, channelv1.ReviewReply{
+		CommentID: reply.CommentID,
+		Body:      strings.TrimSpace(reply.Body),
+		Occurred:  s.now(),
+	})
 }
 
 func (s *executionsService) working(ctx context.Context, executionID string) error {

@@ -55,6 +55,7 @@ type storedTask struct {
 	State        string    `json:"state"`
 	Stage        string    `json:"stage,omitempty"`
 	Revision     int       `json:"revision,omitempty"`
+	Threads      []string  `json:"reviewThreads,omitempty"`
 	Lease        time.Time `json:"leaseExpiresAt,omitzero"`
 	AcceptedAt   time.Time `json:"acceptedAt"`
 	StartedAt    time.Time `json:"startedAt,omitzero"`
@@ -340,30 +341,31 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 	}
 
 	return entity.Execution{
-		ID:           held.ID,
-		Reference:    held.Reference,
-		IssueKey:     held.IssueKey,
-		Attempt:      held.Attempt,
-		WorkspaceID:  held.WorkspaceID,
-		Title:        held.Title,
-		Description:  held.Description,
-		Brief:        held.Brief,
-		Tool:         held.Tool,
-		Model:        held.Model,
-		Runtime:      held.Runtime,
-		RuntimeWhy:   held.RuntimeWhy,
-		BaseRef:      held.BaseRef,
-		IncludeDirty: held.IncludeDirty,
-		Profile:      held.Profile,
-		Directory:    r.dir.Run(name),
-		State:        entity.ExecutionState(held.State),
-		Stage:        entity.ExecutionStage(held.Stage),
-		Lease:        held.Lease,
-		AcceptedAt:   held.AcceptedAt,
-		StartedAt:    held.StartedAt,
-		SettledAt:    held.SettledAt,
-		Revision:     held.Revision,
-		KeepUntil:    held.KeepUntil,
+		ID:            held.ID,
+		Reference:     held.Reference,
+		IssueKey:      held.IssueKey,
+		Attempt:       held.Attempt,
+		WorkspaceID:   held.WorkspaceID,
+		Title:         held.Title,
+		Description:   held.Description,
+		Brief:         held.Brief,
+		Tool:          held.Tool,
+		Model:         held.Model,
+		Runtime:       held.Runtime,
+		RuntimeWhy:    held.RuntimeWhy,
+		BaseRef:       held.BaseRef,
+		IncludeDirty:  held.IncludeDirty,
+		Profile:       held.Profile,
+		Directory:     r.dir.Run(name),
+		State:         entity.ExecutionState(held.State),
+		Stage:         entity.ExecutionStage(held.Stage),
+		Lease:         held.Lease,
+		AcceptedAt:    held.AcceptedAt,
+		StartedAt:     held.StartedAt,
+		SettledAt:     held.SettledAt,
+		Revision:      held.Revision,
+		ReviewThreads: held.Threads,
+		KeepUntil:     held.KeepUntil,
 	}, nil
 }
 
@@ -388,6 +390,7 @@ func storedTaskOf(execution entity.Execution) storedTask {
 		State:        string(execution.State),
 		Stage:        string(execution.Stage),
 		Revision:     execution.Revision,
+		Threads:      execution.ReviewThreads,
 		Lease:        execution.Lease,
 		AcceptedAt:   execution.AcceptedAt,
 		StartedAt:    execution.StartedAt,

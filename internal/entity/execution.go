@@ -33,31 +33,32 @@ type ExecutionState = channelv1.State
 type ExecutionStage = channelv1.Stage
 
 type Execution struct {
-	ID           string
-	Reference    string
-	IssueKey     string
-	Branch       string
-	Attempt      int
-	WorkspaceID  string
-	Title        string
-	Description  string
-	Brief        string
-	Tool         string
-	Model        string
-	Runtime      string
-	RuntimeWhy   string
-	BaseRef      string
-	IncludeDirty bool
-	Profile      string
-	Directory    string
-	State        ExecutionState
-	Stage        ExecutionStage
-	Revision     int
-	Lease        time.Time
-	AcceptedAt   time.Time
-	StartedAt    time.Time
-	SettledAt    time.Time
-	KeepUntil    time.Time
+	ID            string
+	Reference     string
+	IssueKey      string
+	Branch        string
+	Attempt       int
+	WorkspaceID   string
+	Title         string
+	Description   string
+	Brief         string
+	Tool          string
+	Model         string
+	Runtime       string
+	RuntimeWhy    string
+	BaseRef       string
+	IncludeDirty  bool
+	Profile       string
+	Directory     string
+	State         ExecutionState
+	Stage         ExecutionStage
+	Revision      int
+	ReviewThreads []string
+	Lease         time.Time
+	AcceptedAt    time.Time
+	StartedAt     time.Time
+	SettledAt     time.Time
+	KeepUntil     time.Time
 }
 
 func ExecutionOf(offer channelv1.Offer, root string, acceptedAt time.Time) Execution {

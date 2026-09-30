@@ -21,6 +21,7 @@ type storedResume struct {
 	Stage       string         `json:"stage,omitempty"`
 	Instruction string         `json:"instruction,omitempty"`
 	Answers     []storedAnswer `json:"answers,omitempty"`
+	Threads     []string       `json:"reviewThreads,omitempty"`
 }
 
 func (r *fileRun) resumePath(name string) string {
@@ -52,6 +53,7 @@ func (r *fileRun) SaveResume(_ context.Context, name string, instruction channel
 		Stage:       string(instruction.Stage),
 		Instruction: instruction.Instruction,
 		Answers:     answers,
+		Threads:     instruction.Threads,
 	}, "", "  ")
 	if err != nil {
 		return fmt.Errorf("write how %s is to carry on: %w", name, err)
@@ -84,6 +86,7 @@ func (r *fileRun) LoadResume(_ context.Context, name string) (channelv1.Instruct
 		Stage:       channelv1.Stage(stored.Stage),
 		Instruction: stored.Instruction,
 		Answers:     answers,
+		Threads:     stored.Threads,
 	}, nil
 }
 
