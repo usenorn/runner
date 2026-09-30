@@ -326,3 +326,21 @@ func TestNornCannotReplaceTheToolsThatEndARun(t *testing.T) {
 		t.Fatal("a workspace tool took the place of complete_task, so the run could never say it finished")
 	}
 }
+
+func TestAPlanningAgentMayAskAndReportBecauseNeitherChangesTheWork(t *testing.T) {
+	h := newHarness(t, newDaemon())
+
+	for _, tool := range h.tools(t) {
+		if tool.Name != "ask_human" && tool.Name != "report_progress" {
+			continue
+		}
+
+		if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
+			t.Fatalf(
+				"%s is not read-only, so a coding agent in plan mode is refused it and the plan "+
+					"goes up for approval with its questions never asked",
+				tool.Name,
+			)
+		}
+	}
+}

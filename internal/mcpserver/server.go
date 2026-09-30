@@ -207,7 +207,7 @@ func (t *toolset) register(server *mcp.Server) {
 			"with the answer once somebody gives one. Set blocking to false and say what you " +
 			"will do meanwhile when you do not need to stop. Ask rather than guessing on " +
 			"anything that changes behaviour a person would want a say in.",
-		Annotations: change,
+		Annotations: read,
 	}, t.askHuman)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -215,7 +215,7 @@ func (t *toolset) register(server *mcp.Server) {
 		Description: "Say what you are doing, in one line, so whoever delegated this can follow " +
 			"along without reading a transcript. Call it when you move between real phases of " +
 			"the work, not on every file you touch.",
-		Annotations: change,
+		Annotations: read,
 	}, t.reportProgress)
 
 	mcp.AddTool(server, &mcp.Tool{
