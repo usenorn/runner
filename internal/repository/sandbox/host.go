@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -35,16 +36,21 @@ func (r *hostSandbox) Check(ctx context.Context, _ entity.Runtime) error {
 		return fmt.Errorf("%w: %w", entity.ErrRuntimeUnavailable, err)
 	}
 
-	probe, err := r.confine(policy, []string{"/usr/bin/true"})
+	probe, err := r.confine(policy, []string{entity.ProbeCommand})
 	if err != nil {
 		return fmt.Errorf("%w: %w", entity.ErrRuntimeUnavailable, err)
 	}
 
-	code, err := r.processes.Run(ctx, repository.Launch{Command: probe}, r.cfg.Timeout)
+	var said bytes.Buffer
+
+	code, err := r.processes.Run(
+		ctx, repository.Launch{Command: probe, Output: &said, Errors: &said}, r.cfg.Timeout,
+	)
 	if err != nil || code != 0 {
 		return fmt.Errorf(
-			"%w: host processes cannot be confined on this machine, so none is started (%s exited %d: %v)",
-			entity.ErrRuntimeUnavailable, probe[0], code, err,
+			"%w: host processes cannot be confined on this machine, so none is started "+
+				"(%s exited %d: %s)%s",
+			entity.ErrRuntimeUnavailable, probe[0], code, probeFailure(said.String(), err), confineHint(),
 		)
 	}
 
@@ -261,6 +267,27 @@ func within(root, path string) bool {
 
 func beneath(root, path string) bool {
 	return within(root, path) && canonical(root) != canonical(path)
+}
+
+func probeFailure(said string, err error) string {
+	if trimmed := strings.TrimSpace(said); trimmed != "" {
+		return trimmed
+	}
+
+	if err != nil {
+		return err.Error()
+	}
+
+	return "it said nothing"
+}
+
+func confineHint() string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+
+	return ". bwrap needs unprivileged user namespaces; on Ubuntu 23.10 and later AppArmor " +
+		"restricts them, which sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 lifts"
 }
 
 func materialise(protected []string) error {

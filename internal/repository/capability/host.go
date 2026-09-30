@@ -90,7 +90,7 @@ func (r *hostCapability) confines(ctx context.Context) bool {
 
 		return err == nil
 	case "linux":
-		_, ok := r.ask(ctx, entity.BubblewrapBinary, "--version")
+		_, ok := r.ask(ctx, entity.BubblewrapBinary, entity.BubblewrapProbe()...)
 
 		return ok
 	default:

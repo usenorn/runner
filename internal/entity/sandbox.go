@@ -81,7 +81,12 @@ const (
 	GitHooksDir      = "hooks"
 	SeatbeltBinary   = "/usr/bin/sandbox-exec"
 	BubblewrapBinary = "bwrap"
+	ProbeCommand     = "/usr/bin/true"
 )
+
+func BubblewrapProbe() []string {
+	return []string{"--ro-bind", "/", "/", "--unshare-pid", "--", ProbeCommand}
+}
 
 func ProtectedFolder(path string) bool {
 	return filepath.Base(path) == GitHooksDir
