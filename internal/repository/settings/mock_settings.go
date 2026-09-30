@@ -42,6 +42,21 @@ func (m *MockSettings) EXPECT() *MockSettingsMockRecorder {
 	return m.recorder
 }
 
+// Definition mocks base method.
+func (m *MockSettings) Definition(ctx context.Context, path string) (entity.PlanDefinition, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Definition", ctx, path)
+	ret0, _ := ret[0].(entity.PlanDefinition)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Definition indicates an expected call of Definition.
+func (mr *MockSettingsMockRecorder) Definition(ctx, path any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Definition", reflect.TypeOf((*MockSettings)(nil).Definition), ctx, path)
+}
+
 // Ignores mocks base method.
 func (m *MockSettings) Ignores(ctx context.Context, dir string) ([]entity.IgnoreRule, error) {
 	m.ctrl.T.Helper()

@@ -23,7 +23,7 @@ func TestEveryToolTheAgentIsMeantToHaveIsThere(t *testing.T) {
 		"start_service", "stop_service", "restart_service", "list_services",
 		"get_service_logs", "run_step", "allocate_port",
 		"expose_preview", "close_preview",
-		"ask_human", "report_progress", "publish_artifact", "complete_task",
+		"ask_human", "report_progress", "publish_artifact", "reply_to_review", "complete_task",
 	} {
 		if !slices.Contains(named, wanted) {
 			t.Fatalf("the agent was given %v, without %s", named, wanted)
@@ -73,10 +73,11 @@ func TestTheToolsCarryTheGuidanceThatKeepsARunTidy(t *testing.T) {
 	}
 
 	for name, wanted := range map[string]string{
-		"start_service":  "Never start one yourself",
-		"allocate_port":  "Never pick a number yourself",
-		"expose_preview": "only works on",
-		"complete_task":  "Commit everything first",
+		"start_service":   "Never start one yourself",
+		"allocate_port":   "Never pick a number yourself",
+		"expose_preview":  "only works on",
+		"complete_task":   "Commit everything first",
+		"reply_to_review": "Only threads named in the feedback",
 	} {
 		if !strings.Contains(said[name], wanted) {
 			t.Fatalf(

@@ -25,6 +25,7 @@ type Worktree interface {
 	Commit(ctx context.Context, dest, message string) (string, error)
 	Remote(ctx context.Context, repository string) (string, error)
 	Commits(ctx context.Context, dest, base string) (int, error)
+	History(ctx context.Context, dest, base string, limit int) ([]entity.Commit, error)
 	Diffstat(ctx context.Context, dest, base string) (entity.Diffstat, error)
 	Patch(ctx context.Context, dest, base string) ([]byte, error)
 	Push(ctx context.Context, dest, url, branch string) error

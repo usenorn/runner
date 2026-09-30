@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/usenorn/runner/internal/entity"
 	"github.com/usenorn/runner/internal/repository"
@@ -292,6 +293,37 @@ func exists(path string) bool {
 	_, err := os.Stat(path)
 
 	return err == nil
+}
+
+func (s *servicesSupervisor) Await(
+	ctx context.Context,
+	executionID string,
+	name string,
+) (entity.ServiceRecord, error) {
+	entry, err := s.find(ctx, executionID, name)
+	if err != nil {
+		return entity.ServiceRecord{}, err
+	}
+
+	patience := s.cfg.HealthTimeout + time.Duration(s.cfg.RestartAttempts)*
+		(s.cfg.HealthTimeout+s.backoff(s.cfg.RestartAttempts))
+
+	waiting, stop := context.WithTimeout(ctx, patience)
+	defer stop()
+
+	for {
+		record := s.snapshot(entry)
+		if record.State != entity.ServiceStarting {
+			return record, nil
+		}
+
+		select {
+		case <-waiting.Done():
+			return record, nil
+		case <-entry.done:
+		case <-time.After(s.cfg.HealthInterval):
+		}
+	}
 }
 
 func (s *servicesSupervisor) Stop(

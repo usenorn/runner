@@ -154,6 +154,10 @@ func (s *executionsService) carryOn(
 		execution.Stage = instruction.Stage
 	}
 
+	if instruction.Reason == channelv1.ResumeFeedback {
+		execution.ReviewThreads = instruction.Threads
+	}
+
 	if err := s.move(ctx, execution, channelv1.StateRunning, resumed(instruction)); err != nil {
 		return err
 	}

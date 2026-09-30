@@ -42,18 +42,18 @@ func (m *MockChangeSets) EXPECT() *MockChangeSetsMockRecorder {
 }
 
 // Collect mocks base method.
-func (m *MockChangeSets) Collect(ctx context.Context, execution entity.Execution, snapshot entity.Snapshot, completion entity.Completion) (entity.ChangeSet, error) {
+func (m *MockChangeSets) Collect(ctx context.Context, execution entity.Execution, snapshot entity.Snapshot, completion entity.Completion, pass entity.ReviewPass) (entity.ChangeSet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Collect", ctx, execution, snapshot, completion)
+	ret := m.ctrl.Call(m, "Collect", ctx, execution, snapshot, completion, pass)
 	ret0, _ := ret[0].(entity.ChangeSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Collect indicates an expected call of Collect.
-func (mr *MockChangeSetsMockRecorder) Collect(ctx, execution, snapshot, completion any) *gomock.Call {
+func (mr *MockChangeSetsMockRecorder) Collect(ctx, execution, snapshot, completion, pass any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Collect", reflect.TypeOf((*MockChangeSets)(nil).Collect), ctx, execution, snapshot, completion)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Collect", reflect.TypeOf((*MockChangeSets)(nil).Collect), ctx, execution, snapshot, completion, pass)
 }
 
 // Publish mocks base method.

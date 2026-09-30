@@ -87,3 +87,27 @@ func (s *Server) complete(w http.ResponseWriter, r *http.Request) {
 
 	respond(w, r, http.StatusOK, Completed{Advice: entity.CompletedAdvice})
 }
+
+func (s *Server) replyToReview(w http.ResponseWriter, r *http.Request) {
+	var request ReviewReplyRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		respond(w, r, http.StatusBadRequest, Failure{
+			Reason: ReasonRefused, Message: "that reply is malformed",
+		})
+
+		return
+	}
+
+	err := s.executions.Reply(r.Context(), r.PathValue("executionId"), entity.ReviewReply{
+		CommentID: request.CommentID,
+		Body:      request.Body,
+	})
+	if err != nil {
+		s.refuse(w, r, err)
+
+		return
+	}
+
+	respond(w, r, http.StatusOK, request)
+}

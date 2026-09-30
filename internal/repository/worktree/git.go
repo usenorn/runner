@@ -217,6 +217,33 @@ func (r *gitWorktree) Commits(ctx context.Context, dest, base string) (int, erro
 	return count, nil
 }
 
+func (r *gitWorktree) History(
+	ctx context.Context,
+	dest, base string,
+	limit int,
+) ([]entity.Commit, error) {
+	lines, err := gitcmd.Lines(
+		ctx, dest, "log", "--no-color", "--format=%H%x00%s", "--max-count="+strconv.Itoa(limit),
+		base+"..HEAD",
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	commits := make([]entity.Commit, 0, len(lines))
+
+	for _, line := range lines {
+		sha, subject, found := strings.Cut(line, "\x00")
+		if !found {
+			continue
+		}
+
+		commits = append(commits, entity.Commit{SHA: sha, Subject: subject})
+	}
+
+	return commits, nil
+}
+
 func (r *gitWorktree) Diffstat(
 	ctx context.Context,
 	dest, base string,

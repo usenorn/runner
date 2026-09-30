@@ -471,3 +471,70 @@ func TestServicesOfARunThatIsOverAreRefusedRatherThanStarted(t *testing.T) {
 func itoa(port int) string {
 	return strconv.Itoa(port)
 }
+
+func TestAwaitingAServiceAnswersOnceItIsHealthy(t *testing.T) {
+	h := newHarness(t, 45900, 45949)
+	stop := h.start(t)
+
+	defer stop()
+
+	ctx := context.Background()
+	execution := h.prepared(t, "exec-01AWAIT")
+
+	defer func() { _ = h.service.Release(ctx, execution.ID) }()
+
+	if _, err := h.service.Start(ctx, execution.ID, entity.Service{
+		Name:    "web",
+		Command: []string{"sh", "-c", "sleep 0.2; echo ready; sleep 300"},
+		Health:  entity.Health{Kind: entity.HealthLog, Pattern: "ready"},
+	}); err != nil {
+		t.Fatalf("start web: %v", err)
+	}
+
+	record, err := h.service.Await(ctx, execution.ID, "web")
+	if err != nil {
+		t.Fatalf("await web: %v", err)
+	}
+
+	if record.State != entity.ServiceHealthy {
+		t.Fatalf("awaiting web came back %s: %s", record.State, record.Reason)
+	}
+}
+
+func TestAwaitingAServiceThatKeepsStoppingAnswersWithWhy(t *testing.T) {
+	h := newHarness(t, 45950, 45999)
+	stop := h.start(t)
+
+	defer stop()
+
+	ctx := context.Background()
+	execution := h.prepared(t, "exec-01AWAITFAIL")
+
+	defer func() { _ = h.service.Release(ctx, execution.ID) }()
+
+	if _, err := h.service.Start(ctx, execution.ID, entity.Service{
+		Name:    "api",
+		Command: []string{"sh", "-c", "exit 3"},
+		Health:  entity.Health{Kind: entity.HealthLog, Pattern: "never"},
+	}); err != nil {
+		t.Fatalf("start api: %v", err)
+	}
+
+	record, err := h.service.Await(ctx, execution.ID, "api")
+	if err != nil {
+		t.Fatalf("await api: %v", err)
+	}
+
+	if record.State != entity.ServiceUnhealthy || !strings.Contains(record.Reason, "exit code 3") {
+		t.Fatalf("awaiting api came back %s: %q", record.State, record.Reason)
+	}
+}
+
+func TestAwaitingAServiceThisRunNeverStartedIsRefusedByName(t *testing.T) {
+	h := newHarness(t, 46000, 46009)
+	execution := h.prepared(t, "exec-01AWAITNONE")
+
+	if _, err := h.service.Await(context.Background(), execution.ID, "ghost"); !errors.Is(err, entity.ErrServiceUnknown) {
+		t.Fatalf("awaiting a service nobody started answered %v", err)
+	}
+}

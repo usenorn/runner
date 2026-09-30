@@ -76,6 +76,9 @@ type harness struct {
 	freeErr   error
 	connected []entity.Codebase
 	planFile  string
+	plan      entity.PlanDefinition
+	failing   map[string]string
+	started   []string
 	profile   config.Profile
 
 	dirty    map[string][]string
@@ -358,6 +361,52 @@ func (h *harness) expect() {
 		Return(nil).
 		AnyTimes()
 
+	h.settings.EXPECT().
+		Definition(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string) (entity.PlanDefinition, error) { return h.plan, nil }).
+		AnyTimes()
+
+	h.services.EXPECT().
+		Stop(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(entity.ServiceRecord{}, entity.ErrServiceUnknown).
+		AnyTimes()
+
+	h.services.EXPECT().
+		Start(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, executionID string, wanted entity.Service) (entity.ServiceRecord, error) {
+			h.started = append(h.started, wanted.Name)
+
+			record := entity.ServiceRecord{Name: wanted.Name, Port: 41000 + len(h.started), State: entity.ServiceHealthy}
+			if reason, failing := h.failing[wanted.Name]; failing {
+				record.State = entity.ServiceUnhealthy
+				record.Reason = reason
+			}
+
+			held, err := h.runs.LoadServices(ctx, executionID)
+			if err != nil {
+				return entity.ServiceRecord{}, err
+			}
+
+			held.Services = append(held.Services, record)
+
+			return record, h.runs.SaveServices(ctx, executionID, held)
+		}).
+		AnyTimes()
+
+	h.services.EXPECT().
+		Await(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, executionID string, name string) (entity.ServiceRecord, error) {
+			held, err := h.runs.LoadServices(ctx, executionID)
+			if err != nil {
+				return entity.ServiceRecord{}, err
+			}
+
+			record, _ := held.Service(name)
+
+			return record, nil
+		}).
+		AnyTimes()
+
 	h.sessions.EXPECT().
 		Access(gomock.Any()).
 		Return("access-token", nil).
@@ -395,6 +444,11 @@ func (h *harness) expectGit() {
 		DoAndReturn(func(context.Context, string, string) (entity.Diffstat, error) {
 			return h.stat, nil
 		}).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		History(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return([]entity.Commit{{SHA: "head-sha", Subject: "add a median helper"}}, nil).
 		AnyTimes()
 
 	h.worktrees.EXPECT().

@@ -191,9 +191,15 @@ func TestWhatARunChangedIsCollectedForReviewAndPushedOnlyOnceApproved(t *testing
 
 	collected, err := changesets.Collect(
 		ctx, execution, snapshot, entity.Completion{Summary: "added a median helper"},
+		entity.ReviewPass{Revision: 1},
 	)
 	if err != nil {
 		t.Fatalf("collect what the run changed: %v", err)
+	}
+
+	if history := collected.Repositories[0].History; len(history) != collected.Repositories[0].Commits ||
+		history[0].SHA != collected.Repositories[0].HeadSHA || history[0].Subject == "" {
+		t.Fatalf("the reviewed commits read %+v, want every commit newest first with its subject", history)
 	}
 
 	if _, err := runIn(bare, "rev-parse", "--verify", "--quiet", branch); err == nil {

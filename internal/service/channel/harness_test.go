@@ -415,7 +415,7 @@ func (changesetStub) Uncommitted(
 }
 
 func (changesetStub) Collect(
-	context.Context, entity.Execution, entity.Snapshot, entity.Completion,
+	context.Context, entity.Execution, entity.Snapshot, entity.Completion, entity.ReviewPass,
 ) (entity.ChangeSet, error) {
 	return entity.ChangeSet{}, nil
 }

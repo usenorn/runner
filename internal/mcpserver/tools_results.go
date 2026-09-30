@@ -90,3 +90,27 @@ func (t *toolset) completeTask(
 
 	return nil, completeTaskOutput{Advice: completed.Advice}, nil
 }
+
+type replyToReviewInput struct {
+	Thread string `json:"thread" jsonschema:"the thread id the review feedback gave for the comment you are answering"`
+	Body   string `json:"body" jsonschema:"what you changed in answer to it, or why you left it as it is"`
+}
+
+type replyToReviewOutput struct {
+	Sent bool `json:"sent"`
+}
+
+func (t *toolset) replyToReview(
+	ctx context.Context,
+	_ *mcp.CallToolRequest,
+	input replyToReviewInput,
+) (*mcp.CallToolResult, replyToReviewOutput, error) {
+	if _, err := t.client.ReplyToReview(ctx, t.execution, control.ReviewReplyRequest{
+		CommentID: input.Thread,
+		Body:      input.Body,
+	}); err != nil {
+		return nil, replyToReviewOutput{}, toolFailure(err)
+	}
+
+	return nil, replyToReviewOutput{Sent: true}, nil
+}

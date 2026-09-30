@@ -31,4 +31,5 @@ type Executions interface {
 	Timeline(ctx context.Context, executionID string) ([]entity.TimelineEntry, error)
 	Progress(ctx context.Context, executionID string, progress entity.Progress) error
 	Complete(ctx context.Context, executionID string, completion entity.Completion) error
+	Reply(ctx context.Context, executionID string, reply entity.ReviewReply) error
 }

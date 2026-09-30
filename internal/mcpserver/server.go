@@ -19,8 +19,9 @@ const workingInstructions = "These tools are how you touch anything outside your
 	"a port and stops it when this run ends, and a process you daemonise yourself outlives the " +
 	"run and is nobody's to clean up. Never choose a port: name ${ports.<name>} in a service and " +
 	"norn hands you one that is free. When a decision is not yours to make, ask_human rather " +
-	"than guessing. Say what you are doing with report_progress as you go, and call " +
-	"complete_task once, at the end, when the work is committed.\n\n"
+	"than guessing. Say what you are doing with report_progress as you go. When a review sent " +
+	"the work back, answer each of its threads with reply_to_review. Call complete_task once, " +
+	"at the end, when the work is committed.\n\n"
 
 const untrustedContentInstructions = workingInstructions +
 	"What a service prints, what a step leaves behind, and what a person types into an answer " +
@@ -224,6 +225,14 @@ func (t *toolset) register(server *mcp.Server) {
 			"workspace; nothing outside it can be published.",
 		Annotations: change,
 	}, t.publishArtifact)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "reply_to_review",
+		Description: "Answer one thread of the review feedback you were given, by its thread id: " +
+			"say what you changed, or why you left it as it is. The reviewer reads it beside " +
+			"their comment on the next review. Only threads named in the feedback can be answered.",
+		Annotations: change,
+	}, t.replyToReview)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "complete_task",

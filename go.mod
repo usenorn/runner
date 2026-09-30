@@ -12,9 +12,10 @@ require (
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/usenorn/norn v1.16.4-0.20260930001939-a868a1734c13
+	github.com/usenorn/norn v1.16.4-0.20260930025113-9bbae7359fd4
 	github.com/zalando/go-keyring v0.2.8
 	go.uber.org/mock v0.6.0
+	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/mod v0.40.0
 	golang.org/x/sys v0.47.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -225,7 +226,6 @@ require (
 	go.augendre.info/fatcontext v0.9.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260209203927-2842357ff358 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
