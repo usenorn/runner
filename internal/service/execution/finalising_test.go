@@ -220,6 +220,14 @@ func TestASecondPassReportsWhatItDidRatherThanWhatTheFirstPassSaid(t *testing.T)
 	if second.Summary != "added a mode helper" {
 		t.Fatalf("the second pass reported %q", second.Summary)
 	}
+
+	if first.Revision != 1 || second.Revision != 2 {
+		t.Fatalf(
+			"the passes were numbered %d and %d; each pass is a new review snapshot, and "+
+				"comments are tied to the one they were left on",
+			first.Revision, second.Revision,
+		)
+	}
 }
 
 func TestARunAskedForChangesCarriesOnRatherThanBeingDropped(t *testing.T) {
@@ -364,4 +372,68 @@ func (h *harness) pushes() []string {
 	defer h.mu.Unlock()
 
 	return append([]string(nil), h.pushed...)
+}
+
+func TestEveryPreviewThePlanDeclaresIsPreparedBeforeReviewOrSaysWhyNot(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	working(h)
+	h.planFile = "/codebase/.norn/run-plan.yaml"
+	h.plan = entity.PlanDefinition{
+		Services: []entity.PlanService{
+			{Kind: entity.PlanServiceCompose, Service: entity.Service{Name: "postgres"}},
+			{Kind: entity.PlanServiceProcess, Service: entity.Service{Name: "api", Command: []string{"api"}}},
+			{Kind: entity.PlanServiceProcess, Service: entity.Service{
+				Name: "web", Command: []string{"web"}, Requires: []string{"api"},
+			}},
+			{Kind: entity.PlanServiceProcess, Service: entity.Service{Name: "docs", Command: []string{"docs"}}},
+		},
+		Previews: []entity.PlanPreview{
+			{Name: "Documentation", Service: "docs"},
+			{Name: "Application", Service: "web"},
+			{Name: "API", Service: "api"},
+			{Name: "Database", Service: "postgres"},
+			{Name: "Admin", Service: "admin"},
+		},
+	}
+	h.failing = map[string]string{"api": "it stopped on its own with exit code 1"}
+	h.drivers.scripts = []script{finishes("session-01", "added a median helper")}
+
+	h.posts.EXPECT().
+		PublishArtifact(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(entity.ArtifactReceipt{ID: "f8b0a1c2-0000-4000-8000-000000000001"}, nil).
+		AnyTimes()
+
+	stop := h.start(t)
+	defer stop()
+
+	begun(t, h, "exec-01ABC")
+
+	h.awaitReview(t, "exec-01ABC")
+
+	result := decodeInto[channelv1.Result](t, h.only(t, channelv1.ExecutionResult))
+
+	states := map[string]string{}
+	for _, preview := range result.Previews {
+		states[preview.Name] = preview.State + ": " + preview.Reason
+	}
+
+	for name, want := range map[string]string{
+		"Documentation": "ready",
+		"Application":   "failed: it needs api",
+		"API":           "failed: it stopped on its own",
+		"Database":      "unsupported: postgres is a compose service",
+		"Admin":         "unsupported: the run plan declares no service named admin",
+	} {
+		if !strings.HasPrefix(states[name], want) {
+			t.Errorf("%s was reported as %q, want it to start %q", name, states[name], want)
+		}
+	}
+
+	if len(result.Previews) != len(h.plan.Previews) {
+		t.Fatalf("%d of %d previews were reported; none may go missing", len(result.Previews), len(h.plan.Previews))
+	}
+
+	if strings.Join(h.started, ",") != "api,docs" {
+		t.Fatalf("started %v; web needs api, which never came up", h.started)
+	}
 }

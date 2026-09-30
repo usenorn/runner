@@ -121,6 +121,11 @@ func (h *harness) changed(commits int, stat entity.Diffstat) {
 		AnyTimes()
 
 	h.worktrees.EXPECT().
+		History(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return([]entity.Commit{{SHA: "head-sha", Subject: "add a median helper"}}, nil).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
 		Patch(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]byte("diff --git a/a b/a\n+one\n"), nil).
 		AnyTimes()
@@ -157,6 +162,7 @@ func (h *harness) collect(t *testing.T, summary string) entity.ChangeSet {
 
 	changes, err := h.service.Collect(
 		context.Background(), h.execution, h.snapshot, entity.Completion{Summary: summary},
+		entity.ReviewPass{Revision: 1},
 	)
 	if err != nil {
 		t.Fatalf("collect what the run changed: %v", err)

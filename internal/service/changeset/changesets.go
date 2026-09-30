@@ -77,6 +77,7 @@ func (s *changeSetsService) Collect(
 	execution entity.Execution,
 	snapshot entity.Snapshot,
 	completion entity.Completion,
+	pass entity.ReviewPass,
 ) (entity.ChangeSet, error) {
 	changes, err := s.collect(ctx, execution, snapshot)
 	if err != nil {
@@ -89,7 +90,7 @@ func (s *changeSetsService) Collect(
 
 	s.report(ctx, execution.ID, changes)
 
-	return changes, s.settle(ctx, execution.ID, completion, changes)
+	return changes, s.settle(ctx, execution.ID, completion, changes, pass)
 }
 
 func (s *changeSetsService) Publish(
@@ -138,12 +139,18 @@ func (s *changeSetsService) collect(
 			return entity.ChangeSet{}, err
 		}
 
+		history, err := s.worktrees.History(ctx, held.Path, base, channelv1.CommitsReported)
+		if err != nil {
+			return entity.ChangeSet{}, err
+		}
+
 		changes.Repositories = append(changes.Repositories, entity.RepositoryChange{
 			Repository:   held.Name,
 			Branch:       held.Branch,
 			BaseSHA:      base,
 			HeadSHA:      head,
 			Commits:      commits,
+			History:      history,
 			Diffstat:     stat,
 			DiffArtifact: s.keepDiff(ctx, execution, held, base),
 		})
@@ -213,8 +220,9 @@ func (s *changeSetsService) settle(
 	executionID string,
 	completion entity.Completion,
 	changes entity.ChangeSet,
+	pass entity.ReviewPass,
 ) error {
-	raw, err := json.Marshal(entity.ResultOf(completion.Summary, changes, s.now()))
+	raw, err := json.Marshal(entity.ResultOf(completion.Summary, changes, pass, s.now()))
 	if err != nil {
 		return err
 	}

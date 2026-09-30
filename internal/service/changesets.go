@@ -15,6 +15,7 @@ type ChangeSets interface {
 		execution entity.Execution,
 		snapshot entity.Snapshot,
 		completion entity.Completion,
+		pass entity.ReviewPass,
 	) (entity.ChangeSet, error)
 	Publish(
 		ctx context.Context,

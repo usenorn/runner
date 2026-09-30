@@ -41,6 +41,21 @@ func (m *MockServices) EXPECT() *MockServicesMockRecorder {
 	return m.recorder
 }
 
+// Await mocks base method.
+func (m *MockServices) Await(ctx context.Context, executionID, name string) (entity.ServiceRecord, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Await", ctx, executionID, name)
+	ret0, _ := ret[0].(entity.ServiceRecord)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Await indicates an expected call of Await.
+func (mr *MockServicesMockRecorder) Await(ctx, executionID, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Await", reflect.TypeOf((*MockServices)(nil).Await), ctx, executionID, name)
+}
+
 // List mocks base method.
 func (m *MockServices) List(ctx context.Context, executionID string) ([]entity.ServiceRecord, error) {
 	m.ctrl.T.Helper()

@@ -15,6 +15,7 @@ type Services interface {
 		executionID string,
 		wanted entity.Service,
 	) (entity.ServiceRecord, error)
+	Await(ctx context.Context, executionID string, name string) (entity.ServiceRecord, error)
 	Stop(ctx context.Context, executionID string, name string) (entity.ServiceRecord, error)
 	Restart(ctx context.Context, executionID string, name string) (entity.ServiceRecord, error)
 	List(ctx context.Context, executionID string) ([]entity.ServiceRecord, error)

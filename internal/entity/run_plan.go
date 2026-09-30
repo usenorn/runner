@@ -174,3 +174,11 @@ type ReviewPass struct {
 	Revision int
 	Previews []PreviewOutcome
 }
+
+func PlanUnreadable(err error) string {
+	return fmt.Sprintf("no preview could be prepared for this review, because %s", err)
+}
+
+func ServiceUnstoppable(name string, err error) string {
+	return fmt.Sprintf("%s could not be stopped before it was started again: %s", name, err)
+}

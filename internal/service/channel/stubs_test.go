@@ -135,6 +135,10 @@ func (servicesStub) Start(
 	return entity.ServiceRecord{}, nil
 }
 
+func (servicesStub) Await(context.Context, string, string) (entity.ServiceRecord, error) {
+	return entity.ServiceRecord{}, nil
+}
+
 func (servicesStub) Stop(context.Context, string, string) (entity.ServiceRecord, error) {
 	return entity.ServiceRecord{}, nil
 }

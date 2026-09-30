@@ -216,6 +216,21 @@ func (mr *MockWorktreeMockRecorder) Head(ctx, repository any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Head", reflect.TypeOf((*MockWorktree)(nil).Head), ctx, repository)
 }
 
+// History mocks base method.
+func (m *MockWorktree) History(ctx context.Context, dest, base string, limit int) ([]entity.Commit, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "History", ctx, dest, base, limit)
+	ret0, _ := ret[0].([]entity.Commit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// History indicates an expected call of History.
+func (mr *MockWorktreeMockRecorder) History(ctx, dest, base, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "History", reflect.TypeOf((*MockWorktree)(nil).History), ctx, dest, base, limit)
+}
+
 // Keep mocks base method.
 func (m *MockWorktree) Keep(ctx context.Context, repository, dest, branch, run string) (string, error) {
 	m.ctrl.T.Helper()

@@ -16,6 +16,7 @@ const (
 	ChangeSetRevisionMax     = 64
 	ChangeSetPullRequestMax  = 2000
 	ChangeSetSummaryMax      = 16000
+	ChangeSetSubjectMax      = 500
 )
 
 var (
@@ -42,12 +43,18 @@ type Diffstat struct {
 	Files     int
 }
 
+type Commit struct {
+	SHA     string
+	Subject string
+}
+
 type RepositoryChange struct {
 	Repository   string
 	Branch       string
 	BaseSHA      string
 	HeadSHA      string
 	Commits      int
+	History      []Commit
 	Diffstat     Diffstat
 	DiffArtifact string
 	PullRequest  string
@@ -92,13 +99,44 @@ func (r RepositoryChange) wire() channelv1.RepoChange {
 		Files:       max(r.Diffstat.Files, 0),
 		Diff:        r.DiffArtifact,
 		PullRequest: clip(r.PullRequest, ChangeSetPullRequestMax),
+		History:     historyOf(r.History),
 	}
 }
 
-func ResultOf(summary string, changes ChangeSet, reported time.Time) channelv1.Result {
+func historyOf(history []Commit) []channelv1.Commit {
+	if len(history) > channelv1.CommitsReported {
+		history = history[:channelv1.CommitsReported]
+	}
+
+	commits := make([]channelv1.Commit, 0, len(history))
+
+	for _, commit := range history {
+		commits = append(commits, channelv1.Commit{
+			SHA:     clip(commit.SHA, ChangeSetRevisionMax),
+			Subject: clip(commit.Subject, ChangeSetSubjectMax),
+		})
+	}
+
+	return commits
+}
+
+func ResultOf(
+	summary string,
+	changes ChangeSet,
+	pass ReviewPass,
+	reported time.Time,
+) channelv1.Result {
+	previews := make([]channelv1.PreviewOutcome, 0, len(pass.Previews))
+
+	for _, outcome := range pass.Previews {
+		previews = append(previews, outcome.Wire())
+	}
+
 	return channelv1.Result{
 		Summary:   clip(summary, ChangeSetSummaryMax),
+		Revision:  pass.Revision,
 		ChangeSet: changes.Wire(),
+		Previews:  previews,
 		Reported:  reported.UTC(),
 	}
 }

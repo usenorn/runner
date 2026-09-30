@@ -27,10 +27,17 @@ func (s *executionsService) finalise(
 		return s.recommit(ctx, execution, left)
 	}
 
-	changes, err := s.changesets.Collect(ctx, execution, snapshot, completion)
+	pass, err := s.prepareReview(ctx, execution)
 	if err != nil {
 		return failure{step: entity.StepFinalise, err: err}
 	}
+
+	changes, err := s.changesets.Collect(ctx, execution, snapshot, completion, pass)
+	if err != nil {
+		return failure{step: entity.StepFinalise, err: err}
+	}
+
+	execution.Revision = pass.Revision
 
 	if err := s.move(ctx, execution, channelv1.StateAwaitingReview, entity.Finalised(changes)); err != nil {
 		return err
