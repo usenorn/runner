@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -68,7 +69,43 @@ func SandboxSpecFor(execution Execution, snapshot Snapshot) SandboxSpec {
 		mounts = append(mounts, Mount{Path: repository.Common, ReadOnly: repository.Mode == GitModeClone})
 	}
 
-	return SandboxSpec{Box: execution.Sandbox(), Workdir: snapshot.Workspace, Mounts: mounts}
+	return SandboxSpec{
+		Box:       execution.Sandbox(),
+		Workdir:   snapshot.Workspace,
+		Mounts:    mounts,
+		Protected: protectedGit(snapshot),
+	}
+}
+
+func protectedGit(snapshot Snapshot) []string {
+	var protected []string
+
+	for _, repository := range snapshot.Repositories {
+		if repository.Common != "" {
+			protected = append(protected,
+				filepath.Join(repository.Common, "config"),
+				filepath.Join(repository.Common, "hooks"),
+			)
+		}
+
+		if repository.GitDir != "" && repository.GitDir != repository.Common {
+			protected = append(protected,
+				filepath.Join(repository.GitDir, "config"),
+				filepath.Join(repository.GitDir, "config.worktree"),
+				filepath.Join(repository.GitDir, "commondir"),
+				filepath.Join(repository.GitDir, "gitdir"),
+				filepath.Join(repository.GitDir, "hooks"),
+			)
+		}
+
+		if repository.Mode == GitModeWorktree {
+			protected = append(protected, filepath.Join(repository.Path, ".git"))
+		}
+	}
+
+	slices.Sort(protected)
+
+	return slices.Compact(protected)
 }
 
 type Mount struct {
@@ -77,8 +114,9 @@ type Mount struct {
 }
 
 type SandboxSpec struct {
-	Box     Sandbox
-	Workdir string
-	Mounts  []Mount
-	Ports   []int
+	Box       Sandbox
+	Workdir   string
+	Mounts    []Mount
+	Protected []string
+	Ports     []int
 }

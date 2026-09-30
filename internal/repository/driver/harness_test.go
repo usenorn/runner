@@ -28,9 +28,10 @@ exit "${NORN_TEST_EXIT:-0}"
 `
 
 type harness struct {
-	driver repository.Driver
-	dir    string
-	argv   string
+	driver    repository.Driver
+	sandboxes repository.Sandbox
+	dir       string
+	argv      string
 }
 
 func newHarness(t *testing.T) *harness {
@@ -55,10 +56,13 @@ func newHarness(t *testing.T) *harness {
 	t.Setenv("NORN_TEST_ARGV", argv)
 	t.Setenv("NORN_TEST_STREAM", os.DevNull)
 
+	held := sandboxes(t, stateDir(t), processrepo.New())
+
 	return &harness{
-		driver: driverrepo.New(sandboxes(t, stateDir(t), processrepo.New()), settings()),
-		dir:    dir,
-		argv:   argv,
+		driver:    driverrepo.New(held, settings()),
+		sandboxes: held,
+		dir:       dir,
+		argv:      argv,
 	}
 }
 
@@ -112,13 +116,34 @@ func (h *harness) start(t *testing.T, profile entity.PermissionProfile) reposito
 func (h *harness) env(t *testing.T, profile entity.PermissionProfile) entity.ExecEnv {
 	t.Helper()
 
-	return entity.ExecEnv{
+	env := entity.ExecEnv{
 		ExecutionID: "exec-01ABC",
+		Sandbox:     entity.Sandbox{Run: "exec-01ABC"},
 		Workspace:   t.TempDir(),
 		Environment: os.Environ(),
 		MCPConfig:   filepath.Join(t.TempDir(), entity.RunMCPFile),
 		Profile:     profile,
 	}
+
+	fixtures, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatalf("find the fixtures: %v", err)
+	}
+
+	if err := h.sandboxes.Open(t.Context(), entity.SandboxSpec{
+		Box:     env.Sandbox,
+		Workdir: env.Workspace,
+		Mounts: []entity.Mount{
+			{Path: env.Workspace},
+			{Path: h.dir},
+			{Path: filepath.Dir(env.MCPConfig)},
+			{Path: fixtures, ReadOnly: true},
+		},
+	}); err != nil {
+		t.Fatalf("open the run's sandbox: %v", err)
+	}
+
+	return env
 }
 
 func (h *harness) drain(t *testing.T, session repository.Session) (
@@ -196,6 +221,7 @@ func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) re
 		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
 		dir,
 		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		config.Host{Timeout: 10 * time.Second},
 		bridged,
 	)
 }

@@ -259,6 +259,8 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("docker.timeout", 30*time.Second)
 	v.SetDefault("docker.pull_timeout", 10*time.Minute)
 	v.SetDefault("docker.bridge", "")
+	v.SetDefault("host.readable", []string{})
+	v.SetDefault("host.timeout", 10*time.Second)
 
 	v.SetDefault("results.create_prs", string(PullRequestsAuto))
 	v.SetDefault("results.push_timeout", 2*time.Minute)

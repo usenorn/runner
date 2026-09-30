@@ -4,8 +4,10 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/usenorn/runner/internal/config"
@@ -68,13 +70,32 @@ func (r *hostCapability) reaches(ctx context.Context, gateway string) entity.Gat
 }
 
 func (r *hostCapability) runtimes(ctx context.Context) []entity.Runtime {
-	runtimes := []entity.Runtime{entity.RuntimeProcess}
+	runtimes := make([]entity.Runtime, 0, 2)
+
+	if r.confines(ctx) {
+		runtimes = append(runtimes, entity.RuntimeProcess)
+	}
 
 	if _, ok := r.ask(ctx, "docker", "info", "--format", "{{.ServerVersion}}"); ok {
 		runtimes = append(runtimes, entity.RuntimeDocker)
 	}
 
 	return runtimes
+}
+
+func (r *hostCapability) confines(ctx context.Context) bool {
+	switch runtime.GOOS {
+	case "darwin":
+		_, err := os.Stat("/usr/bin/sandbox-exec")
+
+		return err == nil
+	case "linux":
+		_, ok := r.ask(ctx, "bwrap", "--version")
+
+		return ok
+	default:
+		return false
+	}
 }
 
 func (r *hostCapability) tools(ctx context.Context) []entity.Tool {

@@ -441,6 +441,7 @@ func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) re
 		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
 		dir,
 		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		config.Host{Timeout: 10 * time.Second},
 		bridged,
 	)
 }

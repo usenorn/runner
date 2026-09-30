@@ -22,10 +22,11 @@ func New(
 	ports repository.Port,
 	dir *statedir.Dir,
 	cfg config.Docker,
+	host config.Host,
 	bridged *bridge.Listener,
 ) repository.Sandbox {
 	return &routedSandbox{runtimes: map[entity.Runtime]repository.Sandbox{
-		entity.RuntimeProcess: &hostSandbox{processes: processes},
+		entity.RuntimeProcess: &hostSandbox{processes: processes, dir: dir, cfg: host},
 		entity.RuntimeDocker:  newDocker(processes, ports, dir, cfg, bridged),
 	}}
 }

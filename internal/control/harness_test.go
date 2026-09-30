@@ -56,6 +56,7 @@ type harness struct {
 	dashboard   *dashboardrepo.MockDashboard
 	credentials *credentialrepo.MockCredential
 	identities  repository.Identity
+	sandboxes   repository.Sandbox
 }
 
 func codebaseSettings() config.Codebase {
@@ -196,9 +197,11 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 
 	questions := questionsvc.New(runrepo.New(dir), spool, questionSettings())
 
+	boxes := sandboxes(t, dir, processrepo.New())
+
 	services := supervisorsvc.New(
 		processrepo.New(),
-		sandboxes(t, dir, processrepo.New()),
+		boxes,
 		portrepo.New(config.Runner{PortRange: [2]int{45100, 45199}}),
 		servicelogrepo.New(dir),
 		runrepo.New(dir),
@@ -232,7 +235,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		tokens,
 		driverStub{},
 		toolkitStub{},
-		sandboxes(t, dir, processrepo.New()),
+		boxes,
 		identities,
 		credentials,
 		sessions,
@@ -308,6 +311,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		dashboard:   dashboard,
 		credentials: credentials,
 		identities:  identities,
+		sandboxes:   boxes,
 	}
 }
 
@@ -457,6 +461,7 @@ func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) re
 		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
 		dir,
 		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		config.Host{Timeout: 10 * time.Second},
 		bridged,
 	)
 }

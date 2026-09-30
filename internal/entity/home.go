@@ -52,15 +52,16 @@ func (h RunHome) variables() []string {
 type Toolchain struct {
 	Variable string
 	Dir      string
+	Caches   []string
 }
 
 func Toolchains() []Toolchain {
 	return []Toolchain{
-		{Variable: "GOPATH", Dir: "go"},
-		{Variable: "CARGO_HOME", Dir: ".cargo"},
+		{Variable: "GOPATH", Dir: "go", Caches: []string{filepath.Join("pkg", "mod")}},
+		{Variable: "CARGO_HOME", Dir: ".cargo", Caches: []string{"registry", "git"}},
 		{Variable: "RUSTUP_HOME", Dir: ".rustup"},
 		{Variable: "NVM_DIR", Dir: ".nvm"},
-		{Variable: "npm_config_cache", Dir: ".npm"},
+		{Variable: "npm_config_cache", Dir: ".npm", Caches: []string{"."}},
 		{Variable: "PYENV_ROOT", Dir: ".pyenv"},
 		{Variable: "RBENV_ROOT", Dir: ".rbenv"},
 		{Variable: "ASDF_DATA_DIR", Dir: ".asdf"},

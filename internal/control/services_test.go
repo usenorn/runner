@@ -23,6 +23,13 @@ func running(t *testing.T, h *harness, executionID string) {
 		t.Fatalf("make a run directory by hand: %v", err)
 	}
 
+	if err := h.sandboxes.Open(ctx, entity.SandboxSpec{
+		Box:    entity.Sandbox{Run: executionID},
+		Mounts: []entity.Mount{{Path: h.dir.Run(executionID)}},
+	}); err != nil {
+		t.Fatalf("open the run's sandbox: %v", err)
+	}
+
 	if err := runs.SaveTask(ctx, entity.Execution{
 		ID:         executionID,
 		Reference:  "NORN-48",
