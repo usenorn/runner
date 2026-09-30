@@ -265,21 +265,11 @@ func beneath(root, path string) bool {
 
 func materialise(protected []string) error {
 	for _, path := range protected {
-		if _, err := os.Lstat(path); err == nil {
-			continue
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("inspect protected %s: %w", path, err)
-		}
-
-		if entity.ProtectedFolder(path) {
-			if err := os.MkdirAll(path, 0o755); err != nil {
-				return fmt.Errorf("create protected %s: %w", path, err)
-			}
-
+		if !entity.ProtectedFolder(path) || !exists(filepath.Dir(path)) {
 			continue
 		}
 
-		if err := os.WriteFile(path, nil, 0o644); err != nil {
+		if err := os.MkdirAll(path, 0o755); err != nil {
 			return fmt.Errorf("create protected %s: %w", path, err)
 		}
 	}

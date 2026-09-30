@@ -76,12 +76,8 @@ func TestBubblewrapHidesTheHomeFolderAndBindsTheProtectedFilesLast(t *testing.T)
 		t.Fatalf("the home folder is not replaced with an empty one: %v", args)
 	}
 
-	if writable < home || protected < writable || args[protected-1] != "--ro-bind" {
-		t.Fatalf(
-			"the git config is not bound read-only after the common dir, or a missing one would "+
-				"be skipped rather than refused: %v",
-			args,
-		)
+	if writable < home || protected < writable || args[protected-1] != "--ro-bind-try" {
+		t.Fatalf("the git config is not bound read-only after the common dir: %v", args)
 	}
 
 	if tail := args[len(args)-3:]; !slices.Equal(tail, []string{"--", "claude", "--print"}) {
@@ -122,24 +118,28 @@ func TestNothingOnThePathOpensTheWholeHomeFolder(t *testing.T) {
 	}
 }
 
-func TestAProtectedGitPathThatIsMissingIsCreatedSoItCanBeHeldReadOnly(t *testing.T) {
+func TestAMissingHooksFolderIsCreatedSoTheAgentCannotPlantOne(t *testing.T) {
 	common := filepath.Join(t.TempDir(), ".git")
 	hooks := filepath.Join(common, "hooks")
-	worktree := filepath.Join(common, "worktrees", "api", "config.worktree")
+	unmade := filepath.Join(t.TempDir(), "workspace", "api", ".git")
 
-	if err := os.MkdirAll(filepath.Dir(worktree), 0o755); err != nil {
+	if err := os.MkdirAll(common, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := materialise([]string{hooks, worktree}); err != nil {
+	if err := materialise([]string{hooks, unmade}); err != nil {
 		t.Fatalf("materialise: %v", err)
 	}
 
 	if info, err := os.Stat(hooks); err != nil || !info.IsDir() {
-		t.Fatalf("the missing hooks folder was not created, so the agent could create it first: %v", err)
+		t.Fatalf(
+			"the missing hooks folder was not created, so the agent could create one the person's "+
+				"own git would then run: %v",
+			err,
+		)
 	}
 
-	if info, err := os.Stat(worktree); err != nil || info.IsDir() || info.Size() != 0 {
-		t.Fatalf("the missing worktree config was not created empty: %v", err)
+	if _, err := os.Lstat(unmade); err == nil {
+		t.Fatal("a git file the checkout has yet to write was created ahead of it")
 	}
 }
