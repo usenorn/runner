@@ -1,6 +1,8 @@
 package sandbox
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -80,5 +82,38 @@ func TestBubblewrapHidesTheHomeFolderAndBindsTheProtectedFilesLast(t *testing.T)
 
 	if tail := args[len(args)-3:]; !slices.Equal(tail, []string{"--", "claude", "--print"}) {
 		t.Fatalf("the command does not follow the sandbox's own arguments: %v", tail)
+	}
+}
+
+func TestNothingOnThePathOpensTheWholeHomeFolder(t *testing.T) {
+	home := t.TempDir()
+	bin := filepath.Join(home, ".local", "bin")
+
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(home, "tool.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(filepath.Join(home, "tool.sh"), filepath.Join(bin, "tool")); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PATH", strings.Join([]string{home, bin, "/usr/bin"}, string(filepath.ListSeparator)))
+
+	readable := installed(home)
+
+	if slices.Contains(readable, canonical(home)) {
+		t.Fatalf(
+			"the home folder itself became readable through the path, which hands the agent every "+
+				"credential in it: %v",
+			readable,
+		)
+	}
+
+	if !slices.Contains(readable, canonical(bin)) {
+		t.Fatalf("a tool folder on the path under home is no longer readable: %v", readable)
 	}
 }

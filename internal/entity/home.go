@@ -49,19 +49,24 @@ func (h RunHome) variables() []string {
 	}
 }
 
+func (h RunHome) caches() []string {
+	return []string{
+		"GOMODCACHE=" + filepath.Join(h.Root, ".cache", "go-mod"),
+		"CARGO_HOME=" + filepath.Join(h.Root, ".cargo"),
+		"npm_config_cache=" + filepath.Join(h.Root, ".npm"),
+	}
+}
+
 type Toolchain struct {
 	Variable string
 	Dir      string
-	Caches   []string
 }
 
 func Toolchains() []Toolchain {
 	return []Toolchain{
-		{Variable: "GOPATH", Dir: "go", Caches: []string{filepath.Join("pkg", "mod")}},
-		{Variable: "CARGO_HOME", Dir: ".cargo", Caches: []string{"registry", "git"}},
+		{Variable: "GOPATH", Dir: "go"},
 		{Variable: "RUSTUP_HOME", Dir: ".rustup"},
 		{Variable: "NVM_DIR", Dir: ".nvm"},
-		{Variable: "npm_config_cache", Dir: ".npm", Caches: []string{"."}},
 		{Variable: "PYENV_ROOT", Dir: ".pyenv"},
 		{Variable: "RBENV_ROOT", Dir: ".rbenv"},
 		{Variable: "ASDF_DATA_DIR", Dir: ".asdf"},
@@ -73,6 +78,7 @@ func Toolchains() []Toolchain {
 func ambient() []string {
 	return []string{
 		"HOME", "TMPDIR", "TMP", "TEMP", "CLAUDE_CONFIG_DIR",
+		"GOMODCACHE", "CARGO_HOME", "npm_config_cache", "NPM_CONFIG_CACHE",
 		"CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN",
 		"SSH_AUTH_SOCK", "SSH_AGENT_PID", "SSH_ASKPASS", "GIT_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND",
 		"GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
@@ -96,7 +102,7 @@ func TaskEnvironment(
 		return append(home.variables(), "HOST=0.0.0.0")
 	}
 
-	kept := make([]string, 0, len(host)+len(Toolchains())+len(home.variables()))
+	kept := make([]string, 0, len(host)+len(Toolchains())+len(home.caches())+len(home.variables()))
 	set := map[string]bool{}
 
 	for _, entry := range host {
@@ -118,7 +124,7 @@ func TaskEnvironment(
 		kept = append(kept, toolchain.Variable+"="+dir)
 	}
 
-	return append(kept, home.variables()...)
+	return append(append(kept, home.caches()...), home.variables()...)
 }
 
 func hasAnyPrefix(name string, prefixes []string) bool {

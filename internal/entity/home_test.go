@@ -73,18 +73,32 @@ func TestATaskStillFindsTheToolchainsInstalledUnderThePersonsHome(t *testing.T) 
 		filepath.Join("/Users/vlad", ".rustup"): true,
 		filepath.Join("/Users/vlad", "go"):      true,
 	}
-	host := []string{"PATH=/usr/bin", "GOPATH=/opt/go"}
+	host := []string{"PATH=/usr/bin", "GOPATH=/opt/go", "GOMODCACHE=/Users/vlad/go/pkg/mod"}
 
 	environment := entity.TaskEnvironment(entity.RuntimeProcess, host, "/Users/vlad", home, func(path string) bool {
 		return installed[path]
 	})
 
-	if got, _ := lookup(environment, "CARGO_HOME"); got != "/Users/vlad/.cargo" {
+	if got, _ := lookup(environment, "RUSTUP_HOME"); got != "/Users/vlad/.rustup" {
 		t.Fatalf(
-			"CARGO_HOME is %q. A toolchain installed under the person's home is found through "+
+			"RUSTUP_HOME is %q. A toolchain installed under the person's home is found through "+
 				"HOME, and a task with a home of its own would otherwise lose it",
 			got,
 		)
+	}
+
+	for name, want := range map[string]string{
+		"GOMODCACHE":       filepath.Join(home.Root, ".cache", "go-mod"),
+		"CARGO_HOME":       filepath.Join(home.Root, ".cargo"),
+		"npm_config_cache": filepath.Join(home.Root, ".npm"),
+	} {
+		if got, _ := lookup(environment, name); got != want {
+			t.Errorf(
+				"%s is %q, want %q. A cache the person's own builds read back unchecked must never "+
+					"be one a task can write",
+				name, got, want,
+			)
+		}
 	}
 
 	if got, _ := lookup(environment, "GOPATH"); got != "/opt/go" {

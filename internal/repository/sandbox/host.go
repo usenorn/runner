@@ -174,10 +174,6 @@ func (r *hostSandbox) policyFor(spec entity.SandboxSpec) (hostPolicy, error) {
 		}
 
 		policy.readable = append(policy.readable, canonical(root))
-
-		for _, cache := range toolchain.Caches {
-			policy.writable = append(policy.writable, canonical(filepath.Join(root, cache)))
-		}
 	}
 
 	policy.readable = append(policy.readable, installed(home)...)
@@ -197,7 +193,7 @@ func installed(home string) []string {
 	}
 
 	for _, entry := range filepath.SplitList(os.Getenv("PATH")) {
-		if !within(home, entry) || !exists(entry) {
+		if !beneath(home, entry) || !exists(entry) {
 			continue
 		}
 
@@ -222,7 +218,7 @@ func linkedFrom(home, dir string) []string {
 		}
 
 		target, err := filepath.EvalSymlinks(filepath.Join(dir, entry.Name()))
-		if err != nil || !within(home, target) {
+		if err != nil || !beneath(home, filepath.Dir(target)) {
 			continue
 		}
 
@@ -257,6 +253,10 @@ func within(root, path string) bool {
 	relative, err := filepath.Rel(canonical(root), canonical(path))
 
 	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+}
+
+func beneath(root, path string) bool {
+	return within(root, path) && canonical(root) != canonical(path)
 }
 
 func exists(path string) bool {
