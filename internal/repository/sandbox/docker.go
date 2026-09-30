@@ -152,6 +152,7 @@ func (r *dockerSandbox) Open(ctx context.Context, spec entity.SandboxSpec) error
 	}
 
 	spec.Ports = published
+	spec.Protected = present(spec.Protected)
 	wanted := specFingerprint(r.cfg.Image, spec)
 
 	running, err := r.docker(
@@ -194,7 +195,21 @@ func specFingerprint(image string, spec entity.SandboxSpec) string {
 		parts = append(parts, strconv.Itoa(port))
 	}
 
+	parts = append(parts, spec.Protected...)
+
 	return fingerprint(strings.Join(parts, "\n"))
+}
+
+func present(paths []string) []string {
+	found := make([]string, 0, len(paths))
+
+	for _, path := range paths {
+		if exists(path) {
+			found = append(found, path)
+		}
+	}
+
+	return found
 }
 
 func (r *dockerSandbox) runArgs(name, wanted string, spec entity.SandboxSpec) []string {
@@ -223,6 +238,10 @@ func (r *dockerSandbox) runArgs(name, wanted string, spec entity.SandboxSpec) []
 		}
 
 		args = append(args, "--volume", volume)
+	}
+
+	for _, path := range spec.Protected {
+		args = append(args, "--volume", path+":"+path+":ro")
 	}
 
 	for _, port := range spec.Ports {
