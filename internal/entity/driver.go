@@ -18,6 +18,7 @@ const (
 
 	ExecutionVariable      = "NORN_EXEC_ID"
 	ExecutionTokenVariable = "NORN_EXEC_TOKEN"
+	StateRootVariable      = "NORN_STATE_ROOT"
 
 	AgentTokenAccount = "the token kept with 'norn runner agent-token'"
 )
