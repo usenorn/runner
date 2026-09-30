@@ -141,14 +141,6 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.services.Run(ctx)
 	}()
 
-	sending := make(chan struct{})
-
-	go func() {
-		defer close(sending)
-
-		d.uploads.Run(ctx)
-	}()
-
 	bridging := d.serveTools(ctx)
 
 	serving := make(chan error, 1)
@@ -204,7 +196,6 @@ func (d *Daemon) Run(ctx context.Context) error {
 	<-carrying
 	<-preparing
 	<-supervising
-	<-sending
 
 	logging.From(ctx).InfoContext(ctx, "runner stopped")
 

@@ -56,71 +56,6 @@ func (mr *MockUploadsMockRecorder) Attach(ctx, executionID, label, body any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Attach", reflect.TypeOf((*MockUploads)(nil).Attach), ctx, executionID, label, body)
 }
 
-// Close mocks base method.
-func (m *MockUploads) Close(ctx context.Context, executionID string) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Close", ctx, executionID)
-}
-
-// Close indicates an expected call of Close.
-func (mr *MockUploadsMockRecorder) Close(ctx, executionID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockUploads)(nil).Close), ctx, executionID)
-}
-
-// Event mocks base method.
-func (m *MockUploads) Event(ctx context.Context, executionID string, event entity.DriverEvent) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Event", ctx, executionID, event)
-}
-
-// Event indicates an expected call of Event.
-func (mr *MockUploadsMockRecorder) Event(ctx, executionID, event any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Event", reflect.TypeOf((*MockUploads)(nil).Event), ctx, executionID, event)
-}
-
-// Flush mocks base method.
-func (m *MockUploads) Flush(ctx context.Context, executionID string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Flush", ctx, executionID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Flush indicates an expected call of Flush.
-func (mr *MockUploadsMockRecorder) Flush(ctx, executionID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockUploads)(nil).Flush), ctx, executionID)
-}
-
-// Line mocks base method.
-func (m *MockUploads) Line(ctx context.Context, executionID string, line entity.LogLine) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Line", ctx, executionID, line)
-}
-
-// Line indicates an expected call of Line.
-func (mr *MockUploadsMockRecorder) Line(ctx, executionID, line any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Line", reflect.TypeOf((*MockUploads)(nil).Line), ctx, executionID, line)
-}
-
-// Open mocks base method.
-func (m *MockUploads) Open(ctx context.Context, executionID string) (entity.TelemetryMode, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Open", ctx, executionID)
-	ret0, _ := ret[0].(entity.TelemetryMode)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Open indicates an expected call of Open.
-func (mr *MockUploadsMockRecorder) Open(ctx, executionID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockUploads)(nil).Open), ctx, executionID)
-}
-
 // Publish mocks base method.
 func (m *MockUploads) Publish(ctx context.Context, executionID string, artifact entity.Artifact) (entity.ArtifactReceipt, error) {
 	m.ctrl.T.Helper()
@@ -134,16 +69,4 @@ func (m *MockUploads) Publish(ctx context.Context, executionID string, artifact 
 func (mr *MockUploadsMockRecorder) Publish(ctx, executionID, artifact any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockUploads)(nil).Publish), ctx, executionID, artifact)
-}
-
-// Run mocks base method.
-func (m *MockUploads) Run(ctx context.Context) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Run", ctx)
-}
-
-// Run indicates an expected call of Run.
-func (mr *MockUploadsMockRecorder) Run(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockUploads)(nil).Run), ctx)
 }

@@ -195,64 +195,6 @@ type Task struct {
 	Model  string
 }
 
-type UploadStream string
-
-const (
-	StreamLogs       UploadStream = "logs"
-	StreamTranscript UploadStream = "transcript"
-)
-
-func UploadStreams() []UploadStream {
-	return []UploadStream{StreamLogs, StreamTranscript}
-}
-
-func (s UploadStream) Valid() bool {
-	return slices.Contains(UploadStreams(), s)
-}
-
-type TelemetryMode string
-
-const (
-	TelemetryFull    TelemetryMode = "full"
-	TelemetryMinimal TelemetryMode = "minimal"
-)
-
-func (m TelemetryMode) Keeps(stream UploadStream) bool {
-	return m != TelemetryMinimal || stream != StreamTranscript
-}
-
-type LogLine struct {
-	At     time.Time
-	Stream string
-	Source string
-	Text   string
-}
-
-type LogBatch struct {
-	Sequence int64
-	Entries  []LogLine
-}
-
-type TranscriptBatch struct {
-	Sequence int64
-	Entries  []DriverEvent
-}
-
-type StreamCursor struct {
-	Stream       UploadStream
-	LastSequence int64
-	Chunks       int
-	Entries      int64
-	Bytes        int64
-}
-
-type UploadReceipt struct {
-	Stream    UploadStream
-	Sequence  int64
-	Digest    string
-	Duplicate bool
-}
-
 const DriverResumeInjection = "Your session stopped before you said you were finished. Carry on " +
 	"from where you left off: check what you had already changed in this workspace, then finish " +
 	"the work and commit it."

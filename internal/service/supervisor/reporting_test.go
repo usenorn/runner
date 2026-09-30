@@ -65,7 +65,7 @@ func TestNornIsToldWhichServiceItIsOnWhichPortAndHowItIsChecked(t *testing.T) {
 	}
 }
 
-func TestWhatAServicePrintsReachesTheRunsOutput(t *testing.T) {
+func TestWhatAServicePrintsIsKeptOnThisMachineUnderItsName(t *testing.T) {
 	h := newHarness(t, 46200, 46299)
 	stop := h.start(t)
 
@@ -81,25 +81,20 @@ func TestWhatAServicePrintsReachesTheRunsOutput(t *testing.T) {
 		t.Fatalf("start the api: %v", err)
 	}
 
-	h.await(t, "waited for the api's own output to be sent up", func() bool {
-		for _, line := range h.lines("api") {
-			if strings.Contains(line.Text, "second line") {
+	h.await(t, "waited for the api's own output to be kept", func() bool {
+		lines, err := h.service.Logs(context.Background(), execution.ID, "api", entity.LogQuery{})
+		if err != nil {
+			return false
+		}
+
+		for _, line := range lines {
+			if strings.Contains(line, "second line") {
 				return true
 			}
 		}
 
 		return false
 	})
-
-	for _, line := range h.lines("api") {
-		if line.Source != "api" {
-			t.Fatalf(
-				"a line came up under source %q. The services panel reads its output by the "+
-					"service's own name, so anything else is invisible there",
-				line.Source,
-			)
-		}
-	}
 }
 
 func (h *harness) serviceReports(t *testing.T, executionID string) []channelv1.Service {

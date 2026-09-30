@@ -50,7 +50,6 @@ type servicesSupervisor struct {
 	logs      repository.ServiceLog
 	runs      repository.Run
 	spool     repository.Spool
-	uploads   service.Uploads
 	cfg       config.Supervisor
 	now       func() time.Time
 
@@ -65,7 +64,6 @@ func New(
 	logs repository.ServiceLog,
 	runs repository.Run,
 	spool repository.Spool,
-	uploads service.Uploads,
 	cfg config.Supervisor,
 ) service.Services {
 	return &servicesSupervisor{
@@ -75,7 +73,6 @@ func New(
 		logs:      logs,
 		runs:      runs,
 		spool:     spool,
-		uploads:   uploads,
 		cfg:       cfg,
 		now:       func() time.Time { return time.Now().UTC() },
 		held:      map[string]*run{},
@@ -450,36 +447,6 @@ func (s *servicesSupervisor) persist(ctx context.Context, executionID string) {
 			slog.String("error", err.Error()),
 		)
 	}
-}
-
-func (s *servicesSupervisor) forward(
-	ctx context.Context,
-	executionID, name string,
-	from *stream,
-) {
-	lines, forget := from.Watch()
-
-	go func() {
-		defer forget()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case line, open := <-lines:
-				if !open {
-					return
-				}
-
-				s.uploads.Line(ctx, executionID, entity.LogLine{
-					At:     s.now(),
-					Stream: "stdout",
-					Source: name,
-					Text:   line,
-				})
-			}
-		}
-	}()
 }
 
 func (s *servicesSupervisor) report(

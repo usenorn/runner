@@ -76,7 +76,6 @@ type harness struct {
 	freeErr   error
 	connected []entity.Codebase
 	planFile  string
-	telemetry entity.TelemetryMode
 	profile   config.Profile
 
 	dirty    map[string][]string
@@ -99,15 +98,13 @@ type harness struct {
 	nornErr   error
 	installed []string
 
-	mu          sync.Mutex
-	pushed      []string
-	requested   []entity.PullRequest
-	takeErr     error
-	linger      time.Duration
-	taken       []service.TakeRequest
-	released    []string
-	transcripts []entity.TranscriptBatch
-	logs        []entity.LogBatch
+	mu        sync.Mutex
+	pushed    []string
+	requested []entity.PullRequest
+	takeErr   error
+	linger    time.Duration
+	taken     []service.TakeRequest
+	released  []string
 }
 
 func newHarness(t *testing.T, capacity int, watermark int64) *harness {
@@ -219,7 +216,6 @@ func build(
 		skillErrs:   map[string]error{},
 		free:        free,
 		connected:   []entity.Codebase{connected("/codebase")},
-		telemetry:   entity.TelemetryFull,
 		profile:     profile,
 		dirty:       map[string][]string{},
 		remote:      "git@github.com:usenorn/runner.git",
@@ -233,14 +229,7 @@ func build(
 		h.boxes = sandboxes(t, dir, processrepo.New())
 	}
 
-	h.uploads = uploadsvc.New(h.posts, h.runs, h.dashboard, h.sessions, config.Upload{
-		Enabled:          true,
-		Batch:            2,
-		Flush:            10 * time.Millisecond,
-		MaxChunkBytes:    1 << 20,
-		MaxPending:       8,
-		MaxArtifactBytes: 1 << 20,
-	})
+	h.uploads = uploadsvc.New(h.posts, h.runs, h.sessions, config.Upload{MaxArtifactBytes: 1 << 20})
 
 	h.questions = questionsvc.New(
 		h.runs, h.spool, config.Questions{SoftWait: 20 * time.Millisecond, MaxWait: time.Second},
@@ -374,28 +363,6 @@ func (h *harness) expect() {
 		Return("access-token", nil).
 		AnyTimes()
 
-	h.dashboard.EXPECT().
-		Telemetry(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, string) (entity.TelemetryMode, error) {
-			return h.telemetry, nil
-		}).
-		AnyTimes()
-
-	h.posts.EXPECT().
-		Cursors(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, nil).
-		AnyTimes()
-
-	h.posts.EXPECT().
-		AppendTranscript(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(h.appendTranscript).
-		AnyTimes()
-
-	h.posts.EXPECT().
-		AppendLogs(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(h.appendLogs).
-		AnyTimes()
-
 	h.expectGit()
 	h.expectForge()
 }
@@ -501,60 +468,6 @@ func (h *harness) left(path string) []string {
 	return nil
 }
 
-func (h *harness) appendTranscript(
-	_ context.Context,
-	_ string,
-	_ string,
-	batch entity.TranscriptBatch,
-) (entity.UploadReceipt, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	h.transcripts = append(h.transcripts, batch)
-
-	return entity.UploadReceipt{Stream: entity.StreamTranscript, Sequence: batch.Sequence}, nil
-}
-
-func (h *harness) appendLogs(
-	_ context.Context,
-	_ string,
-	_ string,
-	batch entity.LogBatch,
-) (entity.UploadReceipt, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	h.logs = append(h.logs, batch)
-
-	return entity.UploadReceipt{Stream: entity.StreamLogs, Sequence: batch.Sequence}, nil
-}
-
-func (h *harness) sent() []entity.DriverEvent {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	events := []entity.DriverEvent{}
-
-	for _, batch := range h.transcripts {
-		events = append(events, batch.Entries...)
-	}
-
-	return events
-}
-
-func (h *harness) logged() []entity.LogLine {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	lines := []entity.LogLine{}
-
-	for _, batch := range h.logs {
-		lines = append(lines, batch.Entries...)
-	}
-
-	return lines
-}
-
 func (h *harness) take(
 	ctx context.Context,
 	request service.TakeRequest,
@@ -629,14 +542,6 @@ func (h *harness) start(t *testing.T) func() {
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan struct{})
 
-	sending := make(chan struct{})
-
-	go func() {
-		defer close(sending)
-
-		h.uploads.Run(ctx)
-	}()
-
 	if err := h.service.Reclaim(ctx); err != nil {
 		t.Fatalf("reclaim the runs this machine was holding: %v", err)
 	}
@@ -650,7 +555,6 @@ func (h *harness) start(t *testing.T) func() {
 	return func() {
 		stop()
 		<-done
-		<-sending
 	}
 }
 

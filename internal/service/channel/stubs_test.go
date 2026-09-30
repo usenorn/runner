@@ -68,6 +68,10 @@ func (runStub) LoadServices(context.Context, string) (entity.RunServices, error)
 
 func (runStub) Append(context.Context, string, entity.TimelineEntry) error { return nil }
 
+func (runStub) RecordTranscript(context.Context, string, entity.DriverEvent) error { return nil }
+
+func (runStub) RecordStderr(context.Context, string, string) error { return nil }
+
 func (runStub) Timeline(context.Context, string) ([]entity.TimelineEntry, error) {
 	return nil, nil
 }
@@ -157,20 +161,6 @@ func (servicesStub) Port(context.Context, string, string) (int, error) { return 
 func (servicesStub) Release(context.Context, string) error { return nil }
 
 type uploadStub struct{}
-
-func (uploadStub) Run(context.Context) {}
-
-func (uploadStub) Open(context.Context, string) (entity.TelemetryMode, error) {
-	return entity.TelemetryFull, nil
-}
-
-func (uploadStub) Event(context.Context, string, entity.DriverEvent) {}
-
-func (uploadStub) Line(context.Context, string, entity.LogLine) {}
-
-func (uploadStub) Flush(context.Context, string) error { return nil }
-
-func (uploadStub) Close(context.Context, string) {}
 
 func (uploadStub) Publish(
 	context.Context,

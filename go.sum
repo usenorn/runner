@@ -791,8 +791,8 @@ github.com/ultraware/funlen v0.2.0 h1:gCHmCn+d2/1SemTdYMiKLAHFYxTYz7z9VIDRaTGyLk
 github.com/ultraware/funlen v0.2.0/go.mod h1:ZE0q4TsJ8T1SQcjmkhN/w+MceuatI6pBFSxxyteHIJA=
 github.com/ultraware/whitespace v0.2.0 h1:TYowo2m9Nfj1baEQBjuHzvMRbp19i+RCcRYrSWoFa+g=
 github.com/ultraware/whitespace v0.2.0/go.mod h1:XcP1RLD81eV4BW8UhQlpaR+SDc2givTvyI8a586WjW8=
-github.com/usenorn/norn v1.16.4-0.20260929221900-28746a92a1ab h1:R/Q7/7UxQsiXBKMhvDNo/88C8xWwz1hKJY1i1AgnKq0=
-github.com/usenorn/norn v1.16.4-0.20260929221900-28746a92a1ab/go.mod h1:8QtbiT735G1Typt0yA1YdG7wcDIQ4bniFuhlAl645EY=
+github.com/usenorn/norn v1.16.4-0.20260930001939-a868a1734c13 h1:73mED9wYCXQoRylLEhpRMnBIuDI1Z9yxKEPkAsQK8+8=
+github.com/usenorn/norn v1.16.4-0.20260930001939-a868a1734c13/go.mod h1:8QtbiT735G1Typt0yA1YdG7wcDIQ4bniFuhlAl645EY=
 github.com/uudashr/gocognit v1.2.1 h1:CSJynt5txTnORn/DkhiB4mZjwPuifyASC8/6Q0I/QS4=
 github.com/uudashr/gocognit v1.2.1/go.mod h1:acaubQc6xYlXFEMb9nWX2dYBzJ/bIjEkc1zzvyIZg5Q=
 github.com/uudashr/iface v1.4.2 h1:06Vq5RKVYThBsj0Bnw4oasMjD1r+7CE/bcKOA8dVSvg=

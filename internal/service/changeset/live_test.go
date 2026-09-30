@@ -42,20 +42,6 @@ func (k *keptDiff) Attach(
 	return entity.ArtifactReceipt{ID: "f8b0a1c2-0000-4000-8000-000000000001"}, nil
 }
 
-func (k *keptDiff) Run(context.Context) {}
-
-func (k *keptDiff) Open(context.Context, string) (entity.TelemetryMode, error) {
-	return entity.TelemetryFull, nil
-}
-
-func (k *keptDiff) Event(context.Context, string, entity.DriverEvent) {}
-
-func (k *keptDiff) Line(context.Context, string, entity.LogLine) {}
-
-func (k *keptDiff) Flush(context.Context, string) error { return nil }
-
-func (k *keptDiff) Close(context.Context, string) {}
-
 func (k *keptDiff) Publish(
 	context.Context, string, entity.Artifact,
 ) (entity.ArtifactReceipt, error) {

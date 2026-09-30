@@ -13,6 +13,8 @@ const (
 	RunArtifactsDir = "artifacts"
 
 	RunTimelineFile    = "timeline.ndjson"
+	RunTranscriptFile  = "transcript.ndjson"
+	RunAgentStderrFile = "agent-stderr.log"
 	RunRepositoryFile  = "repositories.json"
 	RunPermissionsFile = "permissions.json"
 	RunPlanFile        = "run-plan.json"
