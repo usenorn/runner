@@ -144,6 +144,15 @@ func TestTheAgentStartsWithNornsInstructionsSkillsAndEveryServerBesideNornsOwn(t
 		t.Errorf("norn's own server reads %+v; without it the agent cannot report, ask or finish", norn)
 	}
 
+	if norn := config.Servers[entity.ToolkitServerName]; norn.Env[entity.StateRootVariable] != h.dir.Root() {
+		t.Errorf(
+			"norn's own server is not told where this machine keeps its state (%q); the agent runs "+
+				"with a home of its own, so the server would look for the socket there and never "+
+				"find it",
+			norn.Env[entity.StateRootVariable],
+		)
+	}
+
 	if linear := config.Servers["linear"]; linear.Type != "http" || linear.Headers["Authorization"] != "Bearer at-rae" {
 		t.Errorf("the http server reads %+v", linear)
 	}

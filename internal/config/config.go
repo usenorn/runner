@@ -20,6 +20,7 @@ type Config struct {
 	Supervisor Supervisor `mapstructure:"supervisor"`
 	Driver     Driver     `mapstructure:"driver"`
 	Docker     Docker     `mapstructure:"docker"`
+	Host       Host       `mapstructure:"host"`
 	Upload     Upload     `mapstructure:"upload"`
 	Questions  Questions  `mapstructure:"questions"`
 	Results    Results    `mapstructure:"results"`
@@ -40,6 +41,11 @@ type Docker struct {
 	Timeout     time.Duration `mapstructure:"timeout"`
 	PullTimeout time.Duration `mapstructure:"pull_timeout"`
 	Bridge      string        `mapstructure:"bridge"`
+}
+
+type Host struct {
+	Readable []string      `mapstructure:"readable"`
+	Timeout  time.Duration `mapstructure:"timeout"`
 }
 
 type Results struct {

@@ -30,8 +30,11 @@ func (s *executionsService) Continue(
 		return nil
 	}
 
-	if instruction.Reason == channelv1.ResumeApproved && execution.State.Parked() {
-		return s.approve(ctx, execution)
+	switch instruction.Reason {
+	case channelv1.ResumeApproved, channelv1.ResumePublish:
+		return s.approving(ctx, executionID, instruction)
+	case channelv1.ResumeAbandon:
+		return s.abandon(ctx, executionID)
 	}
 
 	if !execution.State.Parked() {

@@ -420,10 +420,14 @@ func (changesetStub) Collect(
 	return entity.ChangeSet{}, nil
 }
 
+func (changesetStub) Tips(context.Context, entity.Review) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
 func (changesetStub) Publish(
-	context.Context, entity.Execution, entity.Snapshot,
-) (entity.ChangeSet, error) {
-	return entity.ChangeSet{}, nil
+	context.Context, entity.Execution, entity.Review,
+) (entity.Publication, error) {
+	return entity.Publication{}, nil
 }
 
 func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) repository.Sandbox {
@@ -441,6 +445,7 @@ func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) re
 		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
 		dir,
 		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		config.Host{Timeout: 10 * time.Second},
 		bridged,
 	)
 }

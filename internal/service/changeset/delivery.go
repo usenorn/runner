@@ -5,88 +5,159 @@ import (
 	"compress/gzip"
 	"context"
 
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
+
 	"github.com/usenorn/runner/internal/config"
 	"github.com/usenorn/runner/internal/entity"
 )
 
+func (s *changeSetsService) Publish(
+	ctx context.Context,
+	execution entity.Execution,
+	review entity.Review,
+) (entity.Publication, error) {
+	previous, err := s.runs.LoadPublication(ctx, execution.ID)
+	if err != nil {
+		return entity.Publication{}, err
+	}
+
+	publication := entity.PublicationOf(review, previous)
+
+	if err := s.record(ctx, execution.ID, publication); err != nil {
+		return publication, err
+	}
+
+	for _, repository := range review.Repositories {
+		held, _ := publication.Of(repository.Name)
+		if held.State == entity.PublicationPublished {
+			continue
+		}
+
+		publication.Record(s.deliver(ctx, execution, repository, held))
+
+		if err := s.record(ctx, execution.ID, publication); err != nil {
+			return publication, err
+		}
+	}
+
+	return publication, nil
+}
+
+func (s *changeSetsService) Tips(
+	ctx context.Context,
+	review entity.Review,
+) (map[string]string, error) {
+	tips := make(map[string]string, len(review.Repositories))
+
+	for _, repository := range review.Repositories {
+		tip, err := s.worktrees.Resolve(ctx, repository.Path, "refs/heads/"+repository.Branch)
+		if err != nil {
+			return nil, err
+		}
+
+		tips[repository.Name] = tip
+	}
+
+	return tips, nil
+}
+
+func (s *changeSetsService) record(
+	ctx context.Context,
+	executionID string,
+	publication entity.Publication,
+) error {
+	if err := s.runs.SavePublication(ctx, executionID, publication); err != nil {
+		return err
+	}
+
+	s.send(ctx, channelv1.PublicationUpdated, executionID, publication.Wire(s.now()))
+
+	return nil
+}
+
 func (s *changeSetsService) deliver(
 	ctx context.Context,
 	execution entity.Execution,
-	snapshot entity.Snapshot,
-	changes entity.ChangeSet,
-) entity.ChangeSet {
-	sources := make(map[string]entity.SnapshotRepository, len(snapshot.Repositories))
+	repository entity.ReviewedRepository,
+	held entity.RepositoryPublication,
+) entity.RepositoryPublication {
+	if err := s.push(ctx, repository); err != nil {
+		s.tell(ctx, execution.ID, entity.PushRefused(repository.Name, repository.Branch, err))
 
-	for _, held := range snapshot.Repositories {
-		sources[held.Name] = held
+		return failed(held, entity.PublicationStepPush, err)
 	}
 
-	for index, change := range changes.Repositories {
-		held, known := sources[change.Repository]
-		if !known {
-			continue
-		}
+	s.tell(ctx, execution.ID, entity.Pushed(repository.Name, repository.Branch))
 
-		if !s.push(ctx, execution, held, change) {
-			continue
-		}
+	held.State, held.Step, held.Failure = entity.PublicationPushed, entity.PublicationStepPush, ""
 
-		if s.results.CreatePRs != config.PullRequestsAuto {
-			continue
-		}
+	if s.results.CreatePRs != config.PullRequestsAuto {
+		held.State = entity.PublicationPublished
 
-		changes.Repositories[index].PullRequest = s.request(ctx, execution, held, change)
+		return held
 	}
 
-	return changes
+	address, err := s.request(ctx, execution, repository)
+	if err != nil {
+		s.tell(ctx, execution.ID, entity.PullRequestRefused(repository.Name, err))
+
+		return failed(held, entity.PublicationStepPullRequest, err)
+	}
+
+	held.State, held.Step, held.PullRequest = entity.PublicationPublished, entity.PublicationStepPullRequest, address
+
+	return held
 }
 
-func (s *changeSetsService) push(
-	ctx context.Context,
-	execution entity.Execution,
-	held entity.SnapshotRepository,
-	change entity.RepositoryChange,
-) bool {
-	if change.Branch != held.Branch {
-		s.tell(ctx, execution.ID, entity.PushRefused(held.Name, change.Branch, entity.ErrBranchMoved))
+func failed(
+	held entity.RepositoryPublication,
+	step entity.PublicationStep,
+	err error,
+) entity.RepositoryPublication {
+	held.State, held.Step, held.Failure = entity.PublicationFailed, step, err.Error()
 
-		return false
+	return held
+}
+
+func (s *changeSetsService) push(ctx context.Context, repository entity.ReviewedRepository) error {
+	if repository.Remote == "" {
+		return entity.ErrPushNowhere
 	}
 
-	url, err := s.worktrees.Remote(ctx, held.Source)
+	tip, err := s.worktrees.RemoteTip(ctx, repository.Remote, repository.Branch)
 	if err != nil {
-		s.tell(ctx, execution.ID, entity.PushSkipped(held.Name, err))
-
-		return false
+		return err
 	}
 
-	if err := s.worktrees.Push(ctx, held.Path, url, change.Branch); err != nil {
-		s.tell(ctx, execution.ID, entity.PushRefused(held.Name, change.Branch, err))
-
-		return false
+	if tip == repository.HeadSHA {
+		return nil
 	}
 
-	s.tell(ctx, execution.ID, entity.Pushed(held.Name, change.Branch))
-
-	return true
+	return s.worktrees.Push(ctx, repository.Path, repository.Remote, entity.Push{
+		SHA:    repository.HeadSHA,
+		Branch: repository.Branch,
+		Lease:  repository.Lease,
+	})
 }
 
 func (s *changeSetsService) request(
 	ctx context.Context,
 	execution entity.Execution,
-	held entity.SnapshotRepository,
-	change entity.RepositoryChange,
-) string {
-	if _, available := s.forges.Available(ctx, held.Path); !available {
-		s.tell(ctx, execution.ID, entity.PullRequestSkipped(held.Name))
-
-		return ""
+	repository entity.ReviewedRepository,
+) (string, error) {
+	if _, available := s.forges.Available(ctx, repository.Path); !available {
+		return "", entity.ErrForgeAbsent
 	}
 
-	if already, err := s.forges.Existing(ctx, held.Path, change.Branch); err == nil && already != "" {
-		s.tell(ctx, execution.ID, entity.PullRequestAmended(held.Name, already))
+	already, err := s.forges.Existing(ctx, repository.Path, repository.Branch)
+	if err != nil {
+		return "", err
+	}
 
-		return already
+	if already != "" {
+		s.tell(ctx, execution.ID, entity.PullRequestAmended(repository.Name, already))
+
+		return already, nil
 	}
 
 	title, scrubbed := entity.ScrubbedForForge(
@@ -94,22 +165,20 @@ func (s *changeSetsService) request(
 	)
 
 	if len(scrubbed) > 0 {
-		s.tell(ctx, execution.ID, entity.PullRequestScrubbed(held.Name, scrubbed))
+		s.tell(ctx, execution.ID, entity.PullRequestScrubbed(repository.Name, scrubbed))
 	}
 
-	address, err := s.forges.Open(ctx, held.Path, entity.PullRequest{
+	address, err := s.forges.Open(ctx, repository.Path, entity.PullRequest{
 		Title:  title,
-		Branch: change.Branch,
+		Branch: repository.Branch,
 	})
 	if err != nil {
-		s.tell(ctx, execution.ID, entity.PullRequestRefused(held.Name, err))
-
-		return ""
+		return "", err
 	}
 
-	s.tell(ctx, execution.ID, entity.PullRequestOpened(held.Name, address))
+	s.tell(ctx, execution.ID, entity.PullRequestOpened(repository.Name, address))
 
-	return address
+	return address, nil
 }
 
 func squeeze(patch []byte) ([]byte, error) {

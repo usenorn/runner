@@ -324,9 +324,11 @@ func (s *servicesSupervisor) Logs(
 		entry = holding.services[name]
 	}
 
+	live := entry != nil && entry.record.State.Live()
+
 	s.mu.Unlock()
 
-	if entry != nil && entry.record.State.Live() {
+	if live {
 		return query.Select(entry.stream.Recent(query.Window()))
 	}
 

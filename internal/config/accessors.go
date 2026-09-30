@@ -32,6 +32,8 @@ func NewDriver(cfg Config) Driver { return cfg.Driver }
 
 func NewDocker(cfg Config) Docker { return cfg.Docker }
 
+func NewHost(cfg Config) Host { return cfg.Host }
+
 func NewQuestions(cfg Config) Questions { return cfg.Questions }
 
 func NewUpload(cfg Config) Upload { return cfg.Upload }

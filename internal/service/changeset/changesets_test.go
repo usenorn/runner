@@ -21,7 +21,7 @@ func TestWhatEachRepositoryChangedIsReportedWithNumbersAReviewerCanTotal(t *test
 	h.pushes()
 	h.noForge()
 
-	changes := h.publish(t, "added the changeset ingest")
+	changes, _ := h.publish(t, "added the changeset ingest")
 
 	if len(changes.Repositories) != 2 {
 		t.Fatalf("a run that touched two repositories reported %d", len(changes.Repositories))
@@ -65,7 +65,7 @@ func TestARepositoryTheRunNeverCommittedToIsLeftOffTheChangeSet(t *testing.T) {
 	h.changed(0, entity.Diffstat{})
 	h.noForge()
 
-	changes := h.publish(t, "nothing needed changing")
+	changes, _ := h.publish(t, "nothing needed changing")
 
 	if len(changes.Repositories) != 0 {
 		t.Fatalf(
@@ -133,7 +133,7 @@ func TestTheDiffIsKeptAsAnArtifactTheChangeSetPointsAt(t *testing.T) {
 		}).
 		AnyTimes()
 
-	changes := h.publish(t, "one line")
+	changes, _ := h.publish(t, "one line")
 
 	for _, change := range changes.Repositories {
 		if change.DiffArtifact == "" {
@@ -159,7 +159,7 @@ func TestADiffTooLargeToKeepStillLeavesTheNumbersAndTheBranch(t *testing.T) {
 	h.pushes()
 	h.noForge()
 
-	changes := h.publish(t, "a very large change")
+	changes, _ := h.publish(t, "a very large change")
 
 	if len(changes.Repositories) == 0 {
 		t.Fatal(
@@ -208,16 +208,20 @@ func TestAPullRequestIsOpenedForEachBranchAndItsAddressIsReported(t *testing.T) 
 		}).
 		AnyTimes()
 
-	changes := h.publish(t, "added a median helper")
+	_, publication := h.publish(t, "added a median helper")
 
-	for _, change := range changes.Repositories {
-		if change.PullRequest == "" {
+	for _, held := range publication.Repositories {
+		if held.PullRequest == "" || held.State != entity.PublicationPublished {
 			t.Fatalf(
 				"%s pushed a branch and opened nothing, so a person has to go and find the work "+
 					"themselves",
-				change.Repository,
+				held.Repository,
 			)
 		}
+	}
+
+	if !publication.Complete() {
+		t.Fatalf("a publication where every repository opened its pull request is %+v", publication)
 	}
 
 	if len(asked) != 2 {
@@ -257,11 +261,11 @@ func TestASecondPassPutsItsCommitsOnThePullRequestThatIsAlreadyOpen(t *testing.T
 		}).
 		AnyTimes()
 
-	changes := h.publish(t, "took the review feedback")
+	_, publication := h.publish(t, "took the review feedback")
 
-	for _, change := range changes.Repositories {
-		if change.PullRequest != "https://github.com/usenorn/runner/pull/231" {
-			t.Fatalf("%s reports %q", change.Repository, change.PullRequest)
+	for _, held := range publication.Repositories {
+		if held.PullRequest != "https://github.com/usenorn/runner/pull/231" {
+			t.Fatalf("%s reports %q", held.Repository, held.PullRequest)
 		}
 	}
 }
@@ -274,21 +278,7 @@ func TestPushOnlyPushesTheBranchAndOpensNothing(t *testing.T) {
 	h.changed(1, entity.Diffstat{Additions: 1, Files: 1})
 	h.keeps("f8b0a1c2-0000-4000-8000-000000000001")
 
-	h.worktrees.EXPECT().
-		Remote(gomock.Any(), gomock.Any()).
-		Return("git@github.com:usenorn/runner.git", nil).
-		AnyTimes()
-
-	pushed := 0
-
-	h.worktrees.EXPECT().
-		Push(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, string, string, string) error {
-			pushed++
-
-			return nil
-		}).
-		AnyTimes()
+	h.pushes()
 
 	h.forges.EXPECT().
 		Available(gomock.Any(), gomock.Any()).
@@ -299,16 +289,20 @@ func TestPushOnlyPushesTheBranchAndOpensNothing(t *testing.T) {
 		}).
 		AnyTimes()
 
-	changes := h.publish(t, "pushed only")
+	_, publication := h.publish(t, "pushed only")
 
-	if pushed != 2 {
-		t.Fatalf("%d branches were pushed and the run touched two", pushed)
+	if len(h.pushed) != 2 {
+		t.Fatalf("%d branches were pushed and the run touched two", len(h.pushed))
 	}
 
-	for _, change := range changes.Repositories {
-		if change.PullRequest != "" {
-			t.Fatalf("%s opened a pull request under push_only", change.Repository)
+	for _, held := range publication.Repositories {
+		if held.PullRequest != "" {
+			t.Fatalf("%s opened a pull request under push_only", held.Repository)
 		}
+	}
+
+	if !publication.Complete() {
+		t.Fatalf("a push_only publication that pushed everything is %+v", publication)
 	}
 }
 
@@ -316,11 +310,6 @@ func TestARepositoryThatCouldNotBePushedNeverClaimsAPullRequest(t *testing.T) {
 	h := newHarness(t, defaults())
 	h.changed(1, entity.Diffstat{Additions: 1, Files: 1})
 	h.keeps("f8b0a1c2-0000-4000-8000-000000000001")
-
-	h.worktrees.EXPECT().
-		Remote(gomock.Any(), gomock.Any()).
-		Return("", entity.ErrPushNowhere).
-		AnyTimes()
 
 	h.forges.EXPECT().
 		Available(gomock.Any(), gomock.Any()).
@@ -334,20 +323,24 @@ func TestARepositoryThatCouldNotBePushedNeverClaimsAPullRequest(t *testing.T) {
 		}).
 		AnyTimes()
 
-	changes := h.publish(t, "nowhere to push")
+	_, publication := h.publish(t, "nowhere to push")
 
-	if len(changes.Repositories) != 2 {
+	if len(publication.Repositories) != 2 {
 		t.Fatalf(
 			"work that could not be pushed vanished from the report: %+v; it is still on this "+
 				"machine and somebody has to be told where",
-			changes.Repositories,
+			publication.Repositories,
 		)
 	}
 
-	for _, change := range changes.Repositories {
-		if change.PullRequest != "" {
-			t.Fatalf("%s claims a pull request it never opened", change.Repository)
+	for _, held := range publication.Repositories {
+		if held.PullRequest != "" || held.State != entity.PublicationFailed || held.Step != entity.PublicationStepPush {
+			t.Fatalf("%s came back as %+v after it could not be pushed", held.Repository, held)
 		}
+	}
+
+	if publication.Complete() {
+		t.Fatal("a publication that pushed nothing reads as complete")
 	}
 }
 
@@ -360,9 +353,11 @@ func TestTheProvisionalCommitCarryingSomebodyElsesWorkIsNotCountedAsTheRuns(t *t
 
 	var bases []string
 
+	h.worktrees.EXPECT().Head(gomock.Any(), gomock.Any()).Return("head-sha", nil).AnyTimes()
+
 	h.worktrees.EXPECT().
-		Commits(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _, base string) (int, error) {
+		Commits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _, base, _ string) (int, error) {
 			bases = append(bases, base)
 
 			return 0, nil
@@ -406,10 +401,80 @@ func TestNothingLeavesTheMachineWhileTheChangesWaitForReview(t *testing.T) {
 	if len(changes.Repositories) == 0 {
 		t.Fatal("a run that committed work reported nothing to review")
 	}
+}
 
-	for _, change := range changes.Repositories {
-		if change.PullRequest != "" {
-			t.Fatalf("%s claims a pull request before anybody approved the work", change.Repository)
+func TestARetryPublishesOnlyWhatIsLeftAndNeverOpensASecondPullRequest(t *testing.T) {
+	h := newHarness(t, defaults())
+	h.changed(1, entity.Diffstat{Additions: 1, Files: 1})
+	h.keeps("f8b0a1c2-0000-4000-8000-000000000001")
+	h.pushes()
+
+	h.forges.EXPECT().Available(gomock.Any(), gomock.Any()).Return(entity.ForgeGitHub, true).AnyTimes()
+	h.forges.EXPECT().Existing(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil).AnyTimes()
+
+	opened := map[string]int{}
+	refusing := true
+
+	h.forges.EXPECT().
+		Open(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, dir string, _ entity.PullRequest) (string, error) {
+			opened[dir]++
+
+			if refusing && strings.HasSuffix(dir, "frontend") {
+				return "", errors.New("HTTP 502")
+			}
+
+			return "https://github.com/usenorn/runner/pull/231", nil
+		}).
+		AnyTimes()
+
+	changes, first := h.publish(t, "added a median helper")
+
+	if first.Complete() || len(first.Failures()) != 1 {
+		t.Fatalf("a publication where one pull request failed reads as %+v", first)
+	}
+
+	refusing = false
+	second := h.republish(t, entity.ReviewOf(1, "added a median helper", h.snapshot, changes))
+
+	if !second.Complete() {
+		t.Fatalf("the retry left %+v", second)
+	}
+
+	if len(h.pushed) != 2 {
+		t.Fatalf("%d pushes for two repositories across two attempts; a retry pushed again", len(h.pushed))
+	}
+
+	for dir, count := range opened {
+		if strings.HasSuffix(dir, "backend") && count != 1 {
+			t.Fatalf("the backend's pull request was opened %d times", count)
+		}
+	}
+
+	if sent := h.sent(t, channelv1.PublicationUpdated); len(sent) == 0 {
+		t.Fatal("norn was never told how each repository's publication went")
+	}
+}
+
+func TestTheReviewedCommitIsPushedWhateverTheBranchHoldsNow(t *testing.T) {
+	h := newHarness(t, defaults())
+	h.changed(1, entity.Diffstat{Additions: 1, Files: 1})
+	h.keeps("f8b0a1c2-0000-4000-8000-000000000001")
+	h.pushes()
+	h.noForge()
+
+	changes := h.collect(t, "added a median helper")
+	review := entity.ReviewOf(1, "added a median helper", h.snapshot, changes)
+
+	for index := range review.Repositories {
+		review.Repositories[index].HeadSHA = "reviewed-" + review.Repositories[index].Name
+	}
+
+	h.republish(t, review)
+
+	for _, push := range h.pushed {
+		if !strings.HasPrefix(push.SHA, "reviewed-") || !push.Lease.Known {
+			t.Fatalf("the machine pushed %+v rather than the reviewed commit under a lease", push)
 		}
 	}
 }

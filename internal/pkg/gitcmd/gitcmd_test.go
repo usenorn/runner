@@ -2,6 +2,9 @@ package gitcmd_test
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -56,4 +59,50 @@ func TestGitRunsInAGroupOfItsOwnSoTeardownTakesEverythingWithIt(t *testing.T) {
 	}
 
 	_ = held.Close()
+}
+
+func TestARepositoryCannotMakeTheRunnersGitRunItsCode(t *testing.T) {
+	if !gitcmd.Installed() {
+		t.Skip("git is not installed, so nothing can be spawned to check")
+	}
+
+	ctx := context.Background()
+	repository := t.TempDir()
+	planted := filepath.Join(t.TempDir(), "ran")
+
+	if _, err := gitcmd.Run(ctx, repository, "init", "--quiet"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	hook := "#!/bin/sh\ntouch " + planted + "\n"
+	for _, name := range []string{"pre-commit", "post-commit", "reference-transaction"} {
+		if err := os.WriteFile(filepath.Join(repository, ".git", "hooks", name), []byte(hook), 0o755); err != nil {
+			t.Fatalf("plant %s: %v", name, err)
+		}
+	}
+
+	if _, err := gitcmd.Run(
+		ctx, repository, "config", "core.fsmonitor", filepath.Join(repository, ".git", "hooks", "pre-commit"),
+	); err != nil {
+		t.Fatalf("plant fsmonitor: %v", err)
+	}
+
+	if _, err := gitcmd.Run(ctx, repository,
+		"-c", "user.name=Norn", "-c", "user.email=runner@norn.invalid",
+		"commit", "--quiet", "--allow-empty", "--no-gpg-sign", "-m", "empty",
+	); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+
+	if _, err := gitcmd.Run(ctx, repository, "status", "--porcelain"); err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	if _, err := os.Stat(planted); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf(
+			"a hook the repository planted ran under the runner's own git (%v); the runner "+
+				"holds the person's credentials, so anything the agent writes into .git runs with them",
+			err,
+		)
+	}
 }

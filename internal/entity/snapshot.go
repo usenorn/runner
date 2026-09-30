@@ -109,12 +109,20 @@ type SnapshotRepository struct {
 	Kind    RepositoryKind
 	Source  string
 	Common  string
+	GitDir  string
 	Path    string
 	Mode    GitMode
 	Base    BasePolicy
 	BaseSHA string
 	Branch  string
+	Remote  string
+	Lease   Lease
 	Local   *LocalPatch
+}
+
+type Lease struct {
+	Known bool
+	Tip   string
 }
 
 type SharedFile struct {

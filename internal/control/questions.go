@@ -25,13 +25,12 @@ func (s *Server) ask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	asked, err := s.questions.Ask(r.Context(), r.PathValue("executionId"), entity.Question{
-		Kind:          kind,
-		Blocking:      request.Blocking,
-		Message:       request.Message,
-		Options:       request.Options,
-		AllowFreeText: request.AllowFreeText,
-		Default:       request.Default,
-		Wait:          time.Duration(request.WaitSeconds) * time.Second,
+		Kind:     kind,
+		Blocking: request.Blocking,
+		Message:  request.Message,
+		Options:  request.Options,
+		Default:  request.Default,
+		Wait:     time.Duration(request.WaitSeconds) * time.Second,
 		Context: entity.QuestionContext{
 			Preview: request.Preview,
 			Files:   request.Files,

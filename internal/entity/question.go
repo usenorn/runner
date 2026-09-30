@@ -15,11 +15,10 @@ const (
 )
 
 var (
-	ErrQuestionUnknownRun  = errors.New("this machine is not running that execution")
-	ErrQuestionUnreachable = errors.New("a question with no options and no free text cannot be answered")
-	ErrQuestionEmpty       = errors.New("a question needs something to ask")
-	ErrQuestionCrowded     = errors.New("a question offers more answers than norn will show")
-	ErrQuestionUndeclared  = errors.New("a question you are not waiting on has to say what you will do meanwhile")
+	ErrQuestionUnknownRun = errors.New("this machine is not running that execution")
+	ErrQuestionEmpty      = errors.New("a question needs something to ask")
+	ErrQuestionCrowded    = errors.New("a question offers more answers than norn will show")
+	ErrQuestionUndeclared = errors.New("a question you are not waiting on has to say what you will do meanwhile")
 )
 
 type QuestionKind string
@@ -45,16 +44,15 @@ type QuestionContext struct {
 }
 
 type Question struct {
-	Ref           string
-	Kind          QuestionKind
-	Blocking      bool
-	Message       string
-	Options       []string
-	AllowFreeText bool
-	Default       string
-	Wait          time.Duration
-	Context       QuestionContext
-	Asked         time.Time
+	Ref      string
+	Kind     QuestionKind
+	Blocking bool
+	Message  string
+	Options  []string
+	Default  string
+	Wait     time.Duration
+	Context  QuestionContext
+	Asked    time.Time
 }
 
 func (q Question) Fault() error {
@@ -63,8 +61,6 @@ func (q Question) Fault() error {
 		return ErrQuestionEmpty
 	case len(q.Options) > QuestionOptionsMax:
 		return ErrQuestionCrowded
-	case len(q.Options) == 0 && !q.AllowFreeText:
-		return ErrQuestionUnreachable
 	case !q.Blocking && strings.TrimSpace(q.Default) == "":
 		return ErrQuestionUndeclared
 	default:

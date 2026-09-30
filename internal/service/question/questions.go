@@ -257,7 +257,7 @@ func (s *questionsService) send(
 		Blocking:      question.Blocking,
 		Message:       question.Message,
 		Options:       question.Options,
-		AllowFreeText: question.AllowFreeText,
+		AllowFreeText: true,
 		Default:       question.Default,
 		Context: channelv1.QuestionContext{
 			Preview:   question.Context.Preview,

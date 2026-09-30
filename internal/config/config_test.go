@@ -258,6 +258,14 @@ func TestAConfigurationThatCannotWorkIsRefused(t *testing.T) {
 			name: "a bridge that is not somewhere to listen",
 			body: "docker:\n  bridge: nowhere\n",
 		},
+		{
+			name: "a sandbox probe given no time",
+			body: "host:\n  timeout: 0s\n",
+		},
+		{
+			name: "a readable path relative to wherever a run starts",
+			body: "host:\n  readable: [code/shared]\n",
+		},
 	}
 
 	for _, testCase := range cases {

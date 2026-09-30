@@ -26,9 +26,16 @@ func TestWorkAskedToRunAsAHostProcessRunsOnTheHost(t *testing.T) {
 
 	var said bytes.Buffer
 
-	code, err := hostOnly(t).Run(
+	sandboxes := hostOnly(t)
+	box := entity.Sandbox{Run: "exec-01ABC", Runtime: entity.RuntimeProcess}
+
+	if err := sandboxes.Open(context.Background(), entity.SandboxSpec{Box: box}); err != nil {
+		t.Fatalf("open the sandbox: %v", err)
+	}
+
+	code, err := sandboxes.Run(
 		context.Background(),
-		entity.Sandbox{Run: "exec-01ABC", Runtime: entity.RuntimeProcess},
+		box,
 		repository.Launch{Command: []string{"sh", "-c", "echo on the host"}, Output: &said},
 		time.Minute,
 	)
@@ -80,6 +87,7 @@ func hostOnly(t *testing.T) repository.Sandbox {
 		portrepo.New(config.Runner{PortRange: [2]int{46100, 46199}}),
 		dir,
 		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 1, Timeout: time.Second, PullTimeout: time.Second},
+		config.Host{Timeout: 10 * time.Second},
 		bridged,
 	)
 }

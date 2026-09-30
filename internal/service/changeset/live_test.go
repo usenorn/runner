@@ -153,6 +153,7 @@ func TestWhatARunChangedIsCollectedForReviewAndPushedOnlyOnceApproved(t *testing
 		Repositories: []entity.SnapshotRepository{{
 			Name: "ledger", RelPath: "ledger", Mode: entity.GitModeWorktree,
 			Source: source, Path: workspace, BaseSHA: base, Branch: branch,
+			Remote: bare, Lease: entity.Lease{Known: true},
 		}},
 	}
 
@@ -180,8 +181,11 @@ func TestWhatARunChangedIsCollectedForReviewAndPushedOnlyOnceApproved(t *testing
 	run(t, workspace, "add", "-A")
 	run(t, workspace, "commit", "-q", "-m", "add median")
 
+	pushOnly := defaults()
+	pushOnly.CreatePRs = config.PullRequestsPushOnly
+
 	kept := &keptDiff{}
-	changesets := changesetsvc.New(runs, spool, worktrees, quietForge{}, kept, defaults())
+	changesets := changesetsvc.New(runs, spool, worktrees, quietForge{}, kept, pushOnly)
 
 	if left, err = changesets.Uncommitted(ctx, snapshot); err != nil || len(left) != 0 {
 		t.Fatalf("a committed workspace still reads as dirty: %+v (%v)", left, err)
@@ -209,39 +213,49 @@ func TestWhatARunChangedIsCollectedForReviewAndPushedOnlyOnceApproved(t *testing
 		)
 	}
 
-	changes, err := changesets.Publish(ctx, execution, snapshot)
+	reviewed := collected.Repositories[0]
+
+	if reviewed.Commits != 1 || reviewed.Diffstat.Additions != 2 || reviewed.Diffstat.Files != 1 {
+		t.Fatalf(
+			"the run reads as %+v against a repository it added two lines to in one file",
+			reviewed,
+		)
+	}
+
+	if reviewed.HeadSHA != run(t, workspace, "rev-parse", "HEAD") {
+		t.Fatalf("the run reports head %q", reviewed.HeadSHA)
+	}
+
+	if err := os.WriteFile(filepath.Join(workspace, "late.py"), []byte("late = 1\n"), 0o644); err != nil {
+		t.Fatalf("write what a preview service wrote after review: %v", err)
+	}
+
+	run(t, workspace, "add", "-A")
+	run(t, workspace, "commit", "-q", "-m", "committed after the review")
+
+	review := entity.ReviewOf(1, "added a median helper", snapshot, collected)
+
+	publication, err := changesets.Publish(ctx, execution, review)
 	if err != nil {
 		t.Fatalf("push what the run changed: %v", err)
 	}
 
-	if len(collected.Repositories) != 1 || collected.Repositories[0].HeadSHA != changes.Repositories[0].HeadSHA {
-		t.Fatalf("what was reviewed %+v is not what was published %+v", collected, changes)
-	}
-
-	if len(changes.Repositories) != 1 {
-		t.Fatalf("a run that changed one repository reported %+v", changes.Repositories)
-	}
-
-	held := changes.Repositories[0]
-
-	if held.Commits != 1 || held.Diffstat.Additions != 2 || held.Diffstat.Files != 1 {
-		t.Fatalf(
-			"the run reads as %+v against a repository it added two lines to in one file",
-			held,
-		)
-	}
-
-	if held.HeadSHA != run(t, workspace, "rev-parse", "HEAD") {
-		t.Fatalf("the run reports head %q", held.HeadSHA)
+	if !publication.Complete() {
+		t.Fatalf("a push the remote accepted reads as %+v", publication)
 	}
 
 	pushed := run(t, bare, "rev-parse", branch)
-	if pushed != held.HeadSHA {
+	if pushed != reviewed.HeadSHA {
 		t.Fatalf(
-			"the remote holds %q and the run reported %q; the branch a reviewer opens has to be "+
-				"the commit the run finished on",
-			pushed, held.HeadSHA,
+			"the remote holds %q and the reviewed commit is %q; a commit made after review "+
+				"reached the remote although nobody approved it",
+			pushed, reviewed.HeadSHA,
 		)
+	}
+
+	again, err := changesets.Publish(ctx, execution, review)
+	if err != nil || !again.Complete() || again.Attempt != 2 {
+		t.Fatalf("publishing the same approval again came back %+v (%v)", again, err)
 	}
 
 	if len(kept.body) < 2 || kept.body[0] != 0x1f || kept.body[1] != 0x8b {

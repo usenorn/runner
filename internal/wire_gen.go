@@ -114,11 +114,12 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	repositoryProcess := process.New()
 	repositoryPort := port.New(runner)
 	docker := config.NewDocker(configConfig)
+	configHost := config.NewHost(configConfig)
 	listener, cleanup, err := bridge.New(docker)
 	if err != nil {
 		return nil, nil, err
 	}
-	repositorySandbox := sandbox.New(repositoryProcess, repositoryPort, dir, docker, listener)
+	repositorySandbox := sandbox.New(repositoryProcess, repositoryPort, dir, docker, configHost, listener)
 	serviceLog := servicelog.New(dir)
 	configSupervisor := config.NewSupervisor(configConfig)
 	services := supervisor.New(repositoryProcess, repositorySandbox, repositoryPort, serviceLog, repositoryRun, repositorySpool, configSupervisor)

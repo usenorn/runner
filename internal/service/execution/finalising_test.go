@@ -356,6 +356,15 @@ func TestARunApprovedJustBeforeTheMachineStoppedIsCompletedAfterItRestarts(t *te
 
 	fabricate(t, h, "exec-01ABC", channelv1.StateApproved)
 
+	ctx := context.Background()
+	if err := h.runs.SaveReview(ctx, "exec-01ABC", entity.Review{Revision: 1}); err != nil {
+		t.Fatalf("write the review by hand: %v", err)
+	}
+
+	if err := h.runs.SaveApproval(ctx, "exec-01ABC", channelv1.Instruction{Revision: 1}); err != nil {
+		t.Fatalf("write the approval by hand: %v", err)
+	}
+
 	restarted := newHarnessOver(t, h, 2, 0)
 	settled := restarted.start(t)
 
@@ -365,6 +374,37 @@ func TestARunApprovedJustBeforeTheMachineStoppedIsCompletedAfterItRestarts(t *te
 
 	if kept := restarted.service.Report(context.Background()).Executions; len(kept) != 0 {
 		t.Fatalf("a run somebody approved is still held after the restart: %+v", kept)
+	}
+}
+
+func TestARunMarkedApprovedWithNoApprovalWrittenDownIsReviewedAgainRatherThanPublished(t *testing.T) {
+	h := newHarness(t, 2, 0)
+
+	fabricate(t, h, "exec-01ABC", channelv1.StateApproved)
+
+	restarted := newHarnessOver(t, h, 2, 0)
+	settled := restarted.start(t)
+
+	defer settled()
+
+	restarted.await(t, "waited for the run to be taken back from publishing", func() bool {
+		for _, reported := range restarted.reports(t) {
+			if reported.State != string(channelv1.StateApproved) {
+				return true
+			}
+		}
+
+		return false
+	})
+
+	for _, reported := range restarted.reports(t) {
+		if reported.State == string(channelv1.StateCompleted) {
+			t.Fatalf("a run nobody is known to have approved was completed after the restart: %+v", reported)
+		}
+	}
+
+	if pushed := restarted.pushes(); len(pushed) != 0 {
+		t.Fatalf("a run nobody is known to have approved was published after the restart: %v", pushed)
 	}
 }
 

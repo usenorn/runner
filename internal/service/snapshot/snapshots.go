@@ -254,7 +254,36 @@ func (s *snapshotsService) checkout(
 		))
 	}
 
+	if checked.GitDir, err = s.worktrees.GitDir(ctx, checked.Path); err != nil {
+		return checked, warnings, err
+	}
+
+	checked.Remote, checked.Lease, warnings = s.lease(ctx, source, checked, warnings)
+
 	return checked, warnings, nil
+}
+
+func (s *snapshotsService) lease(
+	ctx context.Context,
+	source string,
+	checked entity.SnapshotRepository,
+	warnings []string,
+) (string, entity.Lease, []string) {
+	remote, err := s.worktrees.Remote(ctx, source)
+	if err != nil {
+		return "", entity.Lease{}, warnings
+	}
+
+	tip, err := s.worktrees.RemoteTip(ctx, remote, checked.Branch)
+	if err != nil {
+		return remote, entity.Lease{}, append(warnings, fmt.Sprintf(
+			"%s could not ask its remote whether %s already exists, so publishing it will only "+
+				"fast-forward: %s",
+			checked.RelPath, checked.Branch, err,
+		))
+	}
+
+	return remote, entity.Lease{Known: true, Tip: tip}, warnings
 }
 
 func (s *snapshotsService) base(
@@ -430,7 +459,7 @@ func (s *snapshotsService) keep(
 			continue
 		}
 
-		ahead, err := s.worktrees.Commits(ctx, held.Path, held.BaseSHA)
+		ahead, err := s.worktrees.Commits(ctx, held.Path, held.BaseSHA, "HEAD")
 		if err != nil {
 			return fmt.Errorf("count the work on %s in %s: %w", held.Branch, held.RelPath, err)
 		}

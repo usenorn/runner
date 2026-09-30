@@ -64,6 +64,9 @@ type harness struct {
 	removed    []string
 	kept       []string
 	ahead      int
+	remote     string
+	remoteTip  string
+	tipFails   error
 	fetchFails error
 	addFails   error
 	branchFail error
@@ -159,11 +162,33 @@ func (h *harness) expect() {
 		}).
 		AnyTimes()
 	h.worktrees.EXPECT().Submodules(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	h.worktrees.EXPECT().
+		GitDir(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, dest string) (string, error) {
+			return filepath.Join(dest, ".git"), nil
+		}).
+		AnyTimes()
+	h.worktrees.EXPECT().
+		Remote(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string) (string, error) {
+			if h.remote == "" {
+				return "", entity.ErrPushNowhere
+			}
+
+			return h.remote, nil
+		}).
+		AnyTimes()
+	h.worktrees.EXPECT().
+		RemoteTip(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string) (string, error) {
+			return h.remoteTip, h.tipFails
+		}).
+		AnyTimes()
 	h.worktrees.EXPECT().Changed(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	h.worktrees.EXPECT().Untracked(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	h.worktrees.EXPECT().
-		Commits(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, string, string) (int, error) { return h.ahead, nil }).
+		Commits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string, string) (int, error) { return h.ahead, nil }).
 		AnyTimes()
 	h.worktrees.EXPECT().
 		Keep(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).

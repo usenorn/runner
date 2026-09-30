@@ -16,7 +16,6 @@ func TestAChangeSetGoesOutWithTheKeysNornActuallyReads(t *testing.T) {
 		Commits:      3,
 		Diffstat:     entity.Diffstat{Additions: 412, Deletions: 77, Files: 9},
 		DiffArtifact: "f8b0a1c2-0000-4000-8000-000000000001",
-		PullRequest:  "https://github.com/usenorn/runner/pull/231",
 	}}}.Wire()
 
 	if len(wire.Repos) != 1 {

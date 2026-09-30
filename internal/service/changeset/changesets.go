@@ -93,23 +93,6 @@ func (s *changeSetsService) Collect(
 	return changes, s.settle(ctx, execution.ID, completion, changes, pass)
 }
 
-func (s *changeSetsService) Publish(
-	ctx context.Context,
-	execution entity.Execution,
-	snapshot entity.Snapshot,
-) (entity.ChangeSet, error) {
-	changes, err := s.collect(ctx, execution, snapshot)
-	if err != nil {
-		return entity.ChangeSet{}, err
-	}
-
-	changes = s.deliver(ctx, execution, snapshot, changes)
-
-	s.report(ctx, execution.ID, changes)
-
-	return changes, nil
-}
-
 func (s *changeSetsService) collect(
 	ctx context.Context,
 	execution entity.Execution,
@@ -120,7 +103,12 @@ func (s *changeSetsService) collect(
 	for _, held := range snapshot.Repositories {
 		base := startOf(held)
 
-		commits, err := s.worktrees.Commits(ctx, held.Path, base)
+		head, err := s.worktrees.Head(ctx, held.Path)
+		if err != nil {
+			return entity.ChangeSet{}, err
+		}
+
+		commits, err := s.worktrees.Commits(ctx, held.Path, base, head)
 		if err != nil {
 			return entity.ChangeSet{}, err
 		}
@@ -129,17 +117,12 @@ func (s *changeSetsService) collect(
 			continue
 		}
 
-		head, err := s.worktrees.Head(ctx, held.Path)
+		stat, err := s.worktrees.Diffstat(ctx, held.Path, base, head)
 		if err != nil {
 			return entity.ChangeSet{}, err
 		}
 
-		stat, err := s.worktrees.Diffstat(ctx, held.Path, base)
-		if err != nil {
-			return entity.ChangeSet{}, err
-		}
-
-		history, err := s.worktrees.History(ctx, held.Path, base, channelv1.CommitsReported)
+		history, err := s.worktrees.History(ctx, held.Path, base, head, channelv1.CommitsReported)
 		if err != nil {
 			return entity.ChangeSet{}, err
 		}
@@ -152,7 +135,7 @@ func (s *changeSetsService) collect(
 			Commits:      commits,
 			History:      history,
 			Diffstat:     stat,
-			DiffArtifact: s.keepDiff(ctx, execution, held, base),
+			DiffArtifact: s.keepDiff(ctx, execution, held, base, head),
 		})
 	}
 
@@ -171,9 +154,9 @@ func (s *changeSetsService) keepDiff(
 	ctx context.Context,
 	execution entity.Execution,
 	held entity.SnapshotRepository,
-	base string,
+	base, head string,
 ) string {
-	patch, err := s.worktrees.Patch(ctx, held.Path, base)
+	patch, err := s.worktrees.Patch(ctx, held.Path, base, head)
 	if err != nil {
 		s.tell(ctx, execution.ID, entity.DiffUnreadable(held.Name, err))
 

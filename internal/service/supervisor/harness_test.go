@@ -31,11 +31,12 @@ import (
 const patience = 15 * time.Second
 
 type harness struct {
-	dir     *statedir.Dir
-	runs    repository.Run
-	spool   repository.Spool
-	ports   repository.Port
-	service service.Services
+	dir       *statedir.Dir
+	sandboxes repository.Sandbox
+	runs      repository.Run
+	spool     repository.Spool
+	ports     repository.Port
+	service   service.Services
 }
 
 func newHarness(t *testing.T, lowest int, highest int) *harness {
@@ -62,10 +63,11 @@ func over(t *testing.T, dir *statedir.Dir, lowest int, highest int) *harness {
 	}
 
 	processes := processrepo.New()
+	h.sandboxes = sandboxes(t, dir, processes)
 
 	h.service = supervisorsvc.New(
 		processes,
-		sandboxes(t, dir, processes),
+		h.sandboxes,
 		h.ports,
 		servicelogrepo.New(dir),
 		h.runs,
@@ -115,6 +117,13 @@ func (h *harness) prepared(t *testing.T, executionID string) entity.Execution {
 
 	if err := h.runs.SaveTask(context.Background(), execution); err != nil {
 		t.Fatalf("write down a run: %v", err)
+	}
+
+	if err := h.sandboxes.Open(context.Background(), entity.SandboxSpec{
+		Box:    execution.Sandbox(),
+		Mounts: []entity.Mount{{Path: execution.Directory}},
+	}); err != nil {
+		t.Fatalf("open the run's sandbox: %v", err)
 	}
 
 	return execution
@@ -325,6 +334,7 @@ func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) re
 		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
 		dir,
 		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		config.Host{Timeout: 10 * time.Second},
 		bridged,
 	)
 }

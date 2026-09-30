@@ -103,6 +103,7 @@ type harness struct {
 
 	mu        sync.Mutex
 	pushed    []string
+	tip       string
 	requested []entity.PullRequest
 	takeErr   error
 	linger    time.Duration
@@ -199,6 +200,8 @@ func build(
 	controller := gomock.NewController(t)
 
 	h := &harness{
+		tip:         "head-sha",
+		forge:       true,
 		boxes:       boxes,
 		dir:         dir,
 		runs:        runrepo.New(dir),
@@ -430,8 +433,8 @@ func (h *harness) expectGit() {
 		AnyTimes()
 
 	h.worktrees.EXPECT().
-		Commits(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, string, string) (int, error) { return h.commits, nil }).
+		Commits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string, string) (int, error) { return h.commits, nil }).
 		AnyTimes()
 
 	h.worktrees.EXPECT().
@@ -440,20 +443,20 @@ func (h *harness) expectGit() {
 		AnyTimes()
 
 	h.worktrees.EXPECT().
-		Diffstat(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, string, string) (entity.Diffstat, error) {
+		Diffstat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string, string) (entity.Diffstat, error) {
 			return h.stat, nil
 		}).
 		AnyTimes()
 
 	h.worktrees.EXPECT().
-		History(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		History(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]entity.Commit{{SHA: "head-sha", Subject: "add a median helper"}}, nil).
 		AnyTimes()
 
 	h.worktrees.EXPECT().
-		Patch(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, string, string) ([]byte, error) { return h.patch, nil }).
+		Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string, string) ([]byte, error) { return h.patch, nil }).
 		AnyTimes()
 
 	h.worktrees.EXPECT().
@@ -465,16 +468,31 @@ func (h *harness) expectGit() {
 
 	h.worktrees.EXPECT().
 		Push(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _, _, branch string) error {
+		DoAndReturn(func(_ context.Context, _, _ string, push entity.Push) error {
 			if h.pushErr != nil {
 				return h.pushErr
 			}
 
 			h.mu.Lock()
-			h.pushed = append(h.pushed, branch)
+			h.pushed = append(h.pushed, push.Branch)
 			h.mu.Unlock()
 
 			return nil
+		}).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		RemoteTip(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return("", nil).
+		AnyTimes()
+
+	h.worktrees.EXPECT().
+		Resolve(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, ...string) (string, error) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			return h.tip, nil
 		}).
 		AnyTimes()
 }
@@ -560,6 +578,8 @@ func (h *harness) take(
 			Path:    filepath.Join(h.dir.Run(request.Run), entity.RunWorkspaceDir, "runner"),
 			BaseSHA: "base-sha",
 			Branch:  branchFor(request),
+			Remote:  h.remote,
+			Lease:   entity.Lease{Known: true},
 		}},
 		TakenAt: time.Now().UTC(),
 	}
@@ -728,6 +748,31 @@ func (h *harness) sentOf(t *testing.T, kind channelv1.MessageType) []channelv1.M
 	return found
 }
 
+func (h *harness) approval(t *testing.T) channelv1.Instruction {
+	t.Helper()
+
+	var result channelv1.Result
+
+	for _, message := range h.spooled(t) {
+		if message.Type == channelv1.ExecutionResult {
+			result = decodeInto[channelv1.Result](t, message)
+		}
+	}
+
+	heads := make(map[string]string, len(result.ChangeSet.Repos))
+
+	for _, repo := range result.ChangeSet.Repos {
+		heads[repo.Repository] = repo.HeadSHA
+	}
+
+	return channelv1.Instruction{
+		Reason:   channelv1.ResumeApproved,
+		Stage:    channelv1.StagePublication,
+		Revision: result.Revision,
+		Heads:    heads,
+	}
+}
+
 func (h *harness) only(t *testing.T, kind channelv1.MessageType) channelv1.Message {
 	t.Helper()
 
@@ -802,6 +847,7 @@ func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) re
 		portrepo.New(config.Runner{PortRange: [2]int{46000, 46099}}),
 		dir,
 		config.Docker{Image: "ghcr.io/usenorn/runner-sandbox:test", Ports: 2, Timeout: time.Second, PullTimeout: time.Second},
+		config.Host{Timeout: 10 * time.Second},
 		bridged,
 	)
 }

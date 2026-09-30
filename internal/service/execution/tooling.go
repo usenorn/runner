@@ -136,6 +136,7 @@ func (s *executionsService) tooling(
 		Environment: map[string]string{
 			entity.ExecutionVariable:      execution.ID,
 			entity.ExecutionTokenVariable: token,
+			entity.StateRootVariable:      s.dir.Root(),
 		},
 	}
 

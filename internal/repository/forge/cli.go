@@ -49,9 +49,11 @@ func (r *cliForge) Existing(ctx context.Context, dir, branch string) (string, er
 		return r.existingRequest(ctx, dir, branch)
 	}
 
-	out, err := r.run(ctx, dir, kind, "pr", "view", branch, "--json", "url", "--jq", ".url")
+	out, err := r.run(
+		ctx, dir, kind, "pr", "list", "--head", branch, "--state", "open", "--json", "url", "--jq", ".[0].url",
+	)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return address.FindString(out), nil
@@ -63,7 +65,7 @@ func (r *cliForge) existingRequest(ctx context.Context, dir, branch string) (str
 		"mr", "list", "--source-branch", branch, "--output", "json",
 	)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	var open []struct {

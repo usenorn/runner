@@ -3,6 +3,8 @@ package sandbox
 import (
 	"context"
 	"io"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -151,6 +153,48 @@ func TestARunsContainerIsItsOwnWithTheRunsFoldersAndPortsAndNothingMore(t *testi
 
 	if len(h.asked("network create")) != 1 {
 		t.Fatal("the run's container was not given a network of its own, so every run could reach every other")
+	}
+}
+
+func TestTheAgentsContainerCannotRewriteTheRepositorysConfigOrHooks(t *testing.T) {
+	h := newDockerHarness(t)
+	h.failures["container inspect"] = true
+	h.failures["network inspect"] = true
+
+	common := t.TempDir()
+	config := filepath.Join(common, "config")
+	hooks := filepath.Join(common, "hooks")
+
+	if err := os.WriteFile(config, []byte("[core]\n"), 0o600); err != nil {
+		t.Fatalf("write a config: %v", err)
+	}
+
+	if err := os.Mkdir(hooks, 0o755); err != nil {
+		t.Fatalf("make the hooks: %v", err)
+	}
+
+	protected := spec()
+	protected.Mounts = append(protected.Mounts, entity.Mount{Path: common})
+	protected.Protected = []string{config, hooks, filepath.Join(common, "config.worktree")}
+
+	if err := h.sandbox.Open(context.Background(), protected); err != nil {
+		t.Fatalf("open the run's container: %v", err)
+	}
+
+	args := strings.Join(h.asked("run ")[0], " ")
+
+	for _, want := range []string{
+		"--volume " + common + ":" + common + " ",
+		"--volume " + config + ":" + config + ":ro",
+		"--volume " + hooks + ":" + hooks + ":ro",
+	} {
+		if !strings.Contains(args, want) {
+			t.Fatalf("the container was started without %q:\n%s", want, args)
+		}
+	}
+
+	if strings.Contains(args, "config.worktree") {
+		t.Fatalf("a path that does not exist was handed to docker, which would refuse to start:\n%s", args)
 	}
 }
 

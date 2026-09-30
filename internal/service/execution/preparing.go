@@ -78,6 +78,14 @@ func (s *executionsService) Run(ctx context.Context) {
 
 				s.resume(ctx, held)
 			}()
+		case job := <-s.publishes:
+			working.Add(1)
+
+			go func() {
+				defer working.Done()
+
+				s.publish(ctx, job)
+			}()
 		case <-s.woken:
 			s.dispatch(ctx)
 		}
@@ -187,7 +195,9 @@ func (s *executionsService) recover(ctx context.Context, execution entity.Execut
 	case channelv1.StateApproved:
 		s.hold(ctx, execution, "a run was approved and still to be published when this machine last stopped")
 
-		return true, s.publish(ctx, execution)
+		s.startPublishing(ctx, publishJob{executionID: execution.ID})
+
+		return true, nil
 	default:
 		return false, nil
 	}

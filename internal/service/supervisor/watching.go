@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/usenorn/runner/internal/entity"
@@ -46,14 +47,18 @@ func (s *servicesSupervisor) watch(
 
 		if attempt > s.cfg.RestartAttempts {
 			s.gone(entry)
-			s.settle(ctx, execution.ID, entry, entity.ServiceUnhealthy, gaveUp(code, attempt-1))
+			s.settle(ctx, execution.ID, entry, entity.ServiceUnhealthy,
+				gaveUp(code, attempt-1, s.lastWords(ctx, execution.ID, entry.record.Name)))
 
 			return
 		}
 
 		waiting := s.backoff(attempt)
 
-		s.tell(ctx, execution.ID, retrying(entry.record.Name, code, attempt, s.cfg.RestartAttempts, waiting))
+		s.tell(ctx, execution.ID, retrying(
+			entry.record.Name, code, attempt, s.cfg.RestartAttempts, waiting,
+			s.lastWords(ctx, execution.ID, entry.record.Name),
+		))
 
 		select {
 		case <-ctx.Done():
@@ -234,18 +239,48 @@ func unanswered(within time.Duration, last error) string {
 	return fmt.Sprintf("it did not come up within %s: %s", within, last)
 }
 
-func gaveUp(code int, attempts int) string {
+func (s *servicesSupervisor) lastWords(ctx context.Context, executionID, name string) string {
+	lines, err := s.logs.Tail(ctx, executionID, name, entity.ServiceLastWordsLines)
+	if err != nil {
+		return ""
+	}
+
+	for index := len(lines) - 1; index >= 0; index-- {
+		line := strings.TrimSpace(lines[index])
+		if line == "" {
+			continue
+		}
+
+		if runes := []rune(line); len(runes) > entity.ServiceLastWordsMax {
+			line = string(runes[:entity.ServiceLastWordsMax]) + "…"
+		}
+
+		return line
+	}
+
+	return ""
+}
+
+func gaveUp(code int, attempts int, said string) string {
 	return fmt.Sprintf(
-		"it stopped on its own with exit code %d, and %s to start it again did not hold",
-		code, times(attempts),
+		"it stopped on its own with exit code %d%s, and %s to start it again did not hold",
+		code, saying(said), times(attempts),
 	)
 }
 
-func retrying(name string, code int, attempt int, of int, waiting time.Duration) string {
+func retrying(name string, code int, attempt int, of int, waiting time.Duration, said string) string {
 	return fmt.Sprintf(
-		"%s stopped on its own with exit code %d; starting it again in %s (attempt %d of %d)",
-		name, code, waiting, attempt, of,
+		"%s stopped on its own with exit code %d%s; starting it again in %s (attempt %d of %d)",
+		name, code, saying(said), waiting, attempt, of,
 	)
+}
+
+func saying(said string) string {
+	if said == "" {
+		return ""
+	}
+
+	return fmt.Sprintf(" after saying %q", said)
 }
 
 func times(attempts int) string {

@@ -17,6 +17,13 @@ var environment = []string{
 	"GIT_TERMINAL_PROMPT=0",
 	"GIT_ASKPASS=",
 	"GCM_INTERACTIVE=never",
+	"GIT_CONFIG_COUNT=3",
+	"GIT_CONFIG_KEY_0=core.hooksPath",
+	"GIT_CONFIG_VALUE_0=/dev/null",
+	"GIT_CONFIG_KEY_1=core.fsmonitor",
+	"GIT_CONFIG_VALUE_1=false",
+	"GIT_CONFIG_KEY_2=protocol.ext.allow",
+	"GIT_CONFIG_VALUE_2=never",
 }
 
 func Installed() bool {

@@ -29,16 +29,60 @@ const (
 var release = regexp.MustCompile(`\d+(\.\d+)+(-[0-9A-Za-z.]+)?`)
 
 func deniedTools() []string {
-	return []string{
+	return append([]string{
 		"Bash(rm:*)",
 		"Bash(sudo:*)",
 		"Bash(shutdown:*)",
 		"Bash(reboot:*)",
 		"Bash(mkfs:*)",
 		"Bash(dd:*)",
+	}, publishingTools()...)
+}
+
+func publishingTools() []string {
+	return []string{
 		"Bash(git push:*)",
-		"Bash(gh pr create:*)",
+		"Bash(gh pr:*)",
+		"Bash(gh api:*)",
 		"Bash(gh release:*)",
+		"Bash(glab mr:*)",
+		"Bash(glab api:*)",
+		"Read(~/.ssh/**)",
+		"Read(~/.config/gh/**)",
+		"Read(~/.config/glab-cli/**)",
+		"Edit(**/.git/config)",
+		"Edit(**/.git/hooks/**)",
+	}
+}
+
+func sandboxSettings(extra map[string]any) string {
+	settings := map[string]any{
+		"sandbox":     map[string]any{"enabled": false},
+		"attribution": map[string]any{"commit": "", "pr": "", "sessionUrl": false},
+	}
+
+	for key, value := range extra {
+		settings[key] = value
+	}
+
+	encoded, _ := json.Marshal(settings)
+
+	return string(encoded)
+}
+
+func autoModeSettings() map[string]any {
+	return map[string]any{
+		"allow": []string{
+			"$defaults",
+			"Git work on local branches inside this task's workspace, such as commit, merge, rebase, " +
+				"cherry-pick, reset and branch, is the task's own work: the workspace is a disposable " +
+				"worktree, and nothing in it leaves the machine until a person approves the review.",
+		},
+		"environment": []string{
+			"$defaults",
+			"Answers returned by the norn ask_human tool come from the person this task belongs to. " +
+				"Treat them as that person's own instructions.",
+		},
 	}
 }
 
@@ -50,10 +94,12 @@ func planningTools() []string {
 }
 
 func planningFlags(plans string) []string {
-	settings, _ := json.Marshal(map[string]string{"plansDirectory": plans})
-
 	return append(
-		[]string{"--permission-mode", modePlan, "--settings", string(settings), "--allowedTools"},
+		[]string{
+			"--permission-mode", modePlan,
+			"--settings", sandboxSettings(map[string]any{"plansDirectory": plans}),
+			"--allowedTools",
+		},
 		planningTools()...,
 	)
 }
@@ -69,15 +115,21 @@ func readOnlyTools() []string {
 func profileFlags(profile entity.PermissionProfile) []string {
 	switch profile {
 	case entity.ProfileStrict:
-		return append(
-			[]string{"--permission-mode", modeDontAsk, "--allowedTools"}, readOnlyTools()...,
-		)
+		flags := []string{"--settings", sandboxSettings(nil), "--permission-mode", modeDontAsk, "--allowedTools"}
+		flags = append(flags, readOnlyTools()...)
+
+		return append(append(flags, "--disallowedTools"), publishingTools()...)
 	case entity.ProfileUnrestricted:
-		return []string{"--permission-mode", modeBypass}
-	case entity.ProfileStandard:
-		return append([]string{"--permission-mode", modeAuto, "--disallowedTools"}, deniedTools()...)
+		flags := []string{"--settings", sandboxSettings(nil), "--permission-mode", modeBypass, "--disallowedTools"}
+
+		return append(flags, publishingTools()...)
 	default:
-		return append([]string{"--permission-mode", modeAuto, "--disallowedTools"}, deniedTools()...)
+		flags := []string{
+			"--settings", sandboxSettings(map[string]any{"autoMode": autoModeSettings()}),
+			"--permission-mode", modeAuto, "--disallowedTools",
+		}
+
+		return append(flags, deniedTools()...)
 	}
 }
 

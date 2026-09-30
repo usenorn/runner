@@ -23,11 +23,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install bubblewrap
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Build
         run: go build ./...
 
       - name: Test
         run: go test ./...
+        env:
+          NORN_TEST_SANDBOX: 'true'
 
       - name: Lint
         run: go tool golangci-lint run

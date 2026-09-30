@@ -514,7 +514,7 @@ func TestAwaitingAServiceThatKeepsStoppingAnswersWithWhy(t *testing.T) {
 
 	if _, err := h.service.Start(ctx, execution.ID, entity.Service{
 		Name:    "api",
-		Command: []string{"sh", "-c", "exit 3"},
+		Command: []string{"sh", "-c", "echo 'stat ./cmd/api: directory not found' >&2; exit 3"},
 		Health:  entity.Health{Kind: entity.HealthLog, Pattern: "never"},
 	}); err != nil {
 		t.Fatalf("start api: %v", err)
@@ -527,6 +527,10 @@ func TestAwaitingAServiceThatKeepsStoppingAnswersWithWhy(t *testing.T) {
 
 	if record.State != entity.ServiceUnhealthy || !strings.Contains(record.Reason, "exit code 3") {
 		t.Fatalf("awaiting api came back %s: %q", record.State, record.Reason)
+	}
+
+	if !strings.Contains(record.Reason, "stat ./cmd/api: directory not found") {
+		t.Errorf("the reason it gave up does not say what the service last said: %q", record.Reason)
 	}
 }
 

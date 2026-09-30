@@ -9,11 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/usenorn/runner/internal/entity"
+	"github.com/usenorn/runner/internal/pkg/gitcmd"
 	"github.com/usenorn/runner/internal/pkg/statedir"
 	"github.com/usenorn/runner/internal/repository"
 )
@@ -76,11 +78,15 @@ type storedRepository struct {
 	Kind    string       `json:"kind"`
 	Source  string       `json:"source"`
 	Common  string       `json:"common,omitempty"`
+	GitDir  string       `json:"gitDir,omitempty"`
 	Path    string       `json:"path"`
 	Mode    string       `json:"mode"`
 	Base    string       `json:"base"`
 	BaseSHA string       `json:"baseSha"`
 	Branch  string       `json:"branch"`
+	Remote  string       `json:"remote,omitempty"`
+	Leased  bool         `json:"leased,omitempty"`
+	Lease   string       `json:"lease,omitempty"`
 	Local   *storedPatch `json:"localChanges,omitempty"`
 }
 
@@ -124,7 +130,7 @@ func (r *fileRun) Prepare(ctx context.Context, name string) (string, error) {
 	return r.Open(ctx, name)
 }
 
-func (r *fileRun) Open(_ context.Context, name string) (string, error) {
+func (r *fileRun) Open(ctx context.Context, name string) (string, error) {
 	path := r.dir.Run(name)
 
 	for _, child := range children(path) {
@@ -133,26 +139,33 @@ func (r *fileRun) Open(_ context.Context, name string) (string, error) {
 		}
 	}
 
-	if err := furnish(entity.RunHomeOf(path)); err != nil {
+	if err := furnish(ctx, entity.RunHomeOf(path)); err != nil {
 		return "", err
 	}
 
 	return path, nil
 }
 
-func furnish(home entity.RunHome) error {
-	hostHome, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("find the home this runner runs under: %w", err)
-	}
-
-	config := entity.TaskGitConfig(entity.HostGitConfigs(hostHome, os.Getenv("XDG_CONFIG_HOME")))
+func furnish(ctx context.Context, home entity.RunHome) error {
+	config := entity.TaskGitConfig(entity.GitIdentity{
+		Name:  personal(ctx, "user.name"),
+		Email: personal(ctx, "user.email"),
+	})
 
 	if err := os.WriteFile(home.GitConfig(), []byte(config), fileMode); err != nil {
 		return fmt.Errorf("write %s: %w", home.GitConfig(), err)
 	}
 
 	return nil
+}
+
+func personal(ctx context.Context, key string) string {
+	value, err := gitcmd.Run(ctx, "", "config", "--global", "--get", key)
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(value)
 }
 
 func (r *fileRun) Retire(_ context.Context, name string) error {
@@ -463,11 +476,15 @@ func storedRepositoryOf(repository entity.SnapshotRepository) storedRepository {
 		Kind:    string(repository.Kind),
 		Source:  repository.Source,
 		Common:  repository.Common,
+		GitDir:  repository.GitDir,
 		Path:    repository.Path,
 		Mode:    string(repository.Mode),
 		Base:    string(repository.Base),
 		BaseSHA: repository.BaseSHA,
 		Branch:  repository.Branch,
+		Remote:  repository.Remote,
+		Leased:  repository.Lease.Known,
+		Lease:   repository.Lease.Tip,
 	}
 
 	if repository.Local != nil {
@@ -521,11 +538,14 @@ func repositoryOf(held storedRepository) entity.SnapshotRepository {
 		Kind:    entity.RepositoryKind(held.Kind),
 		Source:  held.Source,
 		Common:  held.Common,
+		GitDir:  held.GitDir,
 		Path:    held.Path,
 		Mode:    entity.GitMode(held.Mode),
 		Base:    entity.BasePolicy(held.Base),
 		BaseSHA: held.BaseSHA,
 		Branch:  held.Branch,
+		Remote:  held.Remote,
+		Lease:   entity.Lease{Known: held.Leased, Tip: held.Lease},
 	}
 
 	if held.Local != nil {
