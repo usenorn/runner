@@ -17,9 +17,10 @@ type ChangeSets interface {
 		completion entity.Completion,
 		pass entity.ReviewPass,
 	) (entity.ChangeSet, error)
+	Tips(ctx context.Context, review entity.Review) (map[string]string, error)
 	Publish(
 		ctx context.Context,
 		execution entity.Execution,
-		snapshot entity.Snapshot,
-	) (entity.ChangeSet, error)
+		review entity.Review,
+	) (entity.Publication, error)
 }

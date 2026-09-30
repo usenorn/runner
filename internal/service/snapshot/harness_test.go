@@ -187,8 +187,8 @@ func (h *harness) expect() {
 	h.worktrees.EXPECT().Changed(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	h.worktrees.EXPECT().Untracked(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	h.worktrees.EXPECT().
-		Commits(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, string, string) (int, error) { return h.ahead, nil }).
+		Commits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, string, string, string) (int, error) { return h.ahead, nil }).
 		AnyTimes()
 	h.worktrees.EXPECT().
 		Keep(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).

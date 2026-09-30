@@ -25,9 +25,6 @@ var (
 	)
 	ErrPushNowhere = errors.New("that repository has no remote to push to")
 	ErrForgeAbsent = errors.New("no pull request tool on this machine is signed in")
-	ErrBranchMoved = errors.New(
-		"the branch this repository is on is not the one the snapshot put it on",
-	)
 )
 
 type ForgeKind string

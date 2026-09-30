@@ -224,8 +224,8 @@ func (r *gitWorktree) RemoteTip(ctx context.Context, url, branch string) (string
 	return strings.TrimSpace(sha), nil
 }
 
-func (r *gitWorktree) Commits(ctx context.Context, dest, base string) (int, error) {
-	counted, err := r.run(ctx, dest, "rev-list", "--count", base+"..HEAD")
+func (r *gitWorktree) Commits(ctx context.Context, dest, base, head string) (int, error) {
+	counted, err := r.run(ctx, dest, "rev-list", "--count", base+".."+head)
 	if err != nil {
 		return 0, err
 	}
@@ -240,12 +240,12 @@ func (r *gitWorktree) Commits(ctx context.Context, dest, base string) (int, erro
 
 func (r *gitWorktree) History(
 	ctx context.Context,
-	dest, base string,
+	dest, base, head string,
 	limit int,
 ) ([]entity.Commit, error) {
 	lines, err := gitcmd.Lines(
 		ctx, dest, "log", "--no-color", "--no-ext-diff", "--no-textconv", "--format=%H%x00%s", "--max-count="+strconv.Itoa(limit),
-		base+"..HEAD",
+		base+".."+head,
 	)
 	if err != nil {
 		return nil, err
@@ -267,10 +267,10 @@ func (r *gitWorktree) History(
 
 func (r *gitWorktree) Diffstat(
 	ctx context.Context,
-	dest, base string,
+	dest, base, head string,
 ) (entity.Diffstat, error) {
 	lines, err := gitcmd.Lines(
-		ctx, dest, "diff", "--numstat", "--no-color", "--no-ext-diff", "--no-textconv", base+"..HEAD",
+		ctx, dest, "diff", "--numstat", "--no-color", "--no-ext-diff", "--no-textconv", base+".."+head,
 	)
 	if err != nil {
 		return entity.Diffstat{}, err
@@ -292,15 +292,15 @@ func (r *gitWorktree) Diffstat(
 	return stat, nil
 }
 
-func (r *gitWorktree) Patch(ctx context.Context, dest, base string) ([]byte, error) {
-	return r.raw(ctx, dest, "diff", "--binary", "--no-color", "--no-ext-diff", "--no-textconv", base+"..HEAD")
+func (r *gitWorktree) Patch(ctx context.Context, dest, base, head string) ([]byte, error) {
+	return r.raw(ctx, dest, "diff", "--binary", "--no-color", "--no-ext-diff", "--no-textconv", base+".."+head)
 }
 
-func (r *gitWorktree) Push(ctx context.Context, dest, url, branch string) error {
+func (r *gitWorktree) Push(ctx context.Context, dest, url string, push entity.Push) error {
 	ctx, cancel := context.WithTimeout(ctx, r.results.PushTimeout)
 	defer cancel()
 
-	_, err := gitcmd.Run(ctx, dest, "push", "--quiet", url, "HEAD:refs/heads/"+branch)
+	_, err := gitcmd.Run(ctx, dest, push.Arguments(url)...)
 
 	return err
 }

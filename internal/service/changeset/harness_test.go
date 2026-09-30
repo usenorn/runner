@@ -27,12 +27,14 @@ import (
 const executionID = "exec-01ABC"
 
 type harness struct {
-	runs      repository.Run
-	spool     repository.Spool
-	worktrees *worktreerepo.MockWorktree
-	forges    *forgerepo.MockForge
-	uploads   *uploadsvc.MockUploads
-	service   service.ChangeSets
+	remoteTips map[string]string
+	pushed     []entity.Push
+	runs       repository.Run
+	spool      repository.Spool
+	worktrees  *worktreerepo.MockWorktree
+	forges     *forgerepo.MockForge
+	uploads    *uploadsvc.MockUploads
+	service    service.ChangeSets
 
 	execution entity.Execution
 	snapshot  entity.Snapshot
@@ -49,11 +51,12 @@ func newHarness(t *testing.T, results config.Results) *harness {
 	controller := gomock.NewController(t)
 
 	h := &harness{
-		runs:      runrepo.New(dir),
-		spool:     spoolrepo.New(dir),
-		worktrees: worktreerepo.NewMockWorktree(controller),
-		forges:    forgerepo.NewMockForge(controller),
-		uploads:   uploadsvc.NewMockUploads(controller),
+		remoteTips: map[string]string{},
+		runs:       runrepo.New(dir),
+		spool:      spoolrepo.New(dir),
+		worktrees:  worktreerepo.NewMockWorktree(controller),
+		forges:     forgerepo.NewMockForge(controller),
+		uploads:    uploadsvc.NewMockUploads(controller),
 	}
 
 	if _, err := h.runs.Prepare(context.Background(), executionID); err != nil {
@@ -106,7 +109,7 @@ func defaults() config.Results {
 
 func (h *harness) changed(commits int, stat entity.Diffstat) {
 	h.worktrees.EXPECT().
-		Commits(gomock.Any(), gomock.Any(), gomock.Any()).
+		Commits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(commits, nil).
 		AnyTimes()
 
@@ -116,30 +119,46 @@ func (h *harness) changed(commits int, stat entity.Diffstat) {
 		AnyTimes()
 
 	h.worktrees.EXPECT().
-		Diffstat(gomock.Any(), gomock.Any(), gomock.Any()).
+		Diffstat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(stat, nil).
 		AnyTimes()
 
 	h.worktrees.EXPECT().
-		History(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		History(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]entity.Commit{{SHA: "head-sha", Subject: "add a median helper"}}, nil).
 		AnyTimes()
 
 	h.worktrees.EXPECT().
-		Patch(gomock.Any(), gomock.Any(), gomock.Any()).
+		Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]byte("diff --git a/a b/a\n+one\n"), nil).
 		AnyTimes()
 }
 
-func (h *harness) pushes() {
+func (h *harness) remotes() {
+	for index := range h.snapshot.Repositories {
+		h.snapshot.Repositories[index].Remote = "git@github.com:usenorn/runner.git"
+		h.snapshot.Repositories[index].Lease = entity.Lease{Known: true}
+	}
+
 	h.worktrees.EXPECT().
-		Remote(gomock.Any(), gomock.Any()).
-		Return("git@github.com:usenorn/runner.git", nil).
+		RemoteTip(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _, branch string) (string, error) {
+			return h.remoteTips[branch], nil
+		}).
 		AnyTimes()
+}
+
+func (h *harness) pushes() {
+	h.remotes()
 
 	h.worktrees.EXPECT().
 		Push(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil).
+		DoAndReturn(func(_ context.Context, _, _ string, push entity.Push) error {
+			h.pushed = append(h.pushed, push)
+			h.remoteTips[push.Branch] = push.SHA
+
+			return nil
+		}).
 		AnyTimes()
 }
 
@@ -171,17 +190,23 @@ func (h *harness) collect(t *testing.T, summary string) entity.ChangeSet {
 	return changes
 }
 
-func (h *harness) publish(t *testing.T, summary string) entity.ChangeSet {
+func (h *harness) publish(t *testing.T, summary string) (entity.ChangeSet, entity.Publication) {
 	t.Helper()
 
-	h.collect(t, summary)
+	changes := h.collect(t, summary)
 
-	changes, err := h.service.Publish(context.Background(), h.execution, h.snapshot)
+	return changes, h.republish(t, entity.ReviewOf(1, summary, h.snapshot, changes))
+}
+
+func (h *harness) republish(t *testing.T, review entity.Review) entity.Publication {
+	t.Helper()
+
+	publication, err := h.service.Publish(context.Background(), h.execution, review)
 	if err != nil {
 		t.Fatalf("publish what the run changed: %v", err)
 	}
 
-	return changes
+	return publication
 }
 
 func (h *harness) sent(t *testing.T, kind channelv1.MessageType) []channelv1.Message {

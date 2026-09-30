@@ -20,9 +20,7 @@ import (
 func approved(t *testing.T, h *harness, executionID string) {
 	t.Helper()
 
-	if err := h.service.Continue(context.Background(), executionID, channelv1.Instruction{
-		Reason: channelv1.ResumeApproved,
-	}); err != nil {
+	if err := h.service.Continue(context.Background(), executionID, h.approval(t)); err != nil {
 		t.Fatalf("approve %s: %v", executionID, err)
 	}
 }

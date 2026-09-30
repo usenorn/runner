@@ -26,11 +26,11 @@ type Worktree interface {
 	Commit(ctx context.Context, dest, message string) (string, error)
 	Remote(ctx context.Context, repository string) (string, error)
 	RemoteTip(ctx context.Context, url, branch string) (string, error)
-	Commits(ctx context.Context, dest, base string) (int, error)
-	History(ctx context.Context, dest, base string, limit int) ([]entity.Commit, error)
-	Diffstat(ctx context.Context, dest, base string) (entity.Diffstat, error)
-	Patch(ctx context.Context, dest, base string) ([]byte, error)
-	Push(ctx context.Context, dest, url, branch string) error
+	Commits(ctx context.Context, dest, base, head string) (int, error)
+	History(ctx context.Context, dest, base, head string, limit int) ([]entity.Commit, error)
+	Diffstat(ctx context.Context, dest, base, head string) (entity.Diffstat, error)
+	Patch(ctx context.Context, dest, base, head string) ([]byte, error)
+	Push(ctx context.Context, dest, url string, push entity.Push) error
 	Remove(ctx context.Context, repository, dest string) error
 	Keep(ctx context.Context, repository, dest, branch, run string) (string, error)
 }

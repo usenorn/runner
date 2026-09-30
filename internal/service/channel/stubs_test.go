@@ -247,3 +247,15 @@ func (runStub) LoadResume(context.Context, string) (channelv1.Instruction, error
 }
 
 func (runStub) ClearResume(context.Context, string) error { return nil }
+
+func (runStub) SaveReview(context.Context, string, entity.Review) error { return nil }
+
+func (runStub) LoadReview(context.Context, string) (entity.Review, error) {
+	return entity.Review{}, entity.ErrReviewMissing
+}
+
+func (runStub) SavePublication(context.Context, string, entity.Publication) error { return nil }
+
+func (runStub) LoadPublication(context.Context, string) (entity.Publication, error) {
+	return entity.Publication{}, nil
+}

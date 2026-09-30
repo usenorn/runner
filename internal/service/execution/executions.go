@@ -55,19 +55,21 @@ type executionsService struct {
 
 	preparing chan string
 	resuming  chan resumption
+	publishes chan publishJob
 	woken     chan struct{}
 
-	mu       sync.Mutex
-	held     map[string]entity.Execution
-	waiting  []admission
-	admitted map[string]bool
-	work     map[string]context.CancelFunc
-	owed     map[string]bool
-	done     map[string]entity.Completion
-	commits  map[string]bool
-	capacity int
-	paused   bool
-	usage    entity.RunsReport
+	mu         sync.Mutex
+	held       map[string]entity.Execution
+	waiting    []admission
+	admitted   map[string]bool
+	work       map[string]context.CancelFunc
+	owed       map[string]bool
+	done       map[string]entity.Completion
+	commits    map[string]bool
+	publishing map[string]bool
+	capacity   int
+	paused     bool
+	usage      entity.RunsReport
 }
 
 func New(
@@ -124,6 +126,7 @@ func New(
 		now:         func() time.Time { return time.Now().UTC() },
 		preparing:   make(chan string, waitingToWork),
 		resuming:    make(chan resumption, waitingToWork),
+		publishes:   make(chan publishJob, waitingToWork),
 		woken:       make(chan struct{}, 1),
 		held:        map[string]entity.Execution{},
 		admitted:    map[string]bool{},
@@ -131,6 +134,7 @@ func New(
 		owed:        map[string]bool{},
 		done:        map[string]entity.Completion{},
 		commits:     map[string]bool{},
+		publishing:  map[string]bool{},
 		capacity:    runner.Capacity,
 	}
 }

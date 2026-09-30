@@ -459,7 +459,7 @@ func (s *snapshotsService) keep(
 			continue
 		}
 
-		ahead, err := s.worktrees.Commits(ctx, held.Path, held.BaseSHA)
+		ahead, err := s.worktrees.Commits(ctx, held.Path, held.BaseSHA, "HEAD")
 		if err != nil {
 			return fmt.Errorf("count the work on %s in %s: %w", held.Branch, held.RelPath, err)
 		}

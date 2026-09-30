@@ -38,6 +38,10 @@ type Run interface {
 	SaveResume(ctx context.Context, name string, instruction channelv1.Instruction) error
 	LoadResume(ctx context.Context, name string) (channelv1.Instruction, error)
 	ClearResume(ctx context.Context, name string) error
+	SaveReview(ctx context.Context, name string, review entity.Review) error
+	LoadReview(ctx context.Context, name string) (entity.Review, error)
+	SavePublication(ctx context.Context, name string, publication entity.Publication) error
+	LoadPublication(ctx context.Context, name string) (entity.Publication, error)
 	Append(ctx context.Context, name string, entry entity.TimelineEntry) error
 	RecordTranscript(ctx context.Context, name string, event entity.DriverEvent) error
 	RecordStderr(ctx context.Context, name string, line string) error

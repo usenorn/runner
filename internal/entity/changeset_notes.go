@@ -55,12 +55,6 @@ func Pushed(repository, branch string) string {
 	return fmt.Sprintf("pushed %s to %s", branch, repository)
 }
 
-func PushSkipped(repository string, cause error) string {
-	return fmt.Sprintf(
-		"%s was not pushed, so its work stays on this machine: %s", repository, cause,
-	)
-}
-
 func PushRefused(repository, branch string, cause error) string {
 	return fmt.Sprintf(
 		"pushing %s to %s was refused, so its work stays on this machine: %s",
@@ -76,13 +70,6 @@ func PullRequestAmended(repository, address string) string {
 	return fmt.Sprintf(
 		"%s already had a pull request open, so the new commits went onto it: %s",
 		repository, address,
-	)
-}
-
-func PullRequestSkipped(repository string) string {
-	return fmt.Sprintf(
-		"%s: %s, so the branch is pushed and nobody opened a pull request for it",
-		repository, ErrForgeAbsent,
 	)
 }
 

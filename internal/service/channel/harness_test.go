@@ -420,10 +420,14 @@ func (changesetStub) Collect(
 	return entity.ChangeSet{}, nil
 }
 
+func (changesetStub) Tips(context.Context, entity.Review) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
 func (changesetStub) Publish(
-	context.Context, entity.Execution, entity.Snapshot,
-) (entity.ChangeSet, error) {
-	return entity.ChangeSet{}, nil
+	context.Context, entity.Execution, entity.Review,
+) (entity.Publication, error) {
+	return entity.Publication{}, nil
 }
 
 func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) repository.Sandbox {

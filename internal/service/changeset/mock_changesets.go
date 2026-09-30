@@ -57,18 +57,33 @@ func (mr *MockChangeSetsMockRecorder) Collect(ctx, execution, snapshot, completi
 }
 
 // Publish mocks base method.
-func (m *MockChangeSets) Publish(ctx context.Context, execution entity.Execution, snapshot entity.Snapshot) (entity.ChangeSet, error) {
+func (m *MockChangeSets) Publish(ctx context.Context, execution entity.Execution, review entity.Review) (entity.Publication, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", ctx, execution, snapshot)
-	ret0, _ := ret[0].(entity.ChangeSet)
+	ret := m.ctrl.Call(m, "Publish", ctx, execution, review)
+	ret0, _ := ret[0].(entity.Publication)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Publish indicates an expected call of Publish.
-func (mr *MockChangeSetsMockRecorder) Publish(ctx, execution, snapshot any) *gomock.Call {
+func (mr *MockChangeSetsMockRecorder) Publish(ctx, execution, review any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockChangeSets)(nil).Publish), ctx, execution, snapshot)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockChangeSets)(nil).Publish), ctx, execution, review)
+}
+
+// Tips mocks base method.
+func (m *MockChangeSets) Tips(ctx context.Context, review entity.Review) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tips", ctx, review)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Tips indicates an expected call of Tips.
+func (mr *MockChangeSetsMockRecorder) Tips(ctx, review any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tips", reflect.TypeOf((*MockChangeSets)(nil).Tips), ctx, review)
 }
 
 // Uncommitted mocks base method.

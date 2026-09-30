@@ -27,6 +27,20 @@ func (s *executionsService) finalise(
 		return s.recommit(ctx, execution, left)
 	}
 
+	return s.review(ctx, execution, completion, entity.Finalised)
+}
+
+func (s *executionsService) review(
+	ctx context.Context,
+	execution entity.Execution,
+	completion entity.Completion,
+	reason func(entity.ChangeSet) string,
+) error {
+	snapshot, err := s.runs.Load(ctx, execution.ID)
+	if err != nil {
+		return failure{step: entity.StepFinalise, err: err}
+	}
+
 	pass, err := s.prepareReview(ctx, execution)
 	if err != nil {
 		return failure{step: entity.StepFinalise, err: err}
@@ -39,13 +53,13 @@ func (s *executionsService) finalise(
 
 	execution.Revision = pass.Revision
 
-	if err := s.move(ctx, execution, channelv1.StateAwaitingReview, entity.Finalised(changes)); err != nil {
-		return err
+	if err := s.runs.SaveReview(
+		ctx, execution.ID, entity.ReviewOf(pass.Revision, completion.Summary, snapshot, changes),
+	); err != nil {
+		return failure{step: entity.StepFinalise, err: err}
 	}
 
-	execution.State = channelv1.StateAwaitingReview
-
-	return nil
+	return s.move(ctx, execution, channelv1.StateAwaitingReview, reason(changes))
 }
 
 func (s *executionsService) recommit(

@@ -128,18 +128,18 @@ func (mr *MockWorktreeMockRecorder) Commit(ctx, dest, message any) *gomock.Call 
 }
 
 // Commits mocks base method.
-func (m *MockWorktree) Commits(ctx context.Context, dest, base string) (int, error) {
+func (m *MockWorktree) Commits(ctx context.Context, dest, base, head string) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commits", ctx, dest, base)
+	ret := m.ctrl.Call(m, "Commits", ctx, dest, base, head)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Commits indicates an expected call of Commits.
-func (mr *MockWorktreeMockRecorder) Commits(ctx, dest, base any) *gomock.Call {
+func (mr *MockWorktreeMockRecorder) Commits(ctx, dest, base, head any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commits", reflect.TypeOf((*MockWorktree)(nil).Commits), ctx, dest, base)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commits", reflect.TypeOf((*MockWorktree)(nil).Commits), ctx, dest, base, head)
 }
 
 // CommonDir mocks base method.
@@ -173,18 +173,18 @@ func (mr *MockWorktreeMockRecorder) Diff(ctx, repository, paths any) *gomock.Cal
 }
 
 // Diffstat mocks base method.
-func (m *MockWorktree) Diffstat(ctx context.Context, dest, base string) (entity.Diffstat, error) {
+func (m *MockWorktree) Diffstat(ctx context.Context, dest, base, head string) (entity.Diffstat, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Diffstat", ctx, dest, base)
+	ret := m.ctrl.Call(m, "Diffstat", ctx, dest, base, head)
 	ret0, _ := ret[0].(entity.Diffstat)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Diffstat indicates an expected call of Diffstat.
-func (mr *MockWorktreeMockRecorder) Diffstat(ctx, dest, base any) *gomock.Call {
+func (mr *MockWorktreeMockRecorder) Diffstat(ctx, dest, base, head any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Diffstat", reflect.TypeOf((*MockWorktree)(nil).Diffstat), ctx, dest, base)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Diffstat", reflect.TypeOf((*MockWorktree)(nil).Diffstat), ctx, dest, base, head)
 }
 
 // Fetch mocks base method.
@@ -232,18 +232,18 @@ func (mr *MockWorktreeMockRecorder) Head(ctx, repository any) *gomock.Call {
 }
 
 // History mocks base method.
-func (m *MockWorktree) History(ctx context.Context, dest, base string, limit int) ([]entity.Commit, error) {
+func (m *MockWorktree) History(ctx context.Context, dest, base, head string, limit int) ([]entity.Commit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "History", ctx, dest, base, limit)
+	ret := m.ctrl.Call(m, "History", ctx, dest, base, head, limit)
 	ret0, _ := ret[0].([]entity.Commit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // History indicates an expected call of History.
-func (mr *MockWorktreeMockRecorder) History(ctx, dest, base, limit any) *gomock.Call {
+func (mr *MockWorktreeMockRecorder) History(ctx, dest, base, head, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "History", reflect.TypeOf((*MockWorktree)(nil).History), ctx, dest, base, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "History", reflect.TypeOf((*MockWorktree)(nil).History), ctx, dest, base, head, limit)
 }
 
 // Keep mocks base method.
@@ -262,32 +262,32 @@ func (mr *MockWorktreeMockRecorder) Keep(ctx, repository, dest, branch, run any)
 }
 
 // Patch mocks base method.
-func (m *MockWorktree) Patch(ctx context.Context, dest, base string) ([]byte, error) {
+func (m *MockWorktree) Patch(ctx context.Context, dest, base, head string) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Patch", ctx, dest, base)
+	ret := m.ctrl.Call(m, "Patch", ctx, dest, base, head)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Patch indicates an expected call of Patch.
-func (mr *MockWorktreeMockRecorder) Patch(ctx, dest, base any) *gomock.Call {
+func (mr *MockWorktreeMockRecorder) Patch(ctx, dest, base, head any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockWorktree)(nil).Patch), ctx, dest, base)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockWorktree)(nil).Patch), ctx, dest, base, head)
 }
 
 // Push mocks base method.
-func (m *MockWorktree) Push(ctx context.Context, dest, url, branch string) error {
+func (m *MockWorktree) Push(ctx context.Context, dest, url string, push entity.Push) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Push", ctx, dest, url, branch)
+	ret := m.ctrl.Call(m, "Push", ctx, dest, url, push)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Push indicates an expected call of Push.
-func (mr *MockWorktreeMockRecorder) Push(ctx, dest, url, branch any) *gomock.Call {
+func (mr *MockWorktreeMockRecorder) Push(ctx, dest, url, push any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockWorktree)(nil).Push), ctx, dest, url, branch)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockWorktree)(nil).Push), ctx, dest, url, push)
 }
 
 // Remote mocks base method.

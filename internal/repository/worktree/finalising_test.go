@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/usenorn/runner/internal/entity"
 )
 
 func onABranch(t *testing.T) (string, string, string, string) {
@@ -40,7 +42,9 @@ func TestABranchPushedFromAWorktreeReachesTheRemoteEverybodyElsePullsFrom(t *tes
 		t.Fatalf("read where the repository pushes to: %v", err)
 	}
 
-	if err := worktrees.Push(ctx, dest, url, "norn/NORN-54/runner"); err != nil {
+	head := git(t, dest, "rev-parse", "HEAD")
+
+	if err := worktrees.Push(ctx, dest, url, entity.Push{SHA: head, Branch: "norn/NORN-54/runner"}); err != nil {
 		t.Fatalf("push the branch: %v", err)
 	}
 
@@ -63,7 +67,7 @@ func TestOnlyWhatHappenedOnTheBranchIsCountedAsWhatTheRunChanged(t *testing.T) {
 	commit(t, dest, "b.txt", "two\nthree\n")
 	commit(t, dest, "c.txt", "four\n")
 
-	commits, err := worktrees.Commits(ctx, dest, base)
+	commits, err := worktrees.Commits(ctx, dest, base, "HEAD")
 	if err != nil {
 		t.Fatalf("count the commits: %v", err)
 	}
@@ -76,7 +80,7 @@ func TestOnlyWhatHappenedOnTheBranchIsCountedAsWhatTheRunChanged(t *testing.T) {
 		)
 	}
 
-	stat, err := worktrees.Diffstat(ctx, dest, base)
+	stat, err := worktrees.Diffstat(ctx, dest, base, "HEAD")
 	if err != nil {
 		t.Fatalf("read the diffstat: %v", err)
 	}
@@ -104,7 +108,7 @@ func TestNothingCommittedBeforeTheRunCountsAsSomethingTheRunDid(t *testing.T) {
 		t.Fatalf("add a worktree at the later commit: %v", err)
 	}
 
-	commits, err := worktrees.Commits(ctx, dest, head)
+	commits, err := worktrees.Commits(ctx, dest, head, "HEAD")
 	if err != nil {
 		t.Fatalf("count the commits: %v", err)
 	}
@@ -189,12 +193,20 @@ func TestAPushIsRefusedRatherThanOverwritingWhatSomebodyElsePushed(t *testing.T)
 	commit(t, theirs, "b.txt", "theirs\n")
 	git(t, theirs, "push", "-q", bare, "HEAD:refs/heads/norn/NORN-54/runner")
 
-	err := worktrees.Push(ctx, dest, bare, "norn/NORN-54/runner")
-	if err == nil {
-		t.Fatal(
-			"pushing over a branch that moved on succeeded, so work somebody else pushed would " +
-				"be gone with no trace of it",
-		)
+	head := git(t, dest, "rev-parse", "HEAD")
+
+	for name, lease := range map[string]entity.Lease{
+		"with no lease":                         {},
+		"under a lease that expected no branch": {Known: true},
+	} {
+		err := worktrees.Push(ctx, dest, bare, entity.Push{SHA: head, Branch: "norn/NORN-54/runner", Lease: lease})
+		if err == nil {
+			t.Fatalf(
+				"pushing %s over a branch that moved on succeeded, so work somebody else pushed "+
+					"would be gone with no trace of it",
+				name,
+			)
+		}
 	}
 
 	if !strings.Contains(git(t, bare, "log", "-1", "--format=%s", "norn/NORN-54/runner"), "b.txt") {
@@ -209,7 +221,7 @@ func TestTheDiffOfABranchIsWhatTheRunActuallyWrote(t *testing.T) {
 
 	commit(t, dest, "b.txt", "two\n")
 
-	patch, err := worktrees.Patch(ctx, dest, base)
+	patch, err := worktrees.Patch(ctx, dest, base, "HEAD")
 	if err != nil {
 		t.Fatalf("read the diff: %v", err)
 	}
@@ -259,5 +271,36 @@ func TestAWorktreeWithNothingLeftBehindReadsAsClean(t *testing.T) {
 				"thrown away with the workspace and nobody would know",
 			untracked,
 		)
+	}
+}
+
+func TestALeaseOnTheTipSeenBeforeTheRunReplacesOnlyThatTip(t *testing.T) {
+	source, bare, dest, base := onABranch(t)
+	worktrees := maker(t)
+	ctx := context.Background()
+
+	theirs := filepath.Join(t.TempDir(), "theirs")
+
+	if err := worktrees.Add(ctx, source, theirs, base); err != nil {
+		t.Fatalf("add a second worktree: %v", err)
+	}
+
+	git(t, theirs, "switch", "-q", "-c", "an-earlier-attempt")
+	commit(t, theirs, "b.txt", "earlier\n")
+	git(t, theirs, "push", "-q", bare, "HEAD:refs/heads/norn/NORN-54/runner")
+
+	seen := git(t, bare, "rev-parse", "norn/NORN-54/runner")
+
+	commit(t, dest, "c.txt", "approved\n")
+	head := git(t, dest, "rev-parse", "HEAD")
+
+	if err := worktrees.Push(ctx, dest, bare, entity.Push{
+		SHA: head, Branch: "norn/NORN-54/runner", Lease: entity.Lease{Known: true, Tip: seen},
+	}); err != nil {
+		t.Fatalf("a lease on the tip seen before the run was refused: %v", err)
+	}
+
+	if got := git(t, bare, "rev-parse", "norn/NORN-54/runner"); got != head {
+		t.Fatalf("the remote holds %s, want the approved %s", got, head)
 	}
 }
