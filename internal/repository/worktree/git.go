@@ -114,7 +114,7 @@ func (r *gitWorktree) Branch(ctx context.Context, dest, name string) error {
 	}
 
 	if _, err := r.run(ctx, dest, "switch", "--quiet", name); err != nil {
-		if strings.Contains(err.Error(), "already used by worktree") {
+		if heldElsewhere(err) {
 			return fmt.Errorf("%w: %s", entity.ErrSnapshotWorktreeExists, name)
 		}
 
@@ -122,6 +122,12 @@ func (r *gitWorktree) Branch(ctx context.Context, dest, name string) error {
 	}
 
 	return nil
+}
+
+func heldElsewhere(err error) bool {
+	said := err.Error()
+
+	return strings.Contains(said, "already used by worktree") || strings.Contains(said, "is already checked out at")
 }
 
 func (r *gitWorktree) Submodules(ctx context.Context, dest string) error {
