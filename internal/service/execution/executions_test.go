@@ -1000,3 +1000,30 @@ func TestAnEarlierAttemptStillRunningKeepsItsWorkspace(t *testing.T) {
 		t.Fatal("a new attempt tore down the workspace of an attempt that was still running")
 	}
 }
+
+func TestTheSetupLineSaysWhatTheLiveCheckFoundRatherThanAnOldInventory(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.connected[0].Confirmed.Tools = nil
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	said := h.awaitNote(t, "this run is set up for claude")
+
+	if strings.Contains(said.Reason, "is not on this machine") {
+		t.Fatalf(
+			"the run said %q although claude was found and signed in; the inventory saved when the "+
+				"folder was connected is not what this run will start",
+			said.Reason,
+		)
+	}
+}
