@@ -80,7 +80,10 @@ func TestTwoRunsOfTheSameProjectGetTheirOwnPortsAndNeitherSeesTheOthersServices(
 }
 
 func TestAServiceThatKeepsStoppingIsTriedAgainAndThenReportedUnhealthy(t *testing.T) {
-	h := newHarness(t, 45800, 45899)
+	patient := settings()
+	patient.HealthInterval = 5 * time.Second
+
+	h := newHarnessWith(t, 45800, 45899, patient)
 	stop := h.start(t)
 
 	defer stop()

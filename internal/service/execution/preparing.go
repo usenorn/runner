@@ -295,7 +295,16 @@ func (s *executionsService) fill(
 		return entity.Snapshot{}, entity.RunSetup{}, err
 	}
 
-	setup, err := s.setup(ctx, execution, codebase)
+	token, err := s.agentToken(ctx)
+	if err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}
+	}
+
+	driver := driverFor(execution)
+	health := s.drivers.Preflight(ctx, driver.Kind, token)
+	driver.Installed, driver.Version = health.Installed, health.Version
+
+	setup, err := s.setup(ctx, execution, codebase, driver)
 	if err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSetup, err: err}
 	}
@@ -303,13 +312,6 @@ func (s *executionsService) fill(
 	if err := s.note(ctx, execution.ID, channelv1.EventPhase, told(setup)); err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, err
 	}
-
-	token, err := s.agentToken(ctx)
-	if err != nil {
-		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}
-	}
-
-	health := s.drivers.Preflight(ctx, setup.Driver.Kind, token)
 
 	if err := health.FaultIn(execution.Sandbox().Runtime); err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepDriver, err: err}
@@ -319,6 +321,10 @@ func (s *executionsService) fill(
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepToolkit, err: err}
 	}
 
+	branches := s.reused(ctx, execution)
+
+	s.releaseEarlier(ctx, execution)
+
 	snapshot, err := s.snapshots.Take(ctx, service.TakeRequest{
 		Path:         codebase.RootPath,
 		IssueKey:     execution.IssueKey,
@@ -327,7 +333,7 @@ func (s *executionsService) fill(
 		LocalChanges: localChangesFor(execution),
 		Base:         entity.BasePolicy(execution.BaseRef),
 		Branch:       execution.Branch,
-		Branches:     s.reused(ctx, execution),
+		Branches:     branches,
 	})
 	if err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSnapshot, err: err}
@@ -376,6 +382,7 @@ func (s *executionsService) setup(
 	ctx context.Context,
 	execution entity.Execution,
 	codebase entity.Codebase,
+	driver entity.RunDriver,
 ) (entity.RunSetup, error) {
 	plan, err := s.plan(ctx, codebase.RootPath)
 	if err != nil {
@@ -385,7 +392,7 @@ func (s *executionsService) setup(
 	setup := entity.RunSetup{
 		Permissions: profileFor(execution, s.driver.Profile),
 		Plan:        plan,
-		Driver:      driverFor(execution, codebase),
+		Driver:      driver,
 		Services:    entity.RunServices{Runtime: entity.Runtime(execution.Runtime), Chosen: execution.RuntimeWhy},
 	}
 
@@ -443,7 +450,7 @@ func localChangesFor(execution entity.Execution) entity.LocalChanges {
 	return ""
 }
 
-func driverFor(execution entity.Execution, codebase entity.Codebase) entity.RunDriver {
+func driverFor(execution entity.Execution) entity.RunDriver {
 	driver := entity.RunDriver{
 		Kind:   entity.DriverKind(execution.Tool),
 		Model:  execution.Model,
@@ -453,15 +460,6 @@ func driverFor(execution entity.Execution, codebase entity.Codebase) entity.RunD
 	if !driver.Kind.Valid() {
 		driver.Kind = entity.DriverClaude
 		driver.Chosen = "the delegation named no coding agent, so this machine took its default"
-	}
-
-	for _, tool := range codebase.Confirmed.Tools {
-		if tool.Name == string(driver.Kind) {
-			driver.Installed = true
-			driver.Version = tool.Version
-
-			break
-		}
 	}
 
 	return driver
@@ -561,6 +559,40 @@ func (s *executionsService) reused(
 	}
 
 	return branches
+}
+
+func (s *executionsService) releaseEarlier(ctx context.Context, execution entity.Execution) {
+	if execution.Attempt <= 1 || execution.IssueKey == "" {
+		return
+	}
+
+	found, err := s.runs.LoadTasks(ctx)
+	if err != nil {
+		return
+	}
+
+	for _, earlier := range found {
+		if earlier.ID == execution.ID || earlier.IssueKey != execution.IssueKey ||
+			earlier.Attempt >= execution.Attempt || s.holding(earlier.ID) {
+			continue
+		}
+
+		if _, err := s.runs.Load(ctx, earlier.ID); err != nil {
+			continue
+		}
+
+		s.complain(ctx, earlier.ID, s.teardown(ctx, earlier.ID))
+		s.complain(ctx, execution.ID, s.note(ctx, execution.ID, channelv1.EventPhase, entity.Reclaimed(earlier)))
+	}
+}
+
+func (s *executionsService) holding(executionID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, held := s.held[executionID]
+
+	return held
 }
 
 func (s *executionsService) stop(executionID string) bool {

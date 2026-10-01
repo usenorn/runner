@@ -29,6 +29,7 @@ type connection struct {
 	seen     map[string]time.Time
 	inflight string
 	settled  chan struct{}
+	refusal  string
 }
 
 func (c *connection) run(ctx context.Context) error {
@@ -78,7 +79,13 @@ func (c *connection) readPump(ctx context.Context) error {
 		c.service.heard()
 
 		if envelope.Acknowledging() {
-			c.settle(envelope.AckID)
+			c.settle(envelope.AckID, "")
+
+			continue
+		}
+
+		if envelope.Refusing() {
+			c.settle(envelope.AckID, envelope.Reason())
 
 			continue
 		}
@@ -278,6 +285,7 @@ func (c *connection) deliver(ctx context.Context, message channelv1.Message) err
 	c.mu.Lock()
 	c.inflight = message.ID
 	c.settled = answered
+	c.refusal = ""
 	c.mu.Unlock()
 
 	select {
@@ -292,7 +300,35 @@ func (c *connection) deliver(ctx context.Context, message channelv1.Message) err
 		return ctx.Err()
 	}
 
-	return c.service.spool.Acknowledge(ctx, message.ID)
+	if err := c.service.spool.Acknowledge(ctx, message.ID); err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	refusal := c.refusal
+	c.mu.Unlock()
+
+	if refusal == "" {
+		return nil
+	}
+
+	logging.From(ctx).WarnContext(
+		ctx, "norn refused a message this machine sent",
+		slog.String("message_id", message.ID),
+		slog.String("type", string(message.Type)),
+		slog.String("execution_id", message.ExecutionID),
+		slog.String("reason", refusal),
+	)
+
+	if err := c.service.executions.Refused(ctx, message, refusal); err != nil {
+		logging.From(ctx).WarnContext(
+			ctx, "this machine could not act on a refusal from norn",
+			slog.String("message_id", message.ID),
+			slog.String("error", err.Error()),
+		)
+	}
+
+	return nil
 }
 
 func (c *connection) beat(ctx context.Context) error {
@@ -325,7 +361,7 @@ func (c *connection) acknowledge(ctx context.Context, id string) error {
 	}
 }
 
-func (c *connection) settle(id string) {
+func (c *connection) settle(id, refusal string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -333,6 +369,7 @@ func (c *connection) settle(id string) {
 		return
 	}
 
+	c.refusal = refusal
 	close(c.settled)
 
 	c.inflight = ""

@@ -174,6 +174,10 @@ func adviceFor(err error) (int, string, string) {
 
 	case errors.Is(err, entity.ErrQuestionEmpty),
 		errors.Is(err, entity.ErrQuestionCrowded),
+		errors.Is(err, entity.ErrQuestionTooLong),
+		errors.Is(err, entity.ErrQuestionOption),
+		errors.Is(err, entity.ErrQuestionDefault),
+		errors.Is(err, entity.ErrQuestionContext),
 		errors.Is(err, entity.ErrQuestionUndeclared):
 		return http.StatusUnprocessableEntity, ReasonRefused,
 			err.Error()

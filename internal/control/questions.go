@@ -32,8 +32,9 @@ func (s *Server) ask(w http.ResponseWriter, r *http.Request) {
 		Default:  request.Default,
 		Wait:     time.Duration(request.WaitSeconds) * time.Second,
 		Context: entity.QuestionContext{
-			Preview: request.Preview,
-			Files:   request.Files,
+			Preview:   request.Preview,
+			Files:     request.Files,
+			Artifacts: request.Artifacts,
 		},
 	})
 	if err != nil {

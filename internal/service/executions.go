@@ -18,6 +18,7 @@ type Executions interface {
 	Start(ctx context.Context, executionID string, start channelv1.Start) error
 	Cancel(ctx context.Context, executionID string, reason string) error
 	Continue(ctx context.Context, executionID string, instruction channelv1.Instruction) error
+	Refused(ctx context.Context, refused channelv1.Message, reason string) error
 	Reconcile(ctx context.Context, leased []string) error
 	Retain(ctx context.Context, executionID string, keepUntil time.Time) error
 	Pause(ctx context.Context)

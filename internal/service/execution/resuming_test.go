@@ -2,6 +2,7 @@ package execution_test
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -345,5 +346,51 @@ func TestARunTheMachineWasAboutToCarryOnWithIsCarriedOnAfterARestart(t *testing.
 				"a machine that forgets it leaves the run queued for good",
 			said,
 		)
+	}
+}
+
+func TestARunParkedOnAQuestionNornRefusedCarriesOnToldWhyItNeverReachedAPerson(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.drivers.scripts = []script{
+		asking(t, h, "exec-01ABC"),
+		finishes("session-01", "the work is committed"),
+	}
+
+	stop := h.start(t)
+	defer stop()
+
+	begun(t, h, "exec-01ABC")
+
+	h.await(t, "waited for the run to park on its question", func() bool {
+		return held(h.reports(t), channelv1.StateWaitingForInput)
+	})
+
+	payload, err := json.Marshal(channelv1.Question{Ref: "01REF", Message: "Keep the old endpoint?"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := h.service.Refused(context.Background(), channelv1.Message{
+		ID: "01ASK", Type: channelv1.QuestionAsked, ExecutionID: "exec-01ABC", Payload: payload,
+	}, "validation failed: options: too_long"); err != nil {
+		t.Fatalf("hand the run norn's refusal: %v", err)
+	}
+
+	h.await(t, "waited for the refused run to carry on and finish", func() bool {
+		return held(h.reports(t), channelv1.StateFinalizing)
+	})
+
+	said := h.drivers.injections()
+	if len(said) != 1 || !strings.Contains(said[0], "options: too_long") ||
+		!strings.Contains(said[0], "Keep the old endpoint?") || !strings.Contains(said[0], "at most 200") {
+		t.Fatalf(
+			"the agent was told %q; it has to learn which question norn refused, why, and the "+
+				"limits to ask within, or it stops on nothing again",
+			said,
+		)
+	}
+
+	if _, waiting := h.questions.Waiting("exec-01ABC"); waiting {
+		t.Fatal("the run still holds the refused question, so it would park on it again")
 	}
 }
