@@ -2,12 +2,17 @@ package control_test
 
 import (
 	"context"
+	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
+
 	"github.com/usenorn/runner/internal/control"
 	"github.com/usenorn/runner/internal/entity"
+	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 )
 
 func TestAQuestionNobodyAnswersComesBackTellingTheAgentToStop(t *testing.T) {
@@ -107,4 +112,42 @@ func TestAnOptionTooLongForNornIsRefusedToTheAgentWithTheLimit(t *testing.T) {
 			err,
 		)
 	}
+}
+
+func TestTheArtifactsAQuestionPointsAtReachNorn(t *testing.T) {
+	h := newHarness(t, nil)
+
+	running(t, h, "exec-01ART")
+
+	if _, err := h.as(t, "exec-01ART").Ask(context.Background(), "exec-01ART", control.QuestionRequest{
+		Blocking:  true,
+		Message:   "Does this chart read right?",
+		Artifacts: []string{"f8b0a1c2-0000-4000-8000-000000000001"},
+	}); err != nil {
+		t.Fatalf("ask: %v", err)
+	}
+
+	held, err := spoolrepo.New(h.dir).Head(context.Background(), 16)
+	if err != nil {
+		t.Fatalf("read the spool: %v", err)
+	}
+
+	for _, message := range held {
+		if message.Type != channelv1.QuestionAsked {
+			continue
+		}
+
+		var asked channelv1.Question
+		if err := json.Unmarshal(message.Payload, &asked); err != nil {
+			t.Fatal(err)
+		}
+
+		if !slices.Equal(asked.Context.Artifacts, []string{"f8b0a1c2-0000-4000-8000-000000000001"}) {
+			t.Fatalf("the question went to norn pointing at %v", asked.Context.Artifacts)
+		}
+
+		return
+	}
+
+	t.Fatal("the question never reached the spool")
 }
