@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -898,5 +899,104 @@ func fabricate(t *testing.T, h *harness, executionID string, state channelv1.Sta
 		TakenAt: time.Now().UTC().Add(-time.Hour),
 	}); err != nil {
 		t.Fatalf("write a snapshot record by hand: %v", err)
+	}
+}
+
+func TestRunningItAgainAfterACancelTakesTheBranchBackFromTheKeptWorkspace(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.awaitNote(t, "workspace for this run is ready")
+
+	if err := h.service.Cancel(ctx, "exec-01ABC", "the person changed their mind"); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+
+	h.await(t, "waited for the cancelled attempt to give its slot back", func() bool {
+		return h.service.Report(ctx).Used == 0
+	})
+
+	again := h.offer("exec-01DEF")
+	again.Attempt = 2
+	again.Reference = "NORN-47-r2"
+
+	if err := h.service.Offer(ctx, again); err != nil {
+		t.Fatalf("second offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01DEF", channelv1.Start{ExecutionID: "exec-01DEF"}); err != nil {
+		t.Fatalf("second start: %v", err)
+	}
+
+	h.await(t, "waited for the second attempt to be prepared", func() bool {
+		return len(h.requests()) == 2
+	})
+
+	if reused := h.requests()[1].Branches["runner"]; reused != entity.BranchFor("NORN-47", "runner", 1) {
+		t.Fatalf("the second attempt asked for %q, want the first attempt's branch", reused)
+	}
+
+	h.mu.Lock()
+	released := slices.Contains(h.released, "exec-01ABC")
+	h.mu.Unlock()
+
+	if !released {
+		t.Fatal(
+			"the cancelled attempt kept its workspace, so it still holds the branch and the new " +
+				"attempt fails with 'already checked out'",
+		)
+	}
+
+	h.awaitNote(t, "took over the branches attempt 1 left behind")
+}
+
+func TestAnEarlierAttemptStillRunningKeepsItsWorkspace(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	ctx := context.Background()
+
+	stop := h.start(t)
+	defer stop()
+
+	if err := h.service.Offer(ctx, h.offer("exec-01ABC")); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01ABC", started()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	h.awaitNote(t, "workspace for this run is ready")
+
+	again := h.offer("exec-01DEF")
+	again.Attempt = 2
+
+	if err := h.service.Offer(ctx, again); err != nil {
+		t.Fatalf("second offer: %v", err)
+	}
+
+	if err := h.service.Start(ctx, "exec-01DEF", channelv1.Start{ExecutionID: "exec-01DEF"}); err != nil {
+		t.Fatalf("second start: %v", err)
+	}
+
+	h.await(t, "waited for the second attempt to be prepared", func() bool {
+		return len(h.requests()) == 2
+	})
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if slices.Contains(h.released, "exec-01ABC") {
+		t.Fatal("a new attempt tore down the workspace of an attempt that was still running")
 	}
 }

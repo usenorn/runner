@@ -34,3 +34,11 @@ func Kept(until time.Time) string {
 		until.Format(time.RFC3339),
 	)
 }
+
+func Reclaimed(earlier Execution) string {
+	return fmt.Sprintf(
+		"took over the branches attempt %d left behind; its kept workspace was given back so this "+
+			"attempt could check them out, and anything it had not committed is gone",
+		earlier.Attempt,
+	)
+}
