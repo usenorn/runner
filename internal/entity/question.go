@@ -179,3 +179,40 @@ func AnswersInjection(answers []Answer) string {
 
 	return said.String()
 }
+
+const (
+	ResumeRefused = "refused"
+	NornAnswerer  = "norn"
+)
+
+func RefusedQuestionAnswer(ref, reason string) Answer {
+	return Answer{Ref: ref, AnsweredBy: NornAnswerer, Answer: RefusedQuestionInjection("", reason)}
+}
+
+func RefusedQuestionInjection(question, reason string) string {
+	var said strings.Builder
+
+	if asked := strings.TrimSpace(question); asked != "" {
+		said.WriteString("You asked: " + asked + "\n\n")
+	}
+
+	fmt.Fprintf(&said,
+		"Norn could not take that question, so it never reached a person: %s.\n\n"+
+			"Ask it again within norn's limits: the question at most %d characters, at most %d "+
+			"options, each at most %d characters. Put the detail in the question rather than in "+
+			"the options. If you can decide without a person, carry on with your best judgement "+
+			"and say what you chose.",
+		strings.TrimSpace(reason), channelv1.QuestionTextMax, channelv1.QuestionOptionsMax,
+		channelv1.QuestionOptionMax,
+	)
+
+	return said.String()
+}
+
+func RefusalNote(kind channelv1.MessageType, reason string) string {
+	if kind == channelv1.QuestionAsked {
+		return "norn could not take the question the coding agent asked: " + strings.TrimSpace(reason)
+	}
+
+	return fmt.Sprintf("norn refused a %s this machine sent: %s", kind, strings.TrimSpace(reason))
+}

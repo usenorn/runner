@@ -240,6 +240,10 @@ func (s *executionsService) injection(
 		return entity.PlanRevisionInjection(instruction.Instruction)
 	case channelv1.ResumeAnswer:
 		return s.answered(ctx, executionID, instruction)
+	case entity.ResumeRefused:
+		s.complain(ctx, executionID, s.questions.Forget(ctx, executionID))
+
+		return strings.TrimSpace(instruction.Instruction)
 	default:
 		return strings.TrimSpace(instruction.Instruction)
 	}
@@ -276,6 +280,8 @@ func resumed(instruction channelv1.Instruction) string {
 		return "somebody asked for the plan to change, and the coding agent is revising it"
 	case channelv1.ResumeAnswer:
 		return "somebody answered, and the coding agent is carrying on from where it stopped"
+	case entity.ResumeRefused:
+		return "norn could not take the question, and the coding agent is told why and asked to carry on"
 	}
 
 	said := strings.TrimSpace(instruction.Instruction)

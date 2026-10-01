@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -330,5 +331,52 @@ func awaitState(t *testing.T, h *harness, want entity.ChannelState) entity.Chann
 			t.Fatalf("the channel is %q, want %q", report.State, want)
 		case <-time.After(10 * time.Millisecond):
 		}
+	}
+}
+
+func TestAMessageNornRefusesLeavesTheSpoolAndTheConnectionCarriesOn(t *testing.T) {
+	h := newHarness(t, false, 2)
+
+	written := h.queue(t, 2)
+
+	stop := h.start(t)
+
+	defer stop()
+
+	wire := h.awaitDial(t)
+
+	_ = wire.await(t, channelv1.RunnerHello)
+
+	refused := wire.await(t, channelv1.ExecutionEvent)
+	if refused.ID != written[0] {
+		t.Fatalf("the first event out was %s, want %s", refused.ID, written[0])
+	}
+
+	wire.inbound <- channelv1.Refuse(refused.ID, "validation failed: kind: unsupported_value", time.Now().UTC())
+
+	next := wire.await(t, channelv1.ExecutionEvent)
+	if next.ID != written[1] {
+		t.Fatalf(
+			"after a refusal the machine sent %s, want the next event %s; a refused message has to "+
+				"leave the spool rather than block everything behind it",
+			next.ID, written[1],
+		)
+	}
+
+	wire.inbound <- channelv1.Acknowledgement(next.ID, time.Now().UTC())
+
+	noted := wire.await(t, channelv1.ExecutionEvent)
+	if !strings.Contains(string(noted.Payload), "kind: unsupported_value") {
+		t.Fatalf("the run's timeline was not told why norn refused it: %s", noted.Payload)
+	}
+
+	wire.inbound <- channelv1.Acknowledgement(noted.ID, time.Now().UTC())
+
+	h.awaitEmptySpool(t)
+
+	select {
+	case <-h.dialled:
+		t.Fatal("a refusal made the machine reconnect; it is an answer, not a broken channel")
+	default:
 	}
 }

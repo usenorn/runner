@@ -222,6 +222,20 @@ func (mr *MockExecutionsMockRecorder) Reconcile(ctx, leased any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reconcile", reflect.TypeOf((*MockExecutions)(nil).Reconcile), ctx, leased)
 }
 
+// Refused mocks base method.
+func (m *MockExecutions) Refused(ctx context.Context, refused channelv1.Message, reason string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Refused", ctx, refused, reason)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Refused indicates an expected call of Refused.
+func (mr *MockExecutionsMockRecorder) Refused(ctx, refused, reason any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refused", reflect.TypeOf((*MockExecutions)(nil).Refused), ctx, refused, reason)
+}
+
 // Reply mocks base method.
 func (m *MockExecutions) Reply(ctx context.Context, executionID string, reply entity.ReviewReply) error {
 	m.ctrl.T.Helper()
