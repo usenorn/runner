@@ -64,3 +64,46 @@ func TestARunsGitSignsCommitsAsThePersonButCannotReachTheirCredentials(t *testin
 		t.Fatalf("the run has no temporary folder of its own: %v", err)
 	}
 }
+
+func TestAnIdentitySavedForARunOutlivesReopeningIt(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed, so there is no config to read back")
+	}
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	dir, ctx := store(t)
+	runs := runrepo.New(dir)
+
+	path, err := runs.Open(ctx, "exec-01IDN")
+	if err != nil {
+		t.Fatalf("open a run: %v", err)
+	}
+
+	if host := runs.HostIdentity(ctx); host.Complete() {
+		t.Fatalf("a machine with no git config read back %+v as its identity", host)
+	}
+
+	author := entity.GitIdentity{Name: "Rae Okafor", Email: "rae@northwind.co"}
+	if err := runs.SaveIdentity(ctx, "exec-01IDN", author); err != nil {
+		t.Fatalf("save the run's identity: %v", err)
+	}
+
+	if _, err := runs.Open(ctx, "exec-01IDN"); err != nil {
+		t.Fatalf("reopen the run: %v", err)
+	}
+
+	config, err := os.ReadFile(entity.RunHomeOf(path).GitConfig())
+	if err != nil {
+		t.Fatalf("read the run's git config: %v", err)
+	}
+
+	if !strings.Contains(string(config), "rae@northwind.co") {
+		t.Fatalf(
+			"resuming a run put back the machine's own identity, so its later commits are "+
+				"authored by nobody:\n%s",
+			config,
+		)
+	}
+}

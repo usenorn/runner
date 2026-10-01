@@ -18,6 +18,10 @@ func (runStub) Prepare(context.Context, string) (string, error) { return "", nil
 
 func (runStub) Open(context.Context, string) (string, error) { return "", nil }
 
+func (runStub) HostIdentity(context.Context) entity.GitIdentity { return entity.GitIdentity{} }
+
+func (runStub) SaveIdentity(context.Context, string, entity.GitIdentity) error { return nil }
+
 func (runStub) Prune(context.Context, string) error { return nil }
 
 func (runStub) Save(context.Context, entity.Snapshot) error { return nil }

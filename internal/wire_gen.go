@@ -136,7 +136,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	repositoryDriver := driver.New(repositorySandbox, configDriver)
 	repositoryToolkit := toolkit.New(runner, app, configDriver)
 	scheduler := config.NewScheduler(configConfig)
-	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, repositoryToolkit, repositorySandbox, repositoryIdentity, repositoryCredential, sessions, dir, runner, app, scheduler, configDriver)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, repositoryToolkit, repositorySandbox, repositoryIdentity, repositoryCredential, sessions, dir, runner, app, scheduler, configDriver, results)
 	configSpool := config.NewSpool(configConfig)
 	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, serviceQuestions, configChannel, configSpool, app)
 	configTunnel := config.NewTunnel(configConfig)

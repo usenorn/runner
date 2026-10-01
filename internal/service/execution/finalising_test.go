@@ -20,6 +20,32 @@ func working(h *harness) {
 	h.stat = entity.Diffstat{Additions: 40, Deletions: 3, Files: 4}
 }
 
+func TestARunCommitsAsTheAuthorTheRunnerIsConfiguredWith(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	working(h)
+	h.drivers.scripts = []script{finishes("session-01", "added a median helper")}
+
+	h.posts.EXPECT().
+		PublishArtifact(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(entity.ArtifactReceipt{ID: "f8b0a1c2-0000-4000-8000-000000000001"}, nil).
+		AnyTimes()
+
+	stop := h.start(t)
+	defer stop()
+
+	begun(t, h, "exec-01ABC")
+	h.awaitReview(t, "exec-01ABC")
+
+	config, err := os.ReadFile(entity.RunHomeOf(h.dir.Run("exec-01ABC")).GitConfig())
+	if err != nil {
+		t.Fatalf("read the run's git config: %v", err)
+	}
+
+	if !strings.Contains(string(config), "rae@northwind.co") {
+		t.Fatalf("the run's commits are not authored by the configured person:\n%s", config)
+	}
+}
+
 func TestAFinishedRunTellsNornWhatItChangedAndPushesOnlyOnceApproved(t *testing.T) {
 	h := newHarness(t, 2, 0)
 	working(h)

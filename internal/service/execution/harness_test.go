@@ -294,6 +294,7 @@ func build(
 			ResumeAttempts: 1,
 			ToolkitTimeout: time.Second,
 		},
+		config.Results{CommitName: "Rae Okafor", CommitEmail: "rae@northwind.co"},
 	)
 
 	return h

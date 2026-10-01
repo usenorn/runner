@@ -147,16 +147,38 @@ func (r *fileRun) Open(ctx context.Context, name string) (string, error) {
 }
 
 func furnish(ctx context.Context, home entity.RunHome) error {
-	config := entity.TaskGitConfig(entity.GitIdentity{
-		Name:  personal(ctx, "user.name"),
-		Email: personal(ctx, "user.email"),
-	})
+	if _, err := os.Stat(home.GitConfig()); err == nil {
+		return nil
+	}
 
-	if err := os.WriteFile(home.GitConfig(), []byte(config), fileMode); err != nil {
+	return writeIdentity(home, hostIdentity(ctx))
+}
+
+func writeIdentity(home entity.RunHome, identity entity.GitIdentity) error {
+	if err := os.MkdirAll(home.Root, dirMode); err != nil {
+		return fmt.Errorf("create %s: %w", home.Root, err)
+	}
+
+	if err := os.WriteFile(home.GitConfig(), []byte(entity.TaskGitConfig(identity)), fileMode); err != nil {
 		return fmt.Errorf("write %s: %w", home.GitConfig(), err)
 	}
 
 	return nil
+}
+
+func (r *fileRun) HostIdentity(ctx context.Context) entity.GitIdentity {
+	return hostIdentity(ctx)
+}
+
+func (r *fileRun) SaveIdentity(_ context.Context, name string, identity entity.GitIdentity) error {
+	return writeIdentity(entity.RunHomeOf(r.dir.Run(name)), identity)
+}
+
+func hostIdentity(ctx context.Context) entity.GitIdentity {
+	return entity.GitIdentity{
+		Name:  personal(ctx, "user.name"),
+		Email: personal(ctx, "user.email"),
+	}
 }
 
 func personal(ctx context.Context, key string) string {

@@ -266,6 +266,8 @@ func setDefaults(v *viper.Viper, root string) {
 	v.SetDefault("results.push_timeout", 2*time.Minute)
 	v.SetDefault("results.forge_timeout", time.Minute)
 	v.SetDefault("results.max_diff_bytes", int64(defaultMaxDiffBytes))
+	v.SetDefault("results.commit_name", "")
+	v.SetDefault("results.commit_email", "")
 
 	v.SetDefault("questions.soft_wait", time.Minute)
 	v.SetDefault("questions.max_wait", 10*time.Minute)
@@ -750,6 +752,13 @@ func validateResults(results Results) error {
 		return fmt.Errorf(
 			"results.push_timeout, results.forge_timeout and results.max_diff_bytes must all be " +
 				"positive",
+		)
+	}
+
+	if (results.CommitName == "") != (results.CommitEmail == "") {
+		return fmt.Errorf(
+			"results.commit_name and results.commit_email go together: set both to author every " +
+				"run's commits as one person, or neither",
 		)
 	}
 

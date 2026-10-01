@@ -339,6 +339,10 @@ func (s *executionsService) fill(
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSnapshot, err: err}
 	}
 
+	if err := s.author(ctx, execution); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepIdentity, err: err}
+	}
+
 	if err := s.sandboxes.Open(ctx, entity.SandboxSpecFor(execution, snapshot)); err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSandbox, err: err}
 	}
@@ -358,6 +362,18 @@ func (s *executionsService) fill(
 	}
 
 	return snapshot, setup, nil
+}
+
+func (s *executionsService) author(ctx context.Context, execution entity.Execution) error {
+	identity, err := entity.FirstCompleteIdentity(
+		entity.GitIdentity{Name: s.results.CommitName, Email: s.results.CommitEmail},
+		s.runs.HostIdentity(ctx),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.runs.SaveIdentity(ctx, execution.ID, identity)
 }
 
 func (s *executionsService) codebase(ctx context.Context) (entity.Codebase, error) {

@@ -250,6 +250,7 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 			SessionTimeout: time.Minute,
 			StopGrace:      time.Second,
 		},
+		config.Results{},
 	)
 
 	h.dials.EXPECT().

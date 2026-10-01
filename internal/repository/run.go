@@ -13,6 +13,8 @@ import (
 type Run interface {
 	Prepare(ctx context.Context, name string) (string, error)
 	Open(ctx context.Context, name string) (string, error)
+	HostIdentity(ctx context.Context) entity.GitIdentity
+	SaveIdentity(ctx context.Context, name string, identity entity.GitIdentity) error
 	Save(ctx context.Context, snapshot entity.Snapshot) error
 	Load(ctx context.Context, name string) (entity.Snapshot, error)
 	List(ctx context.Context) ([]entity.Snapshot, error)

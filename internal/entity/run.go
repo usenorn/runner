@@ -34,6 +34,7 @@ type PrepareStep string
 const (
 	StepCodebase PrepareStep = "work out which folder this run belongs to"
 	StepSetup    PrepareStep = "work out how this run should be set up"
+	StepIdentity PrepareStep = "work out who authors this run's commits"
 	StepSnapshot PrepareStep = "copy that folder into a workspace of its own"
 	StepSandbox  PrepareStep = "open the container this run works in"
 	StepRecord   PrepareStep = "write down what it prepared"

@@ -51,6 +51,7 @@ type executionsService struct {
 	app         config.App
 	scheduler   config.Scheduler
 	driver      config.Driver
+	results     config.Results
 	now         func() time.Time
 
 	preparing chan string
@@ -97,6 +98,7 @@ func New(
 	app config.App,
 	scheduler config.Scheduler,
 	driver config.Driver,
+	results config.Results,
 ) service.Executions {
 	return &executionsService{
 		runs:        runs,
@@ -123,6 +125,7 @@ func New(
 		app:         app,
 		scheduler:   scheduler,
 		driver:      driver,
+		results:     results,
 		now:         func() time.Time { return time.Now().UTC() },
 		preparing:   make(chan string, waitingToWork),
 		resuming:    make(chan resumption, waitingToWork),

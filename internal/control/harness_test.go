@@ -249,6 +249,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			SessionTimeout: time.Minute,
 			StopGrace:      time.Second,
 		},
+		config.Results{},
 	)
 
 	channels := channelsvc.New(
