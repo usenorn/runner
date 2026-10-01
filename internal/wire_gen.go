@@ -148,7 +148,7 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 		cleanup()
 		return nil, nil, err
 	}
-	mcpbridgeBridge, cleanup3 := mcpbridge.New(configControl, questions, dir, app)
+	mcpbridgeBridge, cleanup3 := mcpbridge.New(configControl, questions, configSupervisor, dir, app)
 	log := config.NewLog(configConfig)
 	logger, cleanup4, err := logging.New(app, log, dir)
 	if err != nil {
@@ -173,13 +173,14 @@ func InitStatus(cfgFile string, overrides config.Overrides) (*Status, func(), er
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	status := NewStatus(client)
 	return status, func() {
 	}, nil
@@ -192,13 +193,14 @@ func InitVersion(cfgFile string, overrides config.Overrides) (*Version, func(), 
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	configUpdate := config.NewUpdate(configConfig)
 	app := config.NewApp(configConfig)
 	repositoryRelease := release.New(configUpdate, app)
@@ -216,13 +218,14 @@ func InitBinding(cfgFile string, overrides config.Overrides) (*Binding, func(), 
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	binding := NewBinding(client)
 	return binding, func() {
 	}, nil
@@ -235,13 +238,14 @@ func InitInspection(cfgFile string, overrides config.Overrides) (*Inspection, fu
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	inspection := NewInspection(client)
 	return inspection, func() {
 	}, nil
@@ -277,13 +281,14 @@ func InitScheduling(cfgFile string, overrides config.Overrides) (*Scheduling, fu
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	internalScheduling := NewScheduling(client)
 	return internalScheduling, func() {
 	}, nil
@@ -296,13 +301,14 @@ func InitExecutions(cfgFile string, overrides config.Overrides) (*Executions, fu
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	executions := NewExecutions(client)
 	return executions, func() {
 	}, nil
@@ -315,13 +321,14 @@ func InitServices(cfgFile string, overrides config.Overrides) (*Services, func()
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	services := NewServices(client)
 	return services, func() {
 	}, nil
@@ -350,13 +357,14 @@ func InitMCPServer(cfgFile string, overrides config.Overrides) (*mcpserver.Serve
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	app := config.NewApp(configConfig)
 	server := mcpserver.New(client, app)
 	return server, func() {

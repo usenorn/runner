@@ -87,6 +87,7 @@ func newBridge(t *testing.T) *httptest.Server {
 	bridge, closeBridge := mcpbridge.New(
 		config.Control{DialTimeout: time.Second, RequestTimeout: 2 * time.Second},
 		config.Questions{SoftWait: 50 * time.Millisecond, MaxWait: time.Second},
+		config.Supervisor{StepTimeout: time.Minute},
 		dir,
 		config.App{Version: "test"},
 	)

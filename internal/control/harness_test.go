@@ -307,7 +307,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		dir:         dir,
 		build:       build,
 		tokens:      tokens,
-		client:      control.NewClient(settings(), questionSettings(), dir, ""),
+		client:      control.NewClient(settings(), questionSettings(), stepSettings(), dir, ""),
 		dashboard:   dashboard,
 		credentials: credentials,
 		identities:  identities,
@@ -329,7 +329,7 @@ func (h *harness) bearer(t *testing.T, executionID string) control.Bearer {
 func (h *harness) as(t *testing.T, executionID string) *control.Client {
 	t.Helper()
 
-	return control.NewClient(settings(), questionSettings(), h.dir, h.bearer(t, executionID))
+	return control.NewClient(settings(), questionSettings(), stepSettings(), h.dir, h.bearer(t, executionID))
 }
 
 type tunnelStub struct{}
@@ -393,6 +393,10 @@ func (driverStub) Resume(
 	string,
 ) (repository.Session, error) {
 	return nil, entity.ErrDriverMissing
+}
+
+func stepSettings() config.Supervisor {
+	return config.Supervisor{StepTimeout: time.Minute}
 }
 
 func questionSettings() config.Questions {

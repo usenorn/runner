@@ -52,7 +52,7 @@ func TestAskingHoldsTheSocketOpenForAsLongAsTheDaemonHoldsTheQuestion(t *testing
 	impatient := settings()
 	impatient.RequestTimeout = 50 * time.Millisecond
 
-	client := control.NewClient(impatient, questionSettings(), h.dir, h.bearer(t, "exec-01PATIENT"))
+	client := control.NewClient(impatient, questionSettings(), stepSettings(), h.dir, h.bearer(t, "exec-01PATIENT"))
 
 	began := time.Now()
 

@@ -31,7 +31,8 @@ var (
 	ErrPortsExhausted = errors.New(
 		"this machine has no free port left in the range it was given; widen port_range",
 	)
-	ErrStepTimedOut = errors.New("that step ran past the time it was given")
+	ErrStepTimedOut  = errors.New("that step ran past the time it was given")
+	ErrStepAbandoned = errors.New("that step was stopped because whoever asked for it stopped waiting")
 )
 
 var (

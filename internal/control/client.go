@@ -26,6 +26,7 @@ type Client struct {
 	http      *http.Client
 	cfg       config.Control
 	questions config.Questions
+	steps     config.Supervisor
 	path      string
 	token     string
 }
@@ -39,6 +40,7 @@ func NewBearer() Bearer {
 func NewClient(
 	cfg config.Control,
 	questions config.Questions,
+	steps config.Supervisor,
 	dir *statedir.Dir,
 	bearer Bearer,
 ) *Client {
@@ -56,6 +58,7 @@ func NewClient(
 		},
 		cfg:       cfg,
 		questions: questions,
+		steps:     steps,
 		path:      path,
 		token:     string(bearer),
 	}
@@ -321,7 +324,18 @@ func (c *Client) RunStep(
 	executionID string,
 	request StepRequest,
 ) (StepResult, error) {
-	return ask[StepResult](ctx, c, http.MethodPost, forRun(StepsPath, executionID), request)
+	patient, done := context.WithTimeout(ctx, c.stepping(request)+c.cfg.RequestTimeout)
+	defer done()
+
+	return ask[StepResult](patient, c, http.MethodPost, forRun(StepsPath, executionID), request)
+}
+
+func (c *Client) stepping(request StepRequest) time.Duration {
+	if asked, err := time.ParseDuration(request.Timeout); err == nil && asked > 0 {
+		return asked
+	}
+
+	return c.steps.StepTimeout
 }
 
 // Ask holds the socket open for as long as the daemon will hold the question open, plus the time
