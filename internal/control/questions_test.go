@@ -88,3 +88,23 @@ func TestAQuestionAgainstARunThisMachineIsNotHoldingIsRefused(t *testing.T) {
 		)
 	}
 }
+
+func TestAnOptionTooLongForNornIsRefusedToTheAgentWithTheLimit(t *testing.T) {
+	h := newHarness(t, nil)
+
+	running(t, h, "exec-01LONG")
+
+	_, err := h.as(t, "exec-01LONG").Ask(context.Background(), "exec-01LONG", control.QuestionRequest{
+		Blocking: true,
+		Message:  "How should the socket authenticate?",
+		Options:  []string{"A short-lived token", strings.Repeat("a ticket from the platform ", 9)},
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "option 2") || !strings.Contains(err.Error(), "at most 200") {
+		t.Fatalf(
+			"an option norn would refuse came back to the agent as %v; it has to say which option "+
+				"and how long it may be, or the question is lost on the way to norn",
+			err,
+		)
+	}
+}

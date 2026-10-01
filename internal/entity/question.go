@@ -2,16 +2,13 @@ package entity
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
-)
-
-const (
-	QuestionOptionsMax = 8
-	QuestionTextMax    = 1000
 )
 
 var (
@@ -19,6 +16,10 @@ var (
 	ErrQuestionEmpty      = errors.New("a question needs something to ask")
 	ErrQuestionCrowded    = errors.New("a question offers more answers than norn will show")
 	ErrQuestionUndeclared = errors.New("a question you are not waiting on has to say what you will do meanwhile")
+	ErrQuestionTooLong    = errors.New("a question is longer than norn will show")
+	ErrQuestionOption     = errors.New("an answer a question offers cannot be shown")
+	ErrQuestionDefault    = errors.New("what you will do meanwhile is longer than norn keeps")
+	ErrQuestionContext    = errors.New("a question points at more files or artifacts than norn keeps")
 )
 
 type QuestionKind string
@@ -59,13 +60,50 @@ func (q Question) Fault() error {
 	switch {
 	case strings.TrimSpace(q.Message) == "":
 		return ErrQuestionEmpty
-	case len(q.Options) > QuestionOptionsMax:
-		return ErrQuestionCrowded
+	case runes(q.Message) > channelv1.QuestionTextMax:
+		return fmt.Errorf(
+			"%w: it is %d characters and norn takes at most %d; say it more briefly",
+			ErrQuestionTooLong, runes(q.Message), channelv1.QuestionTextMax,
+		)
+	case len(q.Options) > channelv1.QuestionOptionsMax:
+		return fmt.Errorf("%w: offer at most %d", ErrQuestionCrowded, channelv1.QuestionOptionsMax)
 	case !q.Blocking && strings.TrimSpace(q.Default) == "":
 		return ErrQuestionUndeclared
+	case runes(q.Default) > channelv1.QuestionDefaultMax:
+		return fmt.Errorf(
+			"%w: it is %d characters and norn takes at most %d",
+			ErrQuestionDefault, runes(q.Default), channelv1.QuestionDefaultMax,
+		)
+	case len(q.Context.Files) > channelv1.QuestionContextFilesMax ||
+		len(q.Context.Artifacts) > channelv1.QuestionContextFilesMax:
+		return fmt.Errorf(
+			"%w: name at most %d files and %d artifacts",
+			ErrQuestionContext, channelv1.QuestionContextFilesMax, channelv1.QuestionContextFilesMax,
+		)
 	default:
-		return nil
+		return q.optionFault()
 	}
+}
+
+func (q Question) optionFault() error {
+	for index, option := range q.Options {
+		switch length := runes(option); {
+		case length == 0:
+			return fmt.Errorf("%w: option %d is empty", ErrQuestionOption, index+1)
+		case length > channelv1.QuestionOptionMax:
+			return fmt.Errorf(
+				"%w: option %d is %d characters and norn takes at most %d; shorten it and put the detail "+
+					"in the question",
+				ErrQuestionOption, index+1, length, channelv1.QuestionOptionMax,
+			)
+		}
+	}
+
+	return nil
+}
+
+func runes(text string) int {
+	return utf8.RuneCountInString(strings.TrimSpace(text))
 }
 
 type Answer struct {
