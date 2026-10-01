@@ -42,6 +42,12 @@ type harness struct {
 func newHarness(t *testing.T, lowest int, highest int) *harness {
 	t.Helper()
 
+	return newHarnessWith(t, lowest, highest, settings())
+}
+
+func newHarnessWith(t *testing.T, lowest int, highest int, cfg config.Supervisor) *harness {
+	t.Helper()
+
 	shell(t)
 
 	dir, err := statedir.New(config.State{Root: t.TempDir()})
@@ -49,10 +55,10 @@ func newHarness(t *testing.T, lowest int, highest int) *harness {
 		t.Fatalf("make a state directory: %v", err)
 	}
 
-	return over(t, dir, lowest, highest)
+	return overWith(t, dir, lowest, highest, cfg)
 }
 
-func over(t *testing.T, dir *statedir.Dir, lowest int, highest int) *harness {
+func overWith(t *testing.T, dir *statedir.Dir, lowest int, highest int, cfg config.Supervisor) *harness {
 	t.Helper()
 
 	h := &harness{
@@ -72,7 +78,7 @@ func over(t *testing.T, dir *statedir.Dir, lowest int, highest int) *harness {
 		servicelogrepo.New(dir),
 		h.runs,
 		h.spool,
-		settings(),
+		cfg,
 	)
 
 	return h
