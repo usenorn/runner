@@ -26,6 +26,7 @@ const (
 )
 
 var (
+	ErrRemoteDefaultUnknown   = errors.New("this repository's remote names no default branch")
 	ErrSnapshotExists         = errors.New("that snapshot already exists; remove it before taking another")
 	ErrSnapshotMissing        = errors.New("there is no snapshot by that name")
 	ErrSnapshotEmpty          = errors.New("this folder holds nothing that can be snapshotted")
@@ -115,6 +116,7 @@ type SnapshotRepository struct {
 	Base    BasePolicy
 	BaseSHA string
 	Branch  string
+	Default string
 	Remote  string
 	Lease   Lease
 	Local   *LocalPatch

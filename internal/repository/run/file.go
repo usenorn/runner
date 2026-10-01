@@ -84,6 +84,7 @@ type storedRepository struct {
 	Base    string       `json:"base"`
 	BaseSHA string       `json:"baseSha"`
 	Branch  string       `json:"branch"`
+	Default string       `json:"defaultBranch,omitempty"`
 	Remote  string       `json:"remote,omitempty"`
 	Leased  bool         `json:"leased,omitempty"`
 	Lease   string       `json:"lease,omitempty"`
@@ -504,6 +505,7 @@ func storedRepositoryOf(repository entity.SnapshotRepository) storedRepository {
 		Base:    string(repository.Base),
 		BaseSHA: repository.BaseSHA,
 		Branch:  repository.Branch,
+		Default: repository.Default,
 		Remote:  repository.Remote,
 		Leased:  repository.Lease.Known,
 		Lease:   repository.Lease.Tip,
@@ -566,6 +568,7 @@ func repositoryOf(held storedRepository) entity.SnapshotRepository {
 		Base:    entity.BasePolicy(held.Base),
 		BaseSHA: held.BaseSHA,
 		Branch:  held.Branch,
+		Default: held.Default,
 		Remote:  held.Remote,
 		Lease:   entity.Lease{Known: held.Leased, Tip: held.Lease},
 	}

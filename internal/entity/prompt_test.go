@@ -60,7 +60,7 @@ func TestTheTaskTellsTheAgentToStayPutCommitAndLeaveTheRemoteAlone(t *testing.T)
 	task := entity.ComposeTask(delegated(), copied(), entity.RunPlan{Source: entity.PlanNone})
 
 	for _, wanted := range []string{
-		"only inside this workspace", "Commit your work", "Do not push",
+		"only inside this workspace", "Commit your work", "Do not fetch, pull, push", "refresh_remote",
 	} {
 		if !strings.Contains(task.Prompt, wanted) {
 			t.Fatalf("the standing rules never say %q:\n%s", wanted, task.Prompt)

@@ -86,6 +86,7 @@ type harness struct {
 	stat     entity.Diffstat
 	patch    []byte
 	remote   string
+	fetched  []entity.RemoteState
 	remoteEr error
 	pushErr  error
 	forge    bool
@@ -358,6 +359,16 @@ func (h *harness) expect() {
 	h.snapshots.EXPECT().
 		Release(gomock.Any(), gomock.Any()).
 		DoAndReturn(h.release).
+		AnyTimes()
+
+	h.snapshots.EXPECT().
+		Refresh(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, entity.Snapshot) []entity.RemoteState {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			return h.fetched
+		}).
 		AnyTimes()
 
 	h.services.EXPECT().

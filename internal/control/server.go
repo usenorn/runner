@@ -108,6 +108,7 @@ func NewServer(
 	mux.HandleFunc("POST "+ArtifactsPath, server.guarded(server.publishArtifact))
 	mux.HandleFunc("POST "+CompletePath, server.guarded(server.complete))
 	mux.HandleFunc("POST "+ReviewRepliesPath, server.guarded(server.replyToReview))
+	mux.HandleFunc("POST "+RemotePath, server.guarded(server.refreshRemote))
 	mux.HandleFunc(NornToolsPath, server.guarded(server.nornTools))
 
 	server.handler = recovering(mux)

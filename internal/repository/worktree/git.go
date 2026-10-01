@@ -3,8 +3,11 @@ package worktree
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,6 +21,9 @@ import (
 const (
 	authorName  = "Norn"
 	authorEmail = "runner@norn.invalid"
+
+	mergeConflicted = 1
+	notAncestor     = 1
 )
 
 type gitWorktree struct {
@@ -75,11 +81,112 @@ func (r *gitWorktree) Fetch(ctx context.Context, repository, branch string) erro
 	ctx, cancel := context.WithTimeout(ctx, r.cfg.FetchTimeout)
 	defer cancel()
 
-	refspec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", branch, branch)
-
-	_, err := gitcmd.Run(ctx, repository, "fetch", "--no-tags", "--quiet", "origin", refspec)
+	_, err := gitcmd.Run(ctx, repository, "fetch", "--no-tags", "--quiet", "origin", tracking(branch))
 
 	return err
+}
+
+func (r *gitWorktree) FetchIfPresent(ctx context.Context, repository, branch string) (bool, error) {
+	err := r.Fetch(ctx, repository, branch)
+	if err == nil {
+		return true, nil
+	}
+
+	if strings.Contains(err.Error(), "couldn't find remote ref") {
+		return false, nil
+	}
+
+	return false, err
+}
+
+func (r *gitWorktree) Mirror(ctx context.Context, dest, source, branch string) error {
+	_, err := r.run(ctx, dest, "fetch", "--no-tags", "--quiet", source,
+		fmt.Sprintf("+refs/remotes/origin/%s:refs/remotes/origin/%s", branch, branch))
+
+	return err
+}
+
+func tracking(branch string) string {
+	return fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", branch, branch)
+}
+
+func (r *gitWorktree) RemoteDefault(ctx context.Context, repository string) (string, error) {
+	named, err := r.run(ctx, repository, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", entity.ErrRemoteDefaultUnknown, repository)
+	}
+
+	return strings.TrimPrefix(strings.TrimSpace(named), "origin/"), nil
+}
+
+func (r *gitWorktree) Divergence(ctx context.Context, dest, ours, theirs string) (entity.Divergence, error) {
+	sides, err := r.run(ctx, dest, "rev-list", "--left-right", "--count", ours+"..."+theirs)
+	if err != nil {
+		return entity.Divergence{}, err
+	}
+
+	ahead, behind, _ := strings.Cut(strings.TrimSpace(sides), "\t")
+
+	return entity.Divergence{
+		Ahead:  counted(strings.TrimSpace(ahead)),
+		Behind: counted(strings.TrimSpace(behind)),
+	}, nil
+}
+
+func (r *gitWorktree) Includes(ctx context.Context, dest, url, branch, tip string) (bool, error) {
+	if _, err := r.run(ctx, dest, "cat-file", "-e", tip+"^{commit}"); err != nil {
+		fetchCtx, cancel := context.WithTimeout(ctx, r.cfg.FetchTimeout)
+		defer cancel()
+
+		if _, err := gitcmd.Run(fetchCtx, dest, "fetch", "--no-tags", "--quiet", url, "refs/heads/"+branch); err != nil {
+			return false, err
+		}
+	}
+
+	_, err := r.run(ctx, dest, "merge-base", "--is-ancestor", tip, "HEAD")
+
+	var exited *exec.ExitError
+	if errors.As(err, &exited) && exited.ExitCode() == notAncestor {
+		return false, nil
+	}
+
+	return err == nil, err
+}
+
+func (r *gitWorktree) Conflicts(ctx context.Context, dest, ours, theirs string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.cfg.GitTimeout)
+	defer cancel()
+
+	command := gitcmd.Command(
+		ctx, dest, "merge-tree", "--write-tree", "--name-only", "--no-messages", ours, theirs,
+	)
+
+	var complaint bytes.Buffer
+
+	command.Stderr = &complaint
+
+	out, err := command.Output()
+
+	if err == nil {
+		return nil, nil
+	}
+
+	var exited *exec.ExitError
+	if !errors.As(err, &exited) || exited.ExitCode() != mergeConflicted {
+		return nil, fmt.Errorf("git merge-tree %s %s: %s", ours, theirs, tidy(complaint.String(), err))
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+
+	conflicted := make([]string, 0, len(lines))
+
+	for _, line := range lines[1:] {
+		if line = strings.TrimSpace(line); line != "" && !slices.Contains(conflicted, line) {
+			conflicted = append(conflicted, line)
+		}
+	}
+
+	return conflicted, nil
 }
 
 func (r *gitWorktree) Add(ctx context.Context, repository, dest, sha string) error {

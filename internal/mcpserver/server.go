@@ -130,6 +130,17 @@ func (t *toolset) register(server *mcp.Server) {
 	idempotent := &mcp.ToolAnnotations{DestructiveHint: &additive, IdempotentHint: true}
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name: "refresh_remote",
+		Description: "Fetch every repository's default branch and this run's own branch from the " +
+			"remote, with the person's credentials, and say for each how far this branch is behind " +
+			"origin/<default>, what somebody pushed to origin/<branch> that is not here yet, and " +
+			"which files a merge of origin/<default> would conflict in. Call it before merging or " +
+			"rebasing onto the latest default branch or checking for conflicts; then merge or " +
+			"rebase locally. You cannot fetch or push yourself.",
+		Annotations: idempotent,
+	}, t.refreshRemote)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "start_service",
 		Description: "Start a long-running process for this run — a dev server, an API, a " +
 			"database. Norn supervises it, captures its output, watches its health and stops it " +

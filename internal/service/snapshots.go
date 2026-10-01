@@ -24,4 +24,5 @@ type Snapshots interface {
 	List(ctx context.Context) ([]entity.Snapshot, error)
 	Release(ctx context.Context, name string) error
 	Discard(ctx context.Context, name string) error
+	Refresh(ctx context.Context, snapshot entity.Snapshot) []entity.RemoteState
 }

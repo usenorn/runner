@@ -157,6 +157,21 @@ func (mr *MockWorktreeMockRecorder) CommonDir(ctx, repository any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommonDir", reflect.TypeOf((*MockWorktree)(nil).CommonDir), ctx, repository)
 }
 
+// Conflicts mocks base method.
+func (m *MockWorktree) Conflicts(ctx context.Context, dest, ours, theirs string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Conflicts", ctx, dest, ours, theirs)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Conflicts indicates an expected call of Conflicts.
+func (mr *MockWorktreeMockRecorder) Conflicts(ctx, dest, ours, theirs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Conflicts", reflect.TypeOf((*MockWorktree)(nil).Conflicts), ctx, dest, ours, theirs)
+}
+
 // Diff mocks base method.
 func (m *MockWorktree) Diff(ctx context.Context, repository string, paths []string) ([]byte, error) {
 	m.ctrl.T.Helper()
@@ -187,6 +202,21 @@ func (mr *MockWorktreeMockRecorder) Diffstat(ctx, dest, base, head any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Diffstat", reflect.TypeOf((*MockWorktree)(nil).Diffstat), ctx, dest, base, head)
 }
 
+// Divergence mocks base method.
+func (m *MockWorktree) Divergence(ctx context.Context, dest, ours, theirs string) (entity.Divergence, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Divergence", ctx, dest, ours, theirs)
+	ret0, _ := ret[0].(entity.Divergence)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Divergence indicates an expected call of Divergence.
+func (mr *MockWorktreeMockRecorder) Divergence(ctx, dest, ours, theirs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Divergence", reflect.TypeOf((*MockWorktree)(nil).Divergence), ctx, dest, ours, theirs)
+}
+
 // Fetch mocks base method.
 func (m *MockWorktree) Fetch(ctx context.Context, repository, branch string) error {
 	m.ctrl.T.Helper()
@@ -199,6 +229,21 @@ func (m *MockWorktree) Fetch(ctx context.Context, repository, branch string) err
 func (mr *MockWorktreeMockRecorder) Fetch(ctx, repository, branch any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fetch", reflect.TypeOf((*MockWorktree)(nil).Fetch), ctx, repository, branch)
+}
+
+// FetchIfPresent mocks base method.
+func (m *MockWorktree) FetchIfPresent(ctx context.Context, repository, branch string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FetchIfPresent", ctx, repository, branch)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FetchIfPresent indicates an expected call of FetchIfPresent.
+func (mr *MockWorktreeMockRecorder) FetchIfPresent(ctx, repository, branch any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchIfPresent", reflect.TypeOf((*MockWorktree)(nil).FetchIfPresent), ctx, repository, branch)
 }
 
 // GitDir mocks base method.
@@ -246,6 +291,21 @@ func (mr *MockWorktreeMockRecorder) History(ctx, dest, base, head, limit any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "History", reflect.TypeOf((*MockWorktree)(nil).History), ctx, dest, base, head, limit)
 }
 
+// Includes mocks base method.
+func (m *MockWorktree) Includes(ctx context.Context, dest, url, branch, tip string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Includes", ctx, dest, url, branch, tip)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Includes indicates an expected call of Includes.
+func (mr *MockWorktreeMockRecorder) Includes(ctx, dest, url, branch, tip any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Includes", reflect.TypeOf((*MockWorktree)(nil).Includes), ctx, dest, url, branch, tip)
+}
+
 // Keep mocks base method.
 func (m *MockWorktree) Keep(ctx context.Context, repository, dest, branch, run string) (string, error) {
 	m.ctrl.T.Helper()
@@ -259,6 +319,20 @@ func (m *MockWorktree) Keep(ctx context.Context, repository, dest, branch, run s
 func (mr *MockWorktreeMockRecorder) Keep(ctx, repository, dest, branch, run any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Keep", reflect.TypeOf((*MockWorktree)(nil).Keep), ctx, repository, dest, branch, run)
+}
+
+// Mirror mocks base method.
+func (m *MockWorktree) Mirror(ctx context.Context, dest, source, branch string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Mirror", ctx, dest, source, branch)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Mirror indicates an expected call of Mirror.
+func (mr *MockWorktreeMockRecorder) Mirror(ctx, dest, source, branch any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mirror", reflect.TypeOf((*MockWorktree)(nil).Mirror), ctx, dest, source, branch)
 }
 
 // Patch mocks base method.
@@ -303,6 +377,21 @@ func (m *MockWorktree) Remote(ctx context.Context, repository string) (string, e
 func (mr *MockWorktreeMockRecorder) Remote(ctx, repository any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remote", reflect.TypeOf((*MockWorktree)(nil).Remote), ctx, repository)
+}
+
+// RemoteDefault mocks base method.
+func (m *MockWorktree) RemoteDefault(ctx context.Context, repository string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoteDefault", ctx, repository)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RemoteDefault indicates an expected call of RemoteDefault.
+func (mr *MockWorktreeMockRecorder) RemoteDefault(ctx, repository any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteDefault", reflect.TypeOf((*MockWorktree)(nil).RemoteDefault), ctx, repository)
 }
 
 // RemoteTip mocks base method.

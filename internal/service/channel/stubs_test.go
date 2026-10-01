@@ -125,6 +125,8 @@ func (snapshotStub) List(context.Context) ([]entity.Snapshot, error) { return ni
 
 func (snapshotStub) Release(context.Context, string) error { return nil }
 
+func (snapshotStub) Refresh(context.Context, entity.Snapshot) []entity.RemoteState { return nil }
+
 func (snapshotStub) Discard(context.Context, string) error { return nil }
 
 type servicesStub struct{}

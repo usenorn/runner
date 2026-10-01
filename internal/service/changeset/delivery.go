@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"fmt"
 
 	channelv1 "github.com/usenorn/norn/pkg/channel/v1"
 
@@ -133,11 +134,38 @@ func (s *changeSetsService) push(ctx context.Context, repository entity.Reviewed
 		return nil
 	}
 
+	lease, err := s.leaseFor(ctx, repository, tip)
+	if err != nil {
+		return err
+	}
+
 	return s.worktrees.Push(ctx, repository.Path, repository.Remote, entity.Push{
 		SHA:    repository.HeadSHA,
 		Branch: repository.Branch,
-		Lease:  repository.Lease,
+		Lease:  lease,
 	})
+}
+
+func (s *changeSetsService) leaseFor(
+	ctx context.Context,
+	repository entity.ReviewedRepository,
+	tip string,
+) (entity.Lease, error) {
+	if tip == "" || (repository.Lease.Known && tip == repository.Lease.Tip) {
+		return repository.Lease, nil
+	}
+
+	carried, err := s.worktrees.Includes(ctx, repository.Path, repository.Remote, repository.Branch, tip)
+	if err != nil {
+		return entity.Lease{}, err
+	}
+
+	if !carried {
+		return entity.Lease{}, fmt.Errorf("%w: %s is at %s on the remote", entity.ErrBranchDiverged,
+			repository.Branch, entity.ShortSHA(tip))
+	}
+
+	return entity.Lease{Known: true, Tip: tip}, nil
 }
 
 func (s *changeSetsService) request(

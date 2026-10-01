@@ -21,6 +21,10 @@ var (
 	ErrApprovalMoved   = errors.New("a branch moved on after its changes were reviewed")
 	ErrApprovalMissing = errors.New("this run never wrote down which changes were approved")
 	ErrReviewMissing   = errors.New("this run never wrote down what was reviewed")
+	ErrBranchDiverged  = errors.New(
+		"the branch has commits on the remote that this run does not have, and pushing would " +
+			"throw them away; ask for changes so the run merges them in, then approve again",
+	)
 )
 
 type ReviewedRepository struct {

@@ -765,3 +765,61 @@ func results() config.Results {
 		MaxDiffBytes: 3 << 20,
 	}
 }
+
+func TestRefreshingSeesWhatMovedOnTheRemoteSinceTheRunBegan(t *testing.T) {
+	e := newEngine(t)
+	ctx := context.Background()
+
+	taken, err := e.service.Take(ctx, service.TakeRequest{
+		Path: e.root, IssueKey: "NORN-47", Attempt: 1, Run: "exec-01ABC",
+	})
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+
+	held := repositoryAt(t, taken, "runner")
+
+	writeFile(t, filepath.Join(held.Path, "README.md"), "the run's own greeting\n")
+	run(t, held.Path, "commit", "-q", "-am", "greet from the run")
+
+	elsewhere := filepath.Join(t.TempDir(), "elsewhere")
+	remote := filepath.Join(filepath.Dir(e.root), "remotes", "runner.git")
+
+	if out, err := exec.Command("git", "clone", "-q", remote, elsewhere).CombinedOutput(); err != nil {
+		t.Fatalf("clone the remote: %v\n%s", err, out)
+	}
+
+	writeFile(t, filepath.Join(elsewhere, "README.md"), "somebody else's greeting\n")
+	run(t, elsewhere, "commit", "-q", "-am", "greet from main")
+	run(t, elsewhere, "push", "-q", "origin", "main")
+
+	run(t, elsewhere, "switch", "-q", "-c", held.Branch, "HEAD~1")
+	writeFile(t, filepath.Join(elsewhere, "NOTES.md"), "a reviewer's fix\n")
+	run(t, elsewhere, "add", "NOTES.md")
+	run(t, elsewhere, "commit", "-q", "-m", "reviewer fix")
+	run(t, elsewhere, "push", "-q", "origin", held.Branch)
+
+	var state entity.RemoteState
+
+	for _, refreshed := range e.service.Refresh(ctx, taken) {
+		if refreshed.Repository == "runner" {
+			state = refreshed
+		}
+	}
+
+	if state.Failure != "" {
+		t.Fatalf("refreshing failed: %s", state.Failure)
+	}
+
+	if state.Behind != 1 || state.Ahead != 1 {
+		t.Fatalf("the branch is %d behind and %d ahead of origin/main, want 1 and 1", state.Behind, state.Ahead)
+	}
+
+	if state.Unmerged != 1 {
+		t.Fatalf("the reviewer's push to the run's branch shows as %d commits, want 1", state.Unmerged)
+	}
+
+	if len(state.Conflicts) != 1 || state.Conflicts[0] != "README.md" {
+		t.Fatalf("a merge of origin/main is said to conflict in %v, want README.md", state.Conflicts)
+	}
+}

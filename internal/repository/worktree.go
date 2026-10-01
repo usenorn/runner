@@ -14,6 +14,12 @@ type Worktree interface {
 	GitDir(ctx context.Context, dest string) (string, error)
 	Resolve(ctx context.Context, repository string, revisions ...string) (string, error)
 	Fetch(ctx context.Context, repository, branch string) error
+	FetchIfPresent(ctx context.Context, repository, branch string) (bool, error)
+	Mirror(ctx context.Context, dest, source, branch string) error
+	RemoteDefault(ctx context.Context, repository string) (string, error)
+	Divergence(ctx context.Context, dest, ours, theirs string) (entity.Divergence, error)
+	Conflicts(ctx context.Context, dest, ours, theirs string) ([]string, error)
+	Includes(ctx context.Context, dest, url, branch, tip string) (bool, error)
 	Add(ctx context.Context, repository, dest, sha string) error
 	Clone(ctx context.Context, repository, dest, sha string) error
 	Branch(ctx context.Context, dest, name string) error

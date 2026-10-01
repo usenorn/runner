@@ -338,6 +338,13 @@ func (c *Client) stepping(request StepRequest) time.Duration {
 	return c.steps.StepTimeout
 }
 
+func (c *Client) RefreshRemote(ctx context.Context, executionID string) (RemoteRefresh, error) {
+	patient, done := context.WithTimeout(ctx, c.steps.StepTimeout+c.cfg.RequestTimeout)
+	defer done()
+
+	return ask[RemoteRefresh](patient, c, http.MethodPost, forRun(RemotePath, executionID), struct{}{})
+}
+
 // Ask holds the socket open for as long as the daemon will hold the question open, plus the time
 // any other request is allowed. Giving up at the ordinary timeout would answer the caller with a
 // deadline it could do nothing about, and an agent told that reasonably asks again.

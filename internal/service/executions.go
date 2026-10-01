@@ -33,4 +33,5 @@ type Executions interface {
 	Progress(ctx context.Context, executionID string, progress entity.Progress) error
 	Complete(ctx context.Context, executionID string, completion entity.Completion) error
 	Reply(ctx context.Context, executionID string, reply entity.ReviewReply) error
+	Refresh(ctx context.Context, executionID string) ([]entity.RemoteState, error)
 }

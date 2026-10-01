@@ -34,6 +34,7 @@ const (
 	ArtifactsPath      = "/v1/executions/{executionId}/artifacts"
 	CompletePath       = "/v1/executions/{executionId}/complete"
 	ReviewRepliesPath  = "/v1/executions/{executionId}/review/replies"
+	RemotePath         = "/v1/executions/{executionId}/remote"
 	NornToolsPath      = "/v1/executions/{executionId}/norn"
 )
 
@@ -383,4 +384,22 @@ type Disconnected struct {
 type Failure struct {
 	Reason  string `json:"reason"`
 	Message string `json:"message"`
+}
+
+type RemoteRepository struct {
+	Repository    string   `json:"repository"`
+	DefaultBranch string   `json:"defaultBranch"`
+	DefaultTip    string   `json:"defaultTip,omitempty"`
+	Behind        int      `json:"behind"`
+	Ahead         int      `json:"ahead"`
+	Branch        string   `json:"branch"`
+	BranchTip     string   `json:"branchTip,omitempty"`
+	Unmerged      int      `json:"unmerged"`
+	Conflicts     []string `json:"conflicts,omitempty"`
+	Failure       string   `json:"failure,omitempty"`
+	Summary       string   `json:"summary"`
+}
+
+type RemoteRefresh struct {
+	Repositories []RemoteRepository `json:"repositories"`
 }
