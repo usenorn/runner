@@ -107,6 +107,25 @@ func TestAStepRunsOverTheSocketAndHandsBackWhatItWrote(t *testing.T) {
 	}
 }
 
+func TestAStepOutlastingTheRequestTimeoutStillAnswers(t *testing.T) {
+	h := newHarness(t, nil)
+	ctx := context.Background()
+
+	running(t, h, "exec-01SLOWSTEP")
+
+	result, err := h.as(t, "exec-01SLOWSTEP").RunStep(ctx, "exec-01SLOWSTEP", control.StepRequest{
+		Name:    "build",
+		Command: []string{"sh", "-c", "sleep 3; echo built"},
+	})
+	if err != nil {
+		t.Fatalf("a step longer than the request timeout failed: %v", err)
+	}
+
+	if result.ExitCode != 0 || !strings.Contains(result.Output, "built") {
+		t.Fatalf("the step came back as %+v", result)
+	}
+}
+
 func TestAskingAboutAServiceThisRunNeverStartedSaysSo(t *testing.T) {
 	h := newHarness(t, nil)
 	ctx := context.Background()

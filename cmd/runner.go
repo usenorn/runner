@@ -21,6 +21,7 @@ func newRunnerCommand() *cobra.Command {
 	runner.AddCommand(
 		newRunnerStartCommand(),
 		newRunnerStatusCommand(),
+		newRunnerDoctorCommand(),
 		newRunnerVersionCommand(),
 		newRunnerConnectCommand(),
 		newRunnerDisconnectCommand(),

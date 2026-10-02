@@ -1,9 +1,16 @@
 package entity
 
 import (
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
+)
+
+var ErrCommitIdentityMissing = errors.New(
+	"nobody is set to author this run's commits: set results.commit_name and results.commit_email " +
+		"in the runner's config, or git config --global user.name and user.email for the user the " +
+		"runner runs as",
 )
 
 const (
@@ -140,6 +147,20 @@ func hasAnyPrefix(name string, prefixes []string) bool {
 type GitIdentity struct {
 	Name  string
 	Email string
+}
+
+func (i GitIdentity) Complete() bool {
+	return strings.TrimSpace(i.Name) != "" && strings.TrimSpace(i.Email) != ""
+}
+
+func FirstCompleteIdentity(candidates ...GitIdentity) (GitIdentity, error) {
+	for _, candidate := range candidates {
+		if candidate.Complete() {
+			return candidate, nil
+		}
+	}
+
+	return GitIdentity{}, ErrCommitIdentityMissing
 }
 
 func TaskGitConfig(identity GitIdentity) string {

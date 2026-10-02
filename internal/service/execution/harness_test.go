@@ -44,6 +44,7 @@ import (
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
+	toolchainsvc "github.com/usenorn/runner/internal/service/toolchain"
 	uploadsvc "github.com/usenorn/runner/internal/service/upload"
 )
 
@@ -67,6 +68,8 @@ type harness struct {
 	worktrees   *worktreerepo.MockWorktree
 	forges      *forgerepo.MockForge
 	toolkits    *toolkitrepo.MockToolkit
+	toolchains  *toolchainsvc.MockToolchains
+	tools       entity.ToolchainReport
 	changesets  service.ChangeSets
 	uploads     service.Uploads
 	questions   service.Questions
@@ -86,6 +89,9 @@ type harness struct {
 	stat     entity.Diffstat
 	patch    []byte
 	remote   string
+	fetched  []entity.RemoteState
+	pulls    map[string]entity.PullRequestStatus
+	posted   []string
 	remoteEr error
 	pushErr  error
 	forge    bool
@@ -218,6 +224,7 @@ func build(
 		worktrees:   worktreerepo.NewMockWorktree(controller),
 		forges:      forgerepo.NewMockForge(controller),
 		toolkits:    toolkitrepo.NewMockToolkit(controller),
+		toolchains:  toolchainsvc.NewMockToolchains(controller),
 		agentToken:  "sk-ant-oat01-test",
 		skillErrs:   map[string]error{},
 		free:        free,
@@ -282,6 +289,8 @@ func build(
 		identities,
 		credentials,
 		h.sessions,
+		h.toolchains,
+		h.forges,
 		dir,
 		config.Runner{Capacity: capacity, Retention: retention},
 		config.App{Version: "1.4.0"},
@@ -293,6 +302,9 @@ func build(
 			StopGrace:      10 * time.Millisecond,
 			ResumeAttempts: 1,
 			ToolkitTimeout: time.Second,
+		},
+		config.Results{
+			CommitName: "Rae Okafor", CommitEmail: "rae@northwind.co", WatchEvery: 20 * time.Millisecond,
 		},
 	)
 
@@ -357,6 +369,26 @@ func (h *harness) expect() {
 	h.snapshots.EXPECT().
 		Release(gomock.Any(), gomock.Any()).
 		DoAndReturn(h.release).
+		AnyTimes()
+
+	h.toolchains.EXPECT().
+		Check(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, entity.ToolchainProbe) (entity.ToolchainReport, error) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			return h.tools, nil
+		}).
+		AnyTimes()
+
+	h.snapshots.EXPECT().
+		Refresh(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, entity.Snapshot) []entity.RemoteState {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			return h.fetched
+		}).
 		AnyTimes()
 
 	h.services.EXPECT().
@@ -513,6 +545,42 @@ func (h *harness) expectForge() {
 		Existing(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(context.Context, string, string) (string, error) {
 			return h.existing, nil
+		}).
+		AnyTimes()
+
+	h.forges.EXPECT().
+		Status(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _, address string) (entity.PullRequestStatus, error) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			status, known := h.pulls[address]
+			if !known {
+				return entity.PullRequestStatus{}, entity.ErrPullRequestUnreadable
+			}
+
+			return status, nil
+		}).
+		AnyTimes()
+
+	h.forges.EXPECT().
+		FailedLog(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, check entity.FailedCheck) (string, error) {
+			return "FAIL " + check.Name + ": expected 2.5, got 2", nil
+		}).
+		AnyTimes()
+
+	h.forges.EXPECT().
+		Reply(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			_ context.Context, _ string, thread entity.PullRequestThread, body string,
+		) (entity.PullRequestComment, error) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			h.posted = append(h.posted, thread.ID+": "+body)
+
+			return entity.PullRequestComment{Kind: thread.Kind, ID: "reply-" + thread.ID}, nil
 		}).
 		AnyTimes()
 

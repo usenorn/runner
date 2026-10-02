@@ -26,6 +26,7 @@ type Client struct {
 	http      *http.Client
 	cfg       config.Control
 	questions config.Questions
+	steps     config.Supervisor
 	path      string
 	token     string
 }
@@ -39,6 +40,7 @@ func NewBearer() Bearer {
 func NewClient(
 	cfg config.Control,
 	questions config.Questions,
+	steps config.Supervisor,
 	dir *statedir.Dir,
 	bearer Bearer,
 ) *Client {
@@ -56,6 +58,7 @@ func NewClient(
 		},
 		cfg:       cfg,
 		questions: questions,
+		steps:     steps,
 		path:      path,
 		token:     string(bearer),
 	}
@@ -63,6 +66,13 @@ func NewClient(
 
 func (c *Client) Status(ctx context.Context) (Status, error) {
 	return ask[Status](ctx, c, http.MethodGet, StatusPath, nil)
+}
+
+func (c *Client) Doctor(ctx context.Context) (Doctor, error) {
+	patient, done := context.WithTimeout(ctx, c.steps.StepTimeout+c.cfg.RequestTimeout)
+	defer done()
+
+	return ask[Doctor](patient, c, http.MethodGet, DoctorPath, nil)
 }
 
 func (c *Client) Version(ctx context.Context) (Build, error) {
@@ -200,7 +210,10 @@ func (c *Client) StartService(
 	executionID string,
 	request ServiceRequest,
 ) (Service, error) {
-	return ask[Service](ctx, c, http.MethodPost, forRun(ServicesPath, executionID), request)
+	patient, done := context.WithTimeout(ctx, c.steps.StepTimeout+c.cfg.RequestTimeout)
+	defer done()
+
+	return ask[Service](patient, c, http.MethodPost, forRun(ServicesPath, executionID), request)
 }
 
 func (c *Client) StopService(
@@ -321,7 +334,25 @@ func (c *Client) RunStep(
 	executionID string,
 	request StepRequest,
 ) (StepResult, error) {
-	return ask[StepResult](ctx, c, http.MethodPost, forRun(StepsPath, executionID), request)
+	patient, done := context.WithTimeout(ctx, c.stepping(request)+c.cfg.RequestTimeout)
+	defer done()
+
+	return ask[StepResult](patient, c, http.MethodPost, forRun(StepsPath, executionID), request)
+}
+
+func (c *Client) stepping(request StepRequest) time.Duration {
+	if asked, err := time.ParseDuration(request.Timeout); err == nil && asked > 0 {
+		return asked
+	}
+
+	return c.steps.StepTimeout
+}
+
+func (c *Client) RefreshRemote(ctx context.Context, executionID string) (RemoteRefresh, error) {
+	patient, done := context.WithTimeout(ctx, c.steps.StepTimeout+c.cfg.RequestTimeout)
+	defer done()
+
+	return ask[RemoteRefresh](patient, c, http.MethodPost, forRun(RemotePath, executionID), struct{}{})
 }
 
 // Ask holds the socket open for as long as the daemon will hold the question open, plus the time

@@ -145,7 +145,15 @@ func (s *executionsService) publishApproved(
 		return s.note(ctx, execution.ID, channelv1.EventNote, entity.PublicationIncomplete(failed))
 	}
 
-	return s.conclude(ctx, execution)
+	s.answer(ctx, execution, publication)
+
+	if addresses := publication.PullRequests(); len(addresses) > 0 {
+		s.complain(ctx, execution.ID, s.baseline(ctx, execution, publication))
+
+		return s.move(ctx, execution, channelv1.StateWatching, entity.Watching(addresses))
+	}
+
+	return s.conclude(ctx, execution, entity.Approved())
 }
 
 func (s *executionsService) refuse(
@@ -221,8 +229,8 @@ func (s *executionsService) keep(ctx context.Context, execution entity.Execution
 	return nil
 }
 
-func (s *executionsService) conclude(ctx context.Context, execution entity.Execution) error {
-	if err := s.move(ctx, execution, channelv1.StateCompleted, entity.Approved()); err != nil {
+func (s *executionsService) conclude(ctx context.Context, execution entity.Execution, reason string) error {
+	if err := s.move(ctx, execution, channelv1.StateCompleted, reason); err != nil {
 		return err
 	}
 

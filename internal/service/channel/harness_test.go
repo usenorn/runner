@@ -240,6 +240,8 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		identities,
 		credentials,
 		h.sessions,
+		toolchainStub{},
+		forgeStub{},
 		dir,
 		config.Runner{Capacity: 2},
 		config.App{Version: "1.4.0"},
@@ -250,6 +252,7 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 			SessionTimeout: time.Minute,
 			StopGrace:      time.Second,
 		},
+		config.Results{},
 	)
 
 	h.dials.EXPECT().

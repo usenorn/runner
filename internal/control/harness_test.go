@@ -239,6 +239,8 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		identities,
 		credentials,
 		sessions,
+		toolchainStub{},
+		forgeStub{},
 		dir,
 		config.Runner{Capacity: 2, Retention: keeping()},
 		config.App{Version: "test"},
@@ -249,6 +251,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			SessionTimeout: time.Minute,
 			StopGrace:      time.Second,
 		},
+		config.Results{},
 	)
 
 	channels := channelsvc.New(
@@ -290,6 +293,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			uploadStub{},
 			tokens,
 			toolkitStub{},
+			toolchainStub{},
 			build,
 		)
 	}
@@ -307,7 +311,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		dir:         dir,
 		build:       build,
 		tokens:      tokens,
-		client:      control.NewClient(settings(), questionSettings(), dir, ""),
+		client:      control.NewClient(settings(), questionSettings(), stepSettings(), dir, ""),
 		dashboard:   dashboard,
 		credentials: credentials,
 		identities:  identities,
@@ -329,7 +333,7 @@ func (h *harness) bearer(t *testing.T, executionID string) control.Bearer {
 func (h *harness) as(t *testing.T, executionID string) *control.Client {
 	t.Helper()
 
-	return control.NewClient(settings(), questionSettings(), h.dir, h.bearer(t, executionID))
+	return control.NewClient(settings(), questionSettings(), stepSettings(), h.dir, h.bearer(t, executionID))
 }
 
 type tunnelStub struct{}
@@ -393,6 +397,10 @@ func (driverStub) Resume(
 	string,
 ) (repository.Session, error) {
 	return nil, entity.ErrDriverMissing
+}
+
+func stepSettings() config.Supervisor {
+	return config.Supervisor{StepTimeout: time.Minute}
 }
 
 func questionSettings() config.Questions {
@@ -468,4 +476,36 @@ func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) re
 		config.Host{Timeout: 10 * time.Second},
 		bridged,
 	)
+}
+
+type toolchainStub struct{}
+
+func (toolchainStub) Check(context.Context, entity.ToolchainProbe) (entity.ToolchainReport, error) {
+	return nil, nil
+}
+
+func (toolchainStub) Doctor(context.Context) (entity.Doctor, error) { return entity.Doctor{}, nil }
+
+type forgeStub struct{}
+
+func (forgeStub) Available(context.Context, string) (entity.ForgeKind, bool) { return "", false }
+
+func (forgeStub) Existing(context.Context, string, string) (string, error) { return "", nil }
+
+func (forgeStub) Open(context.Context, string, entity.PullRequest) (string, error) {
+	return "", entity.ErrForgeAbsent
+}
+
+func (forgeStub) Status(context.Context, string, string) (entity.PullRequestStatus, error) {
+	return entity.PullRequestStatus{}, entity.ErrForgeAbsent
+}
+
+func (forgeStub) FailedLog(context.Context, string, entity.FailedCheck) (string, error) {
+	return "", entity.ErrForgeAbsent
+}
+
+func (forgeStub) Reply(
+	context.Context, string, entity.PullRequestThread, string,
+) (entity.PullRequestComment, error) {
+	return entity.PullRequestComment{}, entity.ErrForgeAbsent
 }

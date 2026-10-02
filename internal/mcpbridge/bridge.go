@@ -33,6 +33,7 @@ type served struct {
 type Bridge struct {
 	control   config.Control
 	questions config.Questions
+	steps     config.Supervisor
 	dir       *statedir.Dir
 	app       config.App
 	lifetime  context.Context
@@ -46,6 +47,7 @@ type Bridge struct {
 func New(
 	control config.Control,
 	questions config.Questions,
+	steps config.Supervisor,
 	dir *statedir.Dir,
 	app config.App,
 ) (*Bridge, func()) {
@@ -54,6 +56,7 @@ func New(
 	bridge := &Bridge{
 		control:   control,
 		questions: questions,
+		steps:     steps,
 		dir:       dir,
 		app:       app,
 		lifetime:  lifetime,
@@ -115,7 +118,7 @@ func (b *Bridge) serverFor(executionID, token string) (*served, error) {
 		return held, nil
 	}
 
-	client := control.NewClient(b.control, b.questions, b.dir, control.Bearer(token))
+	client := control.NewClient(b.control, b.questions, b.steps, b.dir, control.Bearer(token))
 
 	server, closeBackend, err := mcpserver.New(client, b.app).Build(b.lifetime, executionID)
 	if err != nil {

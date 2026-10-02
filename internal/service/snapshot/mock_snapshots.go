@@ -71,6 +71,20 @@ func (mr *MockSnapshotsMockRecorder) List(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSnapshots)(nil).List), ctx)
 }
 
+// Refresh mocks base method.
+func (m *MockSnapshots) Refresh(ctx context.Context, snapshot entity.Snapshot) []entity.RemoteState {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Refresh", ctx, snapshot)
+	ret0, _ := ret[0].([]entity.RemoteState)
+	return ret0
+}
+
+// Refresh indicates an expected call of Refresh.
+func (mr *MockSnapshotsMockRecorder) Refresh(ctx, snapshot any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockSnapshots)(nil).Refresh), ctx, snapshot)
+}
+
 // Release mocks base method.
 func (m *MockSnapshots) Release(ctx context.Context, name string) error {
 	m.ctrl.T.Helper()

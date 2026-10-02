@@ -84,6 +84,20 @@ func (mr *MockRunMockRecorder) ClearResume(ctx, name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearResume", reflect.TypeOf((*MockRun)(nil).ClearResume), ctx, name)
 }
 
+// HostIdentity mocks base method.
+func (m *MockRun) HostIdentity(ctx context.Context) entity.GitIdentity {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HostIdentity", ctx)
+	ret0, _ := ret[0].(entity.GitIdentity)
+	return ret0
+}
+
+// HostIdentity indicates an expected call of HostIdentity.
+func (mr *MockRunMockRecorder) HostIdentity(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostIdentity", reflect.TypeOf((*MockRun)(nil).HostIdentity), ctx)
+}
+
 // LatestPlan mocks base method.
 func (m *MockRun) LatestPlan(ctx context.Context, name string) (string, error) {
 	m.ctrl.T.Helper()
@@ -294,6 +308,21 @@ func (mr *MockRunMockRecorder) LoadToolkit(ctx, name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadToolkit", reflect.TypeOf((*MockRun)(nil).LoadToolkit), ctx, name)
 }
 
+// LoadWatch mocks base method.
+func (m *MockRun) LoadWatch(ctx context.Context, name string) (entity.Watch, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadWatch", ctx, name)
+	ret0, _ := ret[0].(entity.Watch)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadWatch indicates an expected call of LoadWatch.
+func (mr *MockRunMockRecorder) LoadWatch(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadWatch", reflect.TypeOf((*MockRun)(nil).LoadWatch), ctx, name)
+}
+
 // Open mocks base method.
 func (m *MockRun) Open(ctx context.Context, name string) (string, error) {
 	m.ctrl.T.Helper()
@@ -436,6 +465,20 @@ func (mr *MockRunMockRecorder) SaveDriver(ctx, name, driver any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveDriver", reflect.TypeOf((*MockRun)(nil).SaveDriver), ctx, name, driver)
 }
 
+// SaveIdentity mocks base method.
+func (m *MockRun) SaveIdentity(ctx context.Context, name string, identity entity.GitIdentity) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveIdentity", ctx, name, identity)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveIdentity indicates an expected call of SaveIdentity.
+func (mr *MockRunMockRecorder) SaveIdentity(ctx, name, identity any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveIdentity", reflect.TypeOf((*MockRun)(nil).SaveIdentity), ctx, name, identity)
+}
+
 // SavePublication mocks base method.
 func (m *MockRun) SavePublication(ctx context.Context, name string, publication entity.Publication) error {
 	m.ctrl.T.Helper()
@@ -546,6 +589,20 @@ func (m *MockRun) SaveToolkit(ctx context.Context, name string, toolkit entity.T
 func (mr *MockRunMockRecorder) SaveToolkit(ctx, name, toolkit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveToolkit", reflect.TypeOf((*MockRun)(nil).SaveToolkit), ctx, name, toolkit)
+}
+
+// SaveWatch mocks base method.
+func (m *MockRun) SaveWatch(ctx context.Context, name string, watch entity.Watch) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveWatch", ctx, name, watch)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveWatch indicates an expected call of SaveWatch.
+func (mr *MockRunMockRecorder) SaveWatch(ctx, name, watch any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveWatch", reflect.TypeOf((*MockRun)(nil).SaveWatch), ctx, name, watch)
 }
 
 // Timeline mocks base method.

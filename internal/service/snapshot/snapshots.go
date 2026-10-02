@@ -241,6 +241,7 @@ func (s *snapshotsService) checkout(
 		Base:    policy.Base,
 		BaseSHA: base,
 		Branch:  branchFor(branch, snapshot, held),
+		Default: held.DefaultBranch,
 	}
 
 	if err := s.worktrees.Branch(ctx, checked.Path, checked.Branch); err != nil {

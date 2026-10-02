@@ -139,7 +139,7 @@ func newDaemonRecording(
 
 	t.Cleanup(closeBridge)
 
-	tools, closeTools := mcpbridge.New(cfg, config.Questions{}, dir, config.App{Version: "test"})
+	tools, closeTools := mcpbridge.New(cfg, config.Questions{}, config.Supervisor{}, dir, config.App{Version: "test"})
 	t.Cleanup(closeTools)
 
 	return internal.NewDaemon(
@@ -213,6 +213,7 @@ func TestARequestStillRunningPastTheDrainDeadlineForcesTheExitCode(t *testing.T)
 	client := control.NewClient(
 		config.Control{DialTimeout: time.Second, RequestTimeout: 5 * time.Second},
 		config.Questions{SoftWait: 20 * time.Millisecond, MaxWait: time.Second},
+		config.Supervisor{StepTimeout: time.Minute},
 		dir,
 		"",
 	)

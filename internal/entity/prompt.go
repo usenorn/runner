@@ -98,7 +98,11 @@ func standingRules() string {
 		"- Work only inside this workspace. Do not read or write anything outside it.",
 		"- Commit your work in each repository you changed, following that project's own commit " +
 			"convention. Uncommitted work is work nobody will see.",
-		"- Do not push, open a pull request, or touch any remote. That is done for you afterwards.",
+		"- Do not fetch, pull, push or open a pull request: this workspace cannot reach any " +
+			"remote, and publishing is done for you afterwards. Every repository's origin/<default " +
+			"branch> was fetched when this workspace was made and again each time norn hands the " +
+			"run back to you. When you need the latest — to merge or rebase onto it, or to check " +
+			"for conflicts — call `refresh_remote`, then merge or rebase locally.",
 		"- The project's own instruction files are in the workspace and apply to you.",
 		"- Norn's own tools are how you touch anything outside your editing, and they are " +
 			"named `mcp__norn__*`. Read what each one says before you reach for a shell.",

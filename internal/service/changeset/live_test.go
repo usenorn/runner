@@ -17,6 +17,7 @@ import (
 	runrepo "github.com/usenorn/runner/internal/repository/run"
 	spoolrepo "github.com/usenorn/runner/internal/repository/spool"
 	worktreerepo "github.com/usenorn/runner/internal/repository/worktree"
+	"github.com/usenorn/runner/internal/service"
 	changesetsvc "github.com/usenorn/runner/internal/service/changeset"
 )
 
@@ -28,6 +29,20 @@ func (quietForge) Existing(context.Context, string, string) (string, error) { re
 
 func (quietForge) Open(context.Context, string, entity.PullRequest) (string, error) {
 	return "", entity.ErrForgeAbsent
+}
+
+func (quietForge) Status(context.Context, string, string) (entity.PullRequestStatus, error) {
+	return entity.PullRequestStatus{}, entity.ErrForgeAbsent
+}
+
+func (quietForge) FailedLog(context.Context, string, entity.FailedCheck) (string, error) {
+	return "", entity.ErrForgeAbsent
+}
+
+func (quietForge) Reply(
+	context.Context, string, entity.PullRequestThread, string,
+) (entity.PullRequestComment, error) {
+	return entity.PullRequestComment{}, entity.ErrForgeAbsent
 }
 
 type keptDiff struct {
@@ -306,4 +321,162 @@ func lastOf(
 	}
 
 	return found
+}
+
+type liveRun struct {
+	source     string
+	bare       string
+	workspace  string
+	branch     string
+	snapshot   entity.Snapshot
+	execution  entity.Execution
+	changesets service.ChangeSets
+}
+
+func newLiveRun(t *testing.T) liveRun {
+	t.Helper()
+
+	source, bare := realRepository(t)
+
+	dir, err := statedir.New(config.State{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("make a state directory: %v", err)
+	}
+
+	runs := runrepo.New(dir)
+	worktrees := worktreerepo.New(config.Snapshot{
+		GitMode: "worktree", Base: "origin/default", LocalChanges: "exclude",
+		FetchTimeout: defaults().PushTimeout, GitTimeout: defaults().PushTimeout,
+		MaxSharedBytes: 1 << 30,
+	}, defaults())
+
+	ctx := context.Background()
+
+	if _, err := runs.Prepare(ctx, executionID); err != nil {
+		t.Fatalf("make a run directory: %v", err)
+	}
+
+	base := run(t, source, "rev-parse", "HEAD")
+	workspace := filepath.Join(dir.Run(executionID), entity.RunWorkspaceDir, "ledger")
+	branch := entity.BranchFor("NORN-54", "ledger", 1)
+
+	if err := worktrees.Add(ctx, source, workspace, base); err != nil {
+		t.Fatalf("make the run a workspace: %v", err)
+	}
+
+	if err := worktrees.Branch(ctx, workspace, branch); err != nil {
+		t.Fatalf("put the workspace on a branch: %v", err)
+	}
+
+	pushOnly := defaults()
+	pushOnly.CreatePRs = config.PullRequestsPushOnly
+
+	return liveRun{
+		source:    source,
+		bare:      bare,
+		workspace: workspace,
+		branch:    branch,
+		snapshot: entity.Snapshot{
+			Name:     executionID,
+			IssueKey: "NORN-54",
+			Repositories: []entity.SnapshotRepository{{
+				Name: "ledger", RelPath: "ledger", Mode: entity.GitModeWorktree,
+				Source: source, Path: workspace, BaseSHA: base, Branch: branch,
+				Remote: bare, Lease: entity.Lease{Known: true},
+			}},
+		},
+		execution:  entity.Execution{ID: executionID, IssueKey: "NORN-54", Title: "Finalising"},
+		changesets: changesetsvc.New(runs, spoolrepo.New(dir), worktrees, quietForge{}, &keptDiff{}, pushOnly),
+	}
+}
+
+func (l liveRun) commit(t *testing.T, file, body string) {
+	t.Helper()
+
+	if err := os.WriteFile(filepath.Join(l.workspace, file), []byte(body), 0o644); err != nil {
+		t.Fatalf("write %s: %v", file, err)
+	}
+
+	run(t, l.workspace, "add", "-A")
+	run(t, l.workspace, "commit", "-q", "-m", "change "+file)
+}
+
+func (l liveRun) publish(t *testing.T, revision int) (entity.Publication, error) {
+	t.Helper()
+
+	ctx := context.Background()
+
+	collected, err := l.changesets.Collect(
+		ctx, l.execution, l.snapshot, entity.Completion{Summary: "a pass"}, entity.ReviewPass{Revision: revision},
+	)
+	if err != nil {
+		t.Fatalf("collect revision %d: %v", revision, err)
+	}
+
+	return l.changesets.Publish(ctx, l.execution, entity.ReviewOf(revision, "a pass", l.snapshot, collected))
+}
+
+func TestASecondApprovedRevisionPushesOnTopOfTheFirst(t *testing.T) {
+	l := newLiveRun(t)
+
+	l.commit(t, "median.py", "def median():\n")
+
+	if first, err := l.publish(t, 1); err != nil || !first.Complete() {
+		t.Fatalf("publishing the first revision came back %+v (%v)", first, err)
+	}
+
+	l.commit(t, "median.py", "def median(values):\n")
+
+	second, err := l.publish(t, 2)
+	if err != nil || !second.Complete() {
+		t.Fatalf(
+			"a second approved revision on the same branch came back %+v (%v); a fix a reviewer "+
+				"asked for on an open pull request could never be pushed",
+			second, err,
+		)
+	}
+
+	if pushed := run(t, l.bare, "rev-parse", l.branch); pushed != run(t, l.workspace, "rev-parse", "HEAD") {
+		t.Fatalf("the remote holds %s, not the second revision", pushed)
+	}
+}
+
+func TestPublishingRefusesToThrowAwayCommitsSomebodyElsePushed(t *testing.T) {
+	l := newLiveRun(t)
+
+	l.commit(t, "median.py", "def median():\n")
+
+	if first, err := l.publish(t, 1); err != nil || !first.Complete() {
+		t.Fatalf("publishing the first revision came back %+v (%v)", first, err)
+	}
+
+	elsewhere := filepath.Join(t.TempDir(), "elsewhere")
+	if out, err := exec.Command("git", "clone", "-q", "-b", l.branch, l.bare, elsewhere).CombinedOutput(); err != nil {
+		t.Fatalf("clone the remote: %v\n%s", err, out)
+	}
+
+	if err := os.WriteFile(filepath.Join(elsewhere, "NOTES.md"), []byte("a reviewer's fix\n"), 0o644); err != nil {
+		t.Fatalf("write the reviewer's fix: %v", err)
+	}
+
+	run(t, elsewhere, "add", "-A")
+	run(t, elsewhere, "commit", "-q", "-m", "reviewer fix")
+	run(t, elsewhere, "push", "-q", "origin", l.branch)
+
+	theirs := run(t, elsewhere, "rev-parse", "HEAD")
+
+	l.commit(t, "median.py", "def median(values):\n")
+
+	second, _ := l.publish(t, 2)
+	if second.Complete() {
+		t.Fatal("a revision that does not carry the reviewer's commit was pushed over it")
+	}
+
+	if failure := second.Repositories[0].Failure; !strings.Contains(failure, "merges them in") {
+		t.Fatalf("the refusal reads %q rather than saying what to do", failure)
+	}
+
+	if kept := run(t, l.bare, "rev-parse", l.branch); kept != theirs {
+		t.Fatalf("the remote moved to %s; the reviewer's %s is gone", kept, theirs)
+	}
 }

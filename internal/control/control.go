@@ -10,6 +10,7 @@ const (
 	ReasonUnauthorised = "unauthorised"
 
 	StatusPath     = "/v1/status"
+	DoctorPath     = "/v1/doctor"
 	VersionPath    = "/v1/version"
 	ConnectPath    = "/v1/connect"
 	DisconnectPath = "/v1/disconnect"
@@ -34,6 +35,7 @@ const (
 	ArtifactsPath      = "/v1/executions/{executionId}/artifacts"
 	CompletePath       = "/v1/executions/{executionId}/complete"
 	ReviewRepliesPath  = "/v1/executions/{executionId}/review/replies"
+	RemotePath         = "/v1/executions/{executionId}/remote"
 	NornToolsPath      = "/v1/executions/{executionId}/norn"
 )
 
@@ -383,4 +385,46 @@ type Disconnected struct {
 type Failure struct {
 	Reason  string `json:"reason"`
 	Message string `json:"message"`
+}
+
+type RemoteRepository struct {
+	Repository    string   `json:"repository"`
+	DefaultBranch string   `json:"defaultBranch"`
+	DefaultTip    string   `json:"defaultTip,omitempty"`
+	Behind        int      `json:"behind"`
+	Ahead         int      `json:"ahead"`
+	Branch        string   `json:"branch"`
+	BranchTip     string   `json:"branchTip,omitempty"`
+	Unmerged      int      `json:"unmerged"`
+	Conflicts     []string `json:"conflicts,omitempty"`
+	Failure       string   `json:"failure,omitempty"`
+	Summary       string   `json:"summary"`
+}
+
+type RemoteRefresh struct {
+	Repositories []RemoteRepository `json:"repositories"`
+}
+
+type DoctorTool struct {
+	Name    string   `json:"name"`
+	State   string   `json:"state"`
+	Path    string   `json:"path,omitempty"`
+	Version string   `json:"version,omitempty"`
+	Needed  []string `json:"neededBy"`
+	Summary string   `json:"summary"`
+}
+
+type DoctorCodebase struct {
+	Name    string       `json:"name"`
+	Root    string       `json:"root"`
+	Failure string       `json:"failure,omitempty"`
+	Tools   []DoctorTool `json:"tools"`
+}
+
+type Doctor struct {
+	Healthy      bool             `json:"healthy"`
+	Sandbox      string           `json:"sandbox"`
+	CommitAuthor string           `json:"commitAuthor"`
+	PullRequests string           `json:"pullRequests"`
+	Codebases    []DoctorCodebase `json:"codebases"`
 }

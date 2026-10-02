@@ -216,3 +216,13 @@ func RefusalNote(kind channelv1.MessageType, reason string) string {
 
 	return fmt.Sprintf("norn refused a %s this machine sent: %s", kind, strings.TrimSpace(reason))
 }
+
+func QuestionLimits() string {
+	return fmt.Sprintf(
+		"The question holds at most %d characters, with at most %d options of at most %d "+
+			"characters each, and meanwhile of at most %d; put the detail in the question, "+
+			"never in an option.",
+		channelv1.QuestionTextMax, channelv1.QuestionOptionsMax, channelv1.QuestionOptionMax,
+		channelv1.QuestionDefaultMax,
+	)
+}

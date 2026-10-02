@@ -42,3 +42,10 @@ func Reclaimed(earlier Execution) string {
 		earlier.Attempt,
 	)
 }
+
+func Superseded(by Execution) string {
+	return fmt.Sprintf(
+		"attempt %d was started at this issue, so this attempt stopped and handed its branches over",
+		by.Attempt,
+	)
+}

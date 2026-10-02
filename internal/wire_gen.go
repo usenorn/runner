@@ -41,6 +41,7 @@ import (
 	"github.com/usenorn/runner/internal/repository/servicelog"
 	"github.com/usenorn/runner/internal/repository/settings"
 	"github.com/usenorn/runner/internal/repository/spool"
+	"github.com/usenorn/runner/internal/repository/toolchain"
 	"github.com/usenorn/runner/internal/repository/toolkit"
 	"github.com/usenorn/runner/internal/repository/tunnel"
 	"github.com/usenorn/runner/internal/repository/upload"
@@ -55,6 +56,7 @@ import (
 	"github.com/usenorn/runner/internal/service/session"
 	"github.com/usenorn/runner/internal/service/snapshot"
 	"github.com/usenorn/runner/internal/service/supervisor"
+	toolchain2 "github.com/usenorn/runner/internal/service/toolchain"
 	tunnel2 "github.com/usenorn/runner/internal/service/tunnel"
 	"github.com/usenorn/runner/internal/service/update"
 	upload2 "github.com/usenorn/runner/internal/service/upload"
@@ -135,20 +137,22 @@ func InitDaemon(cfgFile string, overrides config.Overrides) (*Daemon, func(), er
 	configDriver := config.NewDriver(configConfig)
 	repositoryDriver := driver.New(repositorySandbox, configDriver)
 	repositoryToolkit := toolkit.New(runner, app, configDriver)
+	repositoryToolchain := toolchain.New()
+	toolchains := toolchain2.New(repositoryToolchain, repositorySandbox, repositoryInventory, repositoryRun, repositoryForge, configHost, results)
 	scheduler := config.NewScheduler(configConfig)
-	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, repositoryToolkit, repositorySandbox, repositoryIdentity, repositoryCredential, sessions, dir, runner, app, scheduler, configDriver)
+	executions := execution.New(repositoryRun, repositorySpool, repositoryDisk, repositoryScheduling, repositorySettings, repositoryInventory, snapshots, services, uploads, serviceQuestions, previews, changeSets, runToken, repositoryDriver, repositoryToolkit, repositorySandbox, repositoryIdentity, repositoryCredential, sessions, toolchains, repositoryForge, dir, runner, app, scheduler, configDriver, results)
 	configSpool := config.NewSpool(configConfig)
 	channels := channel2.New(repositoryChannel, repositorySpool, sessions, executions, serviceQuestions, configChannel, configSpool, app)
 	configTunnel := config.NewTunnel(configConfig)
 	repositoryTunnel := tunnel.New(app, configTunnel)
 	tunnels := tunnel2.New(repositoryTunnel, sessions, previews, configTunnel)
-	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, tunnels, executions, services, serviceQuestions, previews, uploads, runToken, repositoryToolkit, build)
+	server := control.NewServer(runner, state, app, dir, enrolments, sessions, updates, codebases, channels, tunnels, executions, services, serviceQuestions, previews, uploads, runToken, repositoryToolkit, toolchains, build)
 	socketListener, cleanup2, err := socket.New(dir)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	mcpbridgeBridge, cleanup3 := mcpbridge.New(configControl, questions, dir, app)
+	mcpbridgeBridge, cleanup3 := mcpbridge.New(configControl, questions, configSupervisor, dir, app)
 	log := config.NewLog(configConfig)
 	logger, cleanup4, err := logging.New(app, log, dir)
 	if err != nil {
@@ -173,13 +177,14 @@ func InitStatus(cfgFile string, overrides config.Overrides) (*Status, func(), er
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	status := NewStatus(client)
 	return status, func() {
 	}, nil
@@ -192,13 +197,14 @@ func InitVersion(cfgFile string, overrides config.Overrides) (*Version, func(), 
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	configUpdate := config.NewUpdate(configConfig)
 	app := config.NewApp(configConfig)
 	repositoryRelease := release.New(configUpdate, app)
@@ -216,13 +222,14 @@ func InitBinding(cfgFile string, overrides config.Overrides) (*Binding, func(), 
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	binding := NewBinding(client)
 	return binding, func() {
 	}, nil
@@ -235,13 +242,14 @@ func InitInspection(cfgFile string, overrides config.Overrides) (*Inspection, fu
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	inspection := NewInspection(client)
 	return inspection, func() {
 	}, nil
@@ -277,13 +285,14 @@ func InitScheduling(cfgFile string, overrides config.Overrides) (*Scheduling, fu
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	internalScheduling := NewScheduling(client)
 	return internalScheduling, func() {
 	}, nil
@@ -296,13 +305,14 @@ func InitExecutions(cfgFile string, overrides config.Overrides) (*Executions, fu
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	executions := NewExecutions(client)
 	return executions, func() {
 	}, nil
@@ -315,13 +325,14 @@ func InitServices(cfgFile string, overrides config.Overrides) (*Services, func()
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	services := NewServices(client)
 	return services, func() {
 	}, nil
@@ -350,13 +361,14 @@ func InitMCPServer(cfgFile string, overrides config.Overrides) (*mcpserver.Serve
 	}
 	configControl := config.NewControl(configConfig)
 	questions := config.NewQuestions(configConfig)
+	configSupervisor := config.NewSupervisor(configConfig)
 	state := config.NewState(configConfig)
 	dir, err := statedir.New(state)
 	if err != nil {
 		return nil, nil, err
 	}
 	bearer := control.NewBearer()
-	client := control.NewClient(configControl, questions, dir, bearer)
+	client := control.NewClient(configControl, questions, configSupervisor, dir, bearer)
 	app := config.NewApp(configConfig)
 	server := mcpserver.New(client, app)
 	return server, func() {
@@ -365,7 +377,7 @@ func InitMCPServer(cfgFile string, overrides config.Overrides) (*mcpserver.Serve
 
 // wire.go:
 
-var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, bridge.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, sandbox.Set, port.Set, servicelog.Set, driver.Set, toolkit.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, mcpbridge.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
+var baseSet = wire.NewSet(config.Set, logging.Set, statedir.Set, socket.Set, bridge.Set, servicemanager.Set, dashboardclient.Set, hostfacts.Set, buildinfo.Set, identity.Set, credential.Set, dashboard.Set, release.Set, scanner.Set, capability.Set, inventory.Set, worktree.Set, materialiser.Set, settings.Set, run.Set, scheduling.Set, spool.Set, channel.Set, tunnel.Set, disk.Set, process.Set, sandbox.Set, port.Set, servicelog.Set, driver.Set, toolkit.Set, toolchain.Set, upload.Set, runtoken.Set, forge.Set, session.Set, enrolment.Set, update.Set, codebase.Set, snapshot.Set, supervisor.Set, upload2.Set, question.Set, preview.Set, changeset.Set, toolchain2.Set, execution.Set, channel2.Set, tunnel2.Set, control.Set, mcpserver.Set, mcpbridge.Set, wire.Bind(new(http.Handler), new(*control.Server)), NewDaemon,
 	NewStatus,
 	NewVersion,
 	NewBinding,

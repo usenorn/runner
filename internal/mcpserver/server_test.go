@@ -24,9 +24,34 @@ func TestEveryToolTheAgentIsMeantToHaveIsThere(t *testing.T) {
 		"get_service_logs", "run_step", "allocate_port",
 		"expose_preview", "close_preview",
 		"ask_human", "report_progress", "publish_artifact", "reply_to_review", "complete_task",
+		"refresh_remote",
 	} {
 		if !slices.Contains(named, wanted) {
 			t.Fatalf("the agent was given %v, without %s", named, wanted)
+		}
+	}
+}
+
+func TestEveryLimitNornEnforcesIsStatedBeforeTheAgentTripsOnIt(t *testing.T) {
+	h := newHarness(t, newDaemon())
+
+	described := map[string]string{}
+	for _, tool := range h.tools(t) {
+		described[tool.Name] = tool.Description
+	}
+
+	for name, limits := range map[string][]string{
+		"complete_task":   {"4000 characters"},
+		"ask_human":       {"1000 characters", "8 options", "200 characters"},
+		"reply_to_review": {"4000 characters"},
+		"report_progress": {"500 characters"},
+		"start_service":   {"waits for each of them"},
+	} {
+		for _, limit := range limits {
+			if !strings.Contains(described[name], limit) {
+				t.Fatalf("%s never says %q, so the agent learns it only from a refusal:\n%s",
+					name, limit, described[name])
+			}
 		}
 	}
 }

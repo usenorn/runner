@@ -130,6 +130,17 @@ func (t *toolset) register(server *mcp.Server) {
 	idempotent := &mcp.ToolAnnotations{DestructiveHint: &additive, IdempotentHint: true}
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name: "refresh_remote",
+		Description: "Fetch every repository's default branch and this run's own branch from the " +
+			"remote, with the person's credentials, and say for each how far this branch is behind " +
+			"origin/<default>, what somebody pushed to origin/<branch> that is not here yet, and " +
+			"which files a merge of origin/<default> would conflict in. Call it before merging or " +
+			"rebasing onto the latest default branch or checking for conflicts; then merge or " +
+			"rebase locally. You cannot fetch or push yourself.",
+		Annotations: idempotent,
+	}, t.refreshRemote)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "start_service",
 		Description: "Start a long-running process for this run — a dev server, an API, a " +
 			"database. Norn supervises it, captures its output, watches its health and stops it " +
@@ -137,7 +148,9 @@ func (t *toolset) register(server *mcp.Server) {
 			"the run and nothing cleans it up. Never write a port number: name ${ports.web} in " +
 			"the command, the environment or the health check and norn substitutes a free one, " +
 			"which the process also reads as NORN_PORT_WEB. Starting a service that is already " +
-			"running answers with the one that is running.",
+			"running answers with the one that is running. A service that requires others " +
+			"waits for each of them to turn healthy before it starts. Its dir is relative to " +
+			"the workspace and cannot leave it.",
 		Annotations: idempotent,
 	}, t.startService)
 
@@ -206,7 +219,7 @@ func (t *toolset) register(server *mcp.Server) {
 			"if nobody has answered by then it tells you to stop, and norn starts you again " +
 			"with the answer once somebody gives one. Set blocking to false and say what you " +
 			"will do meanwhile when you do not need to stop. Ask rather than guessing on " +
-			"anything that changes behaviour a person would want a say in.",
+			"anything that changes behaviour a person would want a say in. " + entity.QuestionLimits(),
 		Annotations: read,
 	}, t.askHuman)
 
@@ -214,7 +227,7 @@ func (t *toolset) register(server *mcp.Server) {
 		Name: "report_progress",
 		Description: "Say what you are doing, in one line, so whoever delegated this can follow " +
 			"along without reading a transcript. Call it when you move between real phases of " +
-			"the work, not on every file you touch.",
+			"the work, not on every file you touch. " + entity.ProgressLimits(),
 		Annotations: read,
 	}, t.reportProgress)
 
@@ -230,7 +243,8 @@ func (t *toolset) register(server *mcp.Server) {
 		Name: "reply_to_review",
 		Description: "Answer one thread of the review feedback you were given, by its thread id: " +
 			"say what you changed, or why you left it as it is. The reviewer reads it beside " +
-			"their comment on the next review. Only threads named in the feedback can be answered.",
+			"their comment on the next review. Only threads named in the feedback can be answered. " +
+			entity.ReplyLimits(),
 		Annotations: change,
 	}, t.replyToReview)
 
@@ -238,7 +252,7 @@ func (t *toolset) register(server *mcp.Server) {
 		Name: "complete_task",
 		Description: "Say the work is finished and what changed. Commit everything first: work " +
 			"that is not committed is work nobody sees. Call this once, then end your turn " +
-			"without saying anything else — norn takes it from there.",
+			"without saying anything else — norn takes it from there. " + entity.CompletionLimits(),
 		Annotations: change,
 	}, t.completeTask)
 }

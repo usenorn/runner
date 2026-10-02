@@ -42,6 +42,8 @@ type storedTask struct {
 	ID           string    `json:"id"`
 	Reference    string    `json:"reference"`
 	IssueKey     string    `json:"issueKey"`
+	AuthorName   string    `json:"authorName,omitempty"`
+	AuthorEmail  string    `json:"authorEmail,omitempty"`
 	Attempt      int       `json:"attempt"`
 	WorkspaceID  string    `json:"workspaceId"`
 	Title        string    `json:"title"`
@@ -84,6 +86,7 @@ type storedRepository struct {
 	Base    string       `json:"base"`
 	BaseSHA string       `json:"baseSha"`
 	Branch  string       `json:"branch"`
+	Default string       `json:"defaultBranch,omitempty"`
 	Remote  string       `json:"remote,omitempty"`
 	Leased  bool         `json:"leased,omitempty"`
 	Lease   string       `json:"lease,omitempty"`
@@ -147,16 +150,38 @@ func (r *fileRun) Open(ctx context.Context, name string) (string, error) {
 }
 
 func furnish(ctx context.Context, home entity.RunHome) error {
-	config := entity.TaskGitConfig(entity.GitIdentity{
-		Name:  personal(ctx, "user.name"),
-		Email: personal(ctx, "user.email"),
-	})
+	if _, err := os.Stat(home.GitConfig()); err == nil {
+		return nil
+	}
 
-	if err := os.WriteFile(home.GitConfig(), []byte(config), fileMode); err != nil {
+	return writeIdentity(home, hostIdentity(ctx))
+}
+
+func writeIdentity(home entity.RunHome, identity entity.GitIdentity) error {
+	if err := os.MkdirAll(home.Root, dirMode); err != nil {
+		return fmt.Errorf("create %s: %w", home.Root, err)
+	}
+
+	if err := os.WriteFile(home.GitConfig(), []byte(entity.TaskGitConfig(identity)), fileMode); err != nil {
 		return fmt.Errorf("write %s: %w", home.GitConfig(), err)
 	}
 
 	return nil
+}
+
+func (r *fileRun) HostIdentity(ctx context.Context) entity.GitIdentity {
+	return hostIdentity(ctx)
+}
+
+func (r *fileRun) SaveIdentity(_ context.Context, name string, identity entity.GitIdentity) error {
+	return writeIdentity(entity.RunHomeOf(r.dir.Run(name)), identity)
+}
+
+func hostIdentity(ctx context.Context) entity.GitIdentity {
+	return entity.GitIdentity{
+		Name:  personal(ctx, "user.name"),
+		Email: personal(ctx, "user.email"),
+	}
 }
 
 func personal(ctx context.Context, key string) string {
@@ -357,6 +382,7 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 		ID:            held.ID,
 		Reference:     held.Reference,
 		IssueKey:      held.IssueKey,
+		Author:        entity.GitIdentity{Name: held.AuthorName, Email: held.AuthorEmail},
 		Attempt:       held.Attempt,
 		WorkspaceID:   held.WorkspaceID,
 		Title:         held.Title,
@@ -388,6 +414,8 @@ func storedTaskOf(execution entity.Execution) storedTask {
 		ID:           execution.ID,
 		Reference:    execution.Reference,
 		IssueKey:     execution.IssueKey,
+		AuthorName:   execution.Author.Name,
+		AuthorEmail:  execution.Author.Email,
 		Attempt:      execution.Attempt,
 		WorkspaceID:  execution.WorkspaceID,
 		Title:        execution.Title,
@@ -482,6 +510,7 @@ func storedRepositoryOf(repository entity.SnapshotRepository) storedRepository {
 		Base:    string(repository.Base),
 		BaseSHA: repository.BaseSHA,
 		Branch:  repository.Branch,
+		Default: repository.Default,
 		Remote:  repository.Remote,
 		Leased:  repository.Lease.Known,
 		Lease:   repository.Lease.Tip,
@@ -544,6 +573,7 @@ func repositoryOf(held storedRepository) entity.SnapshotRepository {
 		Base:    entity.BasePolicy(held.Base),
 		BaseSHA: held.BaseSHA,
 		Branch:  held.Branch,
+		Default: held.Default,
 		Remote:  held.Remote,
 		Lease:   entity.Lease{Known: held.Leased, Tip: held.Lease},
 	}

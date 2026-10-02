@@ -13,6 +13,8 @@ import (
 type Run interface {
 	Prepare(ctx context.Context, name string) (string, error)
 	Open(ctx context.Context, name string) (string, error)
+	HostIdentity(ctx context.Context) entity.GitIdentity
+	SaveIdentity(ctx context.Context, name string, identity entity.GitIdentity) error
 	Save(ctx context.Context, snapshot entity.Snapshot) error
 	Load(ctx context.Context, name string) (entity.Snapshot, error)
 	List(ctx context.Context) ([]entity.Snapshot, error)
@@ -36,6 +38,8 @@ type Run interface {
 	ClearQuestion(ctx context.Context, name string) error
 	LatestPlan(ctx context.Context, name string) (string, error)
 	SaveResume(ctx context.Context, name string, instruction channelv1.Instruction) error
+	SaveWatch(ctx context.Context, name string, watch entity.Watch) error
+	LoadWatch(ctx context.Context, name string) (entity.Watch, error)
 	LoadResume(ctx context.Context, name string) (channelv1.Instruction, error)
 	ClearResume(ctx context.Context, name string) error
 	SaveReview(ctx context.Context, name string, review entity.Review) error

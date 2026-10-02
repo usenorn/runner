@@ -1,6 +1,7 @@
 package entity_test
 
 import (
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -129,6 +130,38 @@ func TestATasksGitConfigSignsAsThePersonAndReachesNothingElseOfTheirs(t *testing
 				"and insteadOf rewrites and is out of the sandbox's reach:\n%s",
 			config,
 		)
+	}
+}
+
+func TestTheFirstCompleteIdentityAuthorsARunsCommits(t *testing.T) {
+	configured := entity.GitIdentity{Name: "Rae Okafor", Email: "rae@northwind.co"}
+	host := entity.GitIdentity{Name: "vlad", Email: "vlad@vm.local"}
+	nameOnly := entity.GitIdentity{Name: "vlad"}
+
+	cases := []struct {
+		name       string
+		candidates []entity.GitIdentity
+		want       entity.GitIdentity
+		err        error
+	}{
+		{name: "the runner's config wins", candidates: []entity.GitIdentity{configured, host}, want: configured},
+		{name: "the host's git config stands in", candidates: []entity.GitIdentity{{}, host}, want: host},
+		{name: "half an identity is passed over", candidates: []entity.GitIdentity{nameOnly, host}, want: host},
+		{
+			name:       "the person who connected the runner stands in for a bare machine",
+			candidates: []entity.GitIdentity{{}, {}, configured},
+			want:       configured,
+		},
+		{name: "nobody at all is refused", candidates: []entity.GitIdentity{{}, nameOnly}, err: entity.ErrCommitIdentityMissing},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := entity.FirstCompleteIdentity(tc.candidates...)
+			if !errors.Is(err, tc.err) || got != tc.want {
+				t.Fatalf("authored as %+v (%v), want %+v (%v)", got, err, tc.want, tc.err)
+			}
+		})
 	}
 }
 

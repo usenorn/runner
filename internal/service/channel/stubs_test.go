@@ -18,6 +18,14 @@ func (runStub) Prepare(context.Context, string) (string, error) { return "", nil
 
 func (runStub) Open(context.Context, string) (string, error) { return "", nil }
 
+func (runStub) HostIdentity(context.Context) entity.GitIdentity { return entity.GitIdentity{} }
+
+func (runStub) SaveWatch(context.Context, string, entity.Watch) error { return nil }
+
+func (runStub) LoadWatch(context.Context, string) (entity.Watch, error) { return entity.Watch{}, nil }
+
+func (runStub) SaveIdentity(context.Context, string, entity.GitIdentity) error { return nil }
+
 func (runStub) Prune(context.Context, string) error { return nil }
 
 func (runStub) Save(context.Context, entity.Snapshot) error { return nil }
@@ -120,6 +128,8 @@ func (snapshotStub) Take(
 func (snapshotStub) List(context.Context) ([]entity.Snapshot, error) { return nil, nil }
 
 func (snapshotStub) Release(context.Context, string) error { return nil }
+
+func (snapshotStub) Refresh(context.Context, entity.Snapshot) []entity.RemoteState { return nil }
 
 func (snapshotStub) Discard(context.Context, string) error { return nil }
 
@@ -264,4 +274,36 @@ func (runStub) SaveApproval(context.Context, string, channelv1.Instruction) erro
 
 func (runStub) LoadApproval(context.Context, string) (channelv1.Instruction, error) {
 	return channelv1.Instruction{}, entity.ErrApprovalMissing
+}
+
+type toolchainStub struct{}
+
+func (toolchainStub) Check(context.Context, entity.ToolchainProbe) (entity.ToolchainReport, error) {
+	return nil, nil
+}
+
+func (toolchainStub) Doctor(context.Context) (entity.Doctor, error) { return entity.Doctor{}, nil }
+
+type forgeStub struct{}
+
+func (forgeStub) Available(context.Context, string) (entity.ForgeKind, bool) { return "", false }
+
+func (forgeStub) Existing(context.Context, string, string) (string, error) { return "", nil }
+
+func (forgeStub) Open(context.Context, string, entity.PullRequest) (string, error) {
+	return "", entity.ErrForgeAbsent
+}
+
+func (forgeStub) Status(context.Context, string, string) (entity.PullRequestStatus, error) {
+	return entity.PullRequestStatus{}, entity.ErrForgeAbsent
+}
+
+func (forgeStub) FailedLog(context.Context, string, entity.FailedCheck) (string, error) {
+	return "", entity.ErrForgeAbsent
+}
+
+func (forgeStub) Reply(
+	context.Context, string, entity.PullRequestThread, string,
+) (entity.PullRequestComment, error) {
+	return entity.PullRequestComment{}, entity.ErrForgeAbsent
 }

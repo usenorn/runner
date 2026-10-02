@@ -46,11 +46,14 @@ type executionsService struct {
 	identities  repository.Identity
 	credentials repository.Credential
 	access      service.Sessions
+	toolchains  service.Toolchains
+	forges      repository.Forge
 	dir         *statedir.Dir
 	runner      config.Runner
 	app         config.App
 	scheduler   config.Scheduler
 	driver      config.Driver
+	results     config.Results
 	now         func() time.Time
 
 	preparing chan string
@@ -92,11 +95,14 @@ func New(
 	identities repository.Identity,
 	credentials repository.Credential,
 	sessions service.Sessions,
+	toolchains service.Toolchains,
+	forges repository.Forge,
 	dir *statedir.Dir,
 	runner config.Runner,
 	app config.App,
 	scheduler config.Scheduler,
 	driver config.Driver,
+	results config.Results,
 ) service.Executions {
 	return &executionsService{
 		runs:        runs,
@@ -118,11 +124,14 @@ func New(
 		identities:  identities,
 		credentials: credentials,
 		access:      sessions,
+		toolchains:  toolchains,
+		forges:      forges,
 		dir:         dir,
 		runner:      runner,
 		app:         app,
 		scheduler:   scheduler,
 		driver:      driver,
+		results:     results,
 		now:         func() time.Time { return time.Now().UTC() },
 		preparing:   make(chan string, waitingToWork),
 		resuming:    make(chan resumption, waitingToWork),

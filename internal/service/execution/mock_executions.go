@@ -222,6 +222,21 @@ func (mr *MockExecutionsMockRecorder) Reconcile(ctx, leased any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reconcile", reflect.TypeOf((*MockExecutions)(nil).Reconcile), ctx, leased)
 }
 
+// Refresh mocks base method.
+func (m *MockExecutions) Refresh(ctx context.Context, executionID string) ([]entity.RemoteState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Refresh", ctx, executionID)
+	ret0, _ := ret[0].([]entity.RemoteState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Refresh indicates an expected call of Refresh.
+func (mr *MockExecutionsMockRecorder) Refresh(ctx, executionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockExecutions)(nil).Refresh), ctx, executionID)
+}
+
 // Refused mocks base method.
 func (m *MockExecutions) Refused(ctx context.Context, refused channelv1.Message, reason string) error {
 	m.ctrl.T.Helper()

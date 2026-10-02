@@ -961,7 +961,7 @@ func TestRunningItAgainAfterACancelTakesTheBranchBackFromTheKeptWorkspace(t *tes
 	h.awaitNote(t, "took over the branches attempt 1 left behind")
 }
 
-func TestAnEarlierAttemptStillRunningKeepsItsWorkspace(t *testing.T) {
+func TestANewAttemptTakesOverFromAnEarlierOneThisMachineStillHolds(t *testing.T) {
 	h := newHarness(t, 2, 0)
 	ctx := context.Background()
 
@@ -989,15 +989,28 @@ func TestAnEarlierAttemptStillRunningKeepsItsWorkspace(t *testing.T) {
 		t.Fatalf("second start: %v", err)
 	}
 
-	h.await(t, "waited for the second attempt to be prepared", func() bool {
-		return len(h.requests()) == 2
+	h.await(t, "waited for the earlier attempt to hand its branches over", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+
+		return slices.Contains(h.released, "exec-01ABC")
 	})
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	superseded := ""
 
-	if slices.Contains(h.released, "exec-01ABC") {
-		t.Fatal("a new attempt tore down the workspace of an attempt that was still running")
+	for _, message := range h.sentOf(t, channelv1.ExecutionStateReport) {
+		reported := decodeInto[channelv1.Report](t, message)
+		if message.ExecutionID == "exec-01ABC" && reported.State == string(channelv1.StateFailed) {
+			superseded = reported.Reason
+		}
+	}
+
+	if !strings.Contains(superseded, "attempt 2 was started") {
+		t.Fatalf(
+			"the earlier attempt was let go saying %q; norn has to hear why it stopped, or it "+
+				"keeps waiting on an attempt nobody is running",
+			superseded,
+		)
 	}
 }
 

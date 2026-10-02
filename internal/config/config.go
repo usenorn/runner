@@ -53,6 +53,9 @@ type Results struct {
 	PushTimeout  time.Duration `mapstructure:"push_timeout"`
 	ForgeTimeout time.Duration `mapstructure:"forge_timeout"`
 	MaxDiffBytes int64         `mapstructure:"max_diff_bytes"`
+	CommitName   string        `mapstructure:"commit_name"`
+	WatchEvery   time.Duration `mapstructure:"watch_interval"`
+	CommitEmail  string        `mapstructure:"commit_email"`
 }
 
 type Questions struct {

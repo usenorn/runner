@@ -37,6 +37,7 @@ type Execution struct {
 	Reference     string
 	IssueKey      string
 	Branch        string
+	Author        GitIdentity
 	Attempt       int
 	WorkspaceID   string
 	Title         string
@@ -67,6 +68,7 @@ func ExecutionOf(offer channelv1.Offer, root string, acceptedAt time.Time) Execu
 		Reference:    offer.Reference,
 		IssueKey:     offer.Issue.Reference,
 		Branch:       offer.Branch,
+		Author:       authorOf(offer.Author),
 		Attempt:      max(offer.Attempt, 1),
 		WorkspaceID:  offer.WorkspaceID,
 		Title:        offer.Issue.Title,
@@ -143,4 +145,12 @@ func (r SchedulerReport) Decline() (DeclineReason, bool) {
 	default:
 		return "", false
 	}
+}
+
+func authorOf(author *channelv1.Author) GitIdentity {
+	if author == nil {
+		return GitIdentity{}
+	}
+
+	return GitIdentity{Name: author.Name, Email: author.Email}
 }

@@ -157,6 +157,7 @@ func newHarness(t *testing.T, made *daemon) *harness {
 	client := control.NewClient(
 		config.Control{DialTimeout: time.Second, RequestTimeout: 2 * time.Second},
 		config.Questions{SoftWait: 50 * time.Millisecond, MaxWait: time.Second},
+		config.Supervisor{StepTimeout: time.Minute},
 		dir,
 		"a-token",
 	)

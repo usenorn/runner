@@ -157,7 +157,7 @@ func (s *executionsService) carryOn(
 		execution.Stage = instruction.Stage
 	}
 
-	if instruction.Reason == channelv1.ResumeFeedback {
+	if instruction.Reason == channelv1.ResumeFeedback || instruction.Reason == entity.ResumePullRequest {
 		execution.ReviewThreads = instruction.Threads
 	}
 
@@ -169,7 +169,13 @@ func (s *executionsService) carryOn(
 
 	s.complain(ctx, execution.ID, s.runs.ClearResume(ctx, execution.ID))
 
-	return s.again(ctx, execution, held, s.injection(ctx, execution.ID, instruction))
+	injected := s.injection(ctx, execution.ID, instruction)
+
+	if briefing := entity.RemoteBriefing(s.fetched(ctx, execution.ID, held.snapshot)); briefing != "" {
+		injected = strings.TrimSpace(injected + "\n\n" + briefing)
+	}
+
+	return s.again(ctx, execution, held, injected)
 }
 
 func (s *executionsService) again(

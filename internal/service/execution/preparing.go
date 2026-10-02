@@ -54,6 +54,14 @@ func (s *executionsService) Run(ctx context.Context) {
 		s.collect(ctx)
 	}()
 
+	working.Add(1)
+
+	go func() {
+		defer working.Done()
+
+		s.patrol(ctx)
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -190,6 +198,14 @@ func (s *executionsService) recover(ctx context.Context, execution entity.Execut
 		s.hold(ctx, execution, "a run was about to carry on when this machine last stopped")
 
 		s.admit(ctx, resuming(execution.ID, instruction))
+
+		return true, nil
+	case channelv1.StateWatching:
+		s.hold(ctx, execution, "a run was watching its pull requests when this machine last stopped")
+
+		if instruction, err := s.runs.LoadResume(ctx, execution.ID); err == nil {
+			s.admit(ctx, resuming(execution.ID, instruction))
+		}
 
 		return true, nil
 	case channelv1.StateApproved:
@@ -339,8 +355,16 @@ func (s *executionsService) fill(
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSnapshot, err: err}
 	}
 
+	if err := s.author(ctx, execution); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepIdentity, err: err}
+	}
+
 	if err := s.sandboxes.Open(ctx, entity.SandboxSpecFor(execution, snapshot)); err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSandbox, err: err}
+	}
+
+	if err := s.buildable(ctx, execution, snapshot); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepTools, err: err}
 	}
 
 	if err := s.commands(ctx, execution); err != nil {
@@ -358,6 +382,41 @@ func (s *executionsService) fill(
 	}
 
 	return snapshot, setup, nil
+}
+
+func (s *executionsService) buildable(
+	ctx context.Context,
+	execution entity.Execution,
+	snapshot entity.Snapshot,
+) error {
+	report, err := s.toolchains.Check(ctx, entity.ToolchainProbe{
+		Box:         execution.Sandbox(),
+		Workdir:     snapshot.Workspace,
+		Environment: taskEnvironment(execution),
+		Roots:       entity.ManifestRootsOf(snapshot),
+	})
+	if err != nil {
+		return err
+	}
+
+	if ready := report.Ready(); ready != "" {
+		s.complain(ctx, execution.ID, s.note(ctx, execution.ID, channelv1.EventPhase, ready))
+	}
+
+	return report.Problem()
+}
+
+func (s *executionsService) author(ctx context.Context, execution entity.Execution) error {
+	identity, err := entity.FirstCompleteIdentity(
+		entity.GitIdentity{Name: s.results.CommitName, Email: s.results.CommitEmail},
+		s.runs.HostIdentity(ctx),
+		execution.Author,
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.runs.SaveIdentity(ctx, execution.ID, identity)
 }
 
 func (s *executionsService) codebase(ctx context.Context) (entity.Codebase, error) {
@@ -573,9 +632,11 @@ func (s *executionsService) releaseEarlier(ctx context.Context, execution entity
 
 	for _, earlier := range found {
 		if earlier.ID == execution.ID || earlier.IssueKey != execution.IssueKey ||
-			earlier.Attempt >= execution.Attempt || s.holding(earlier.ID) {
+			earlier.Attempt >= execution.Attempt {
 			continue
 		}
+
+		s.supersede(ctx, earlier.ID, execution)
 
 		if _, err := s.runs.Load(ctx, earlier.ID); err != nil {
 			continue
@@ -586,13 +647,21 @@ func (s *executionsService) releaseEarlier(ctx context.Context, execution entity
 	}
 }
 
-func (s *executionsService) holding(executionID string) bool {
+func (s *executionsService) supersede(ctx context.Context, earlierID string, by entity.Execution) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	earlier, holding := s.held[earlierID]
+	underway := holding && s.stop(earlierID)
+	s.mu.Unlock()
 
-	_, held := s.held[executionID]
+	if !holding {
+		return
+	}
 
-	return held
+	s.complain(ctx, earlierID, s.fail(ctx, earlier, entity.Superseded(by)))
+
+	if !underway {
+		s.complain(ctx, earlierID, s.finished(ctx, earlierID))
+	}
 }
 
 func (s *executionsService) stop(executionID string) bool {

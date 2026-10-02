@@ -76,6 +76,10 @@ func (s *servicesSupervisor) Step(
 		return result, fmt.Errorf("%w: %s ran for %s", entity.ErrStepTimedOut, step.Name, timeout)
 	}
 
+	if errors.Is(err, context.Canceled) {
+		return result, fmt.Errorf("%w: %s after %s", entity.ErrStepAbandoned, step.Name, result.Took.Round(time.Second))
+	}
+
 	if err != nil {
 		return result, err
 	}
