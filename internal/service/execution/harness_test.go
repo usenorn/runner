@@ -90,6 +90,8 @@ type harness struct {
 	patch    []byte
 	remote   string
 	fetched  []entity.RemoteState
+	pulls    map[string]entity.PullRequestStatus
+	posted   []string
 	remoteEr error
 	pushErr  error
 	forge    bool
@@ -288,6 +290,7 @@ func build(
 		credentials,
 		h.sessions,
 		h.toolchains,
+		h.forges,
 		dir,
 		config.Runner{Capacity: capacity, Retention: retention},
 		config.App{Version: "1.4.0"},
@@ -300,7 +303,9 @@ func build(
 			ResumeAttempts: 1,
 			ToolkitTimeout: time.Second,
 		},
-		config.Results{CommitName: "Rae Okafor", CommitEmail: "rae@northwind.co"},
+		config.Results{
+			CommitName: "Rae Okafor", CommitEmail: "rae@northwind.co", WatchEvery: 20 * time.Millisecond,
+		},
 	)
 
 	return h
@@ -540,6 +545,42 @@ func (h *harness) expectForge() {
 		Existing(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(context.Context, string, string) (string, error) {
 			return h.existing, nil
+		}).
+		AnyTimes()
+
+	h.forges.EXPECT().
+		Status(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _, address string) (entity.PullRequestStatus, error) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			status, known := h.pulls[address]
+			if !known {
+				return entity.PullRequestStatus{}, entity.ErrPullRequestUnreadable
+			}
+
+			return status, nil
+		}).
+		AnyTimes()
+
+	h.forges.EXPECT().
+		FailedLog(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, check entity.FailedCheck) (string, error) {
+			return "FAIL " + check.Name + ": expected 2.5, got 2", nil
+		}).
+		AnyTimes()
+
+	h.forges.EXPECT().
+		Reply(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			_ context.Context, _ string, thread entity.PullRequestThread, body string,
+		) (entity.PullRequestComment, error) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			h.posted = append(h.posted, thread.ID+": "+body)
+
+			return entity.PullRequestComment{Kind: thread.Kind, ID: "reply-" + thread.ID}, nil
 		}).
 		AnyTimes()
 

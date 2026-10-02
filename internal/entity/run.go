@@ -24,6 +24,7 @@ const (
 	RunToolkitFile     = "toolkit.json"
 	RunQuestionFile    = "question.json"
 	RunResumeFile      = "resume.json"
+	RunWatchFile       = "watch.json"
 	RunToolkitDir      = "toolkit"
 
 	RunTimelineLine = 1 << 20

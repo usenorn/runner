@@ -54,6 +54,14 @@ func (s *executionsService) Run(ctx context.Context) {
 		s.collect(ctx)
 	}()
 
+	working.Add(1)
+
+	go func() {
+		defer working.Done()
+
+		s.patrol(ctx)
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -190,6 +198,14 @@ func (s *executionsService) recover(ctx context.Context, execution entity.Execut
 		s.hold(ctx, execution, "a run was about to carry on when this machine last stopped")
 
 		s.admit(ctx, resuming(execution.ID, instruction))
+
+		return true, nil
+	case channelv1.StateWatching:
+		s.hold(ctx, execution, "a run was watching its pull requests when this machine last stopped")
+
+		if instruction, err := s.runs.LoadResume(ctx, execution.ID); err == nil {
+			s.admit(ctx, resuming(execution.ID, instruction))
+		}
 
 		return true, nil
 	case channelv1.StateApproved:

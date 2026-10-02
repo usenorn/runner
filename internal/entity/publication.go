@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -268,4 +269,16 @@ func (p Push) Arguments(url string) []string {
 	}
 
 	return append(args, url, p.SHA+":"+ref)
+}
+
+func (p Publication) PullRequests() []string {
+	var addresses []string
+
+	for _, repository := range p.Repositories {
+		if repository.PullRequest != "" && !slices.Contains(addresses, repository.PullRequest) {
+			addresses = append(addresses, repository.PullRequest)
+		}
+	}
+
+	return addresses
 }

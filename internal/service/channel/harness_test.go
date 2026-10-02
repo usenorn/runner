@@ -241,6 +241,7 @@ func newHarness(t *testing.T, autoAck bool, wires int) *harness {
 		credentials,
 		h.sessions,
 		toolchainStub{},
+		forgeStub{},
 		dir,
 		config.Runner{Capacity: 2},
 		config.App{Version: "1.4.0"},

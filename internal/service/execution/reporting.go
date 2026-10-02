@@ -92,6 +92,12 @@ func (s *executionsService) Reply(
 		return fmt.Errorf("%w: %q", entity.ErrReplyUnasked, reply.CommentID)
 	}
 
+	if entity.IsPullRequestThread(reply.CommentID) {
+		return s.keepReply(ctx, executionID, entity.PullRequestReply{
+			Thread: reply.CommentID, Body: strings.TrimSpace(reply.Body),
+		})
+	}
+
 	return s.send(ctx, channelv1.ReviewReplied, executionID, channelv1.ReviewReply{
 		CommentID: reply.CommentID,
 		Body:      strings.TrimSpace(reply.Body),
@@ -138,4 +144,15 @@ func (s *executionsService) forget(executionID string) {
 
 	delete(s.done, executionID)
 	delete(s.commits, executionID)
+}
+
+func (s *executionsService) keepReply(ctx context.Context, executionID string, reply entity.PullRequestReply) error {
+	watch, err := s.runs.LoadWatch(ctx, executionID)
+	if err != nil {
+		return err
+	}
+
+	watch.Replies = append(watch.Replies, reply)
+
+	return s.runs.SaveWatch(ctx, executionID, watch)
 }

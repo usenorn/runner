@@ -31,6 +31,20 @@ func (quietForge) Open(context.Context, string, entity.PullRequest) (string, err
 	return "", entity.ErrForgeAbsent
 }
 
+func (quietForge) Status(context.Context, string, string) (entity.PullRequestStatus, error) {
+	return entity.PullRequestStatus{}, entity.ErrForgeAbsent
+}
+
+func (quietForge) FailedLog(context.Context, string, entity.FailedCheck) (string, error) {
+	return "", entity.ErrForgeAbsent
+}
+
+func (quietForge) Reply(
+	context.Context, string, entity.PullRequestThread, string,
+) (entity.PullRequestComment, error) {
+	return entity.PullRequestComment{}, entity.ErrForgeAbsent
+}
+
 type keptDiff struct {
 	body []byte
 }

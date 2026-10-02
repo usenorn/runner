@@ -20,6 +20,10 @@ func (runStub) Open(context.Context, string) (string, error) { return "", nil }
 
 func (runStub) HostIdentity(context.Context) entity.GitIdentity { return entity.GitIdentity{} }
 
+func (runStub) SaveWatch(context.Context, string, entity.Watch) error { return nil }
+
+func (runStub) LoadWatch(context.Context, string) (entity.Watch, error) { return entity.Watch{}, nil }
+
 func (runStub) SaveIdentity(context.Context, string, entity.GitIdentity) error { return nil }
 
 func (runStub) Prune(context.Context, string) error { return nil }
@@ -279,3 +283,27 @@ func (toolchainStub) Check(context.Context, entity.ToolchainProbe) (entity.Toolc
 }
 
 func (toolchainStub) Doctor(context.Context) (entity.Doctor, error) { return entity.Doctor{}, nil }
+
+type forgeStub struct{}
+
+func (forgeStub) Available(context.Context, string) (entity.ForgeKind, bool) { return "", false }
+
+func (forgeStub) Existing(context.Context, string, string) (string, error) { return "", nil }
+
+func (forgeStub) Open(context.Context, string, entity.PullRequest) (string, error) {
+	return "", entity.ErrForgeAbsent
+}
+
+func (forgeStub) Status(context.Context, string, string) (entity.PullRequestStatus, error) {
+	return entity.PullRequestStatus{}, entity.ErrForgeAbsent
+}
+
+func (forgeStub) FailedLog(context.Context, string, entity.FailedCheck) (string, error) {
+	return "", entity.ErrForgeAbsent
+}
+
+func (forgeStub) Reply(
+	context.Context, string, entity.PullRequestThread, string,
+) (entity.PullRequestComment, error) {
+	return entity.PullRequestComment{}, entity.ErrForgeAbsent
+}

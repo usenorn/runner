@@ -157,7 +157,7 @@ func (s *executionsService) carryOn(
 		execution.Stage = instruction.Stage
 	}
 
-	if instruction.Reason == channelv1.ResumeFeedback {
+	if instruction.Reason == channelv1.ResumeFeedback || instruction.Reason == entity.ResumePullRequest {
 		execution.ReviewThreads = instruction.Threads
 	}
 

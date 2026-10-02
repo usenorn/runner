@@ -12,4 +12,7 @@ type Forge interface {
 	Available(ctx context.Context, dir string) (entity.ForgeKind, bool)
 	Existing(ctx context.Context, dir, branch string) (string, error)
 	Open(ctx context.Context, dir string, request entity.PullRequest) (string, error)
+	Status(ctx context.Context, dir, address string) (entity.PullRequestStatus, error)
+	FailedLog(ctx context.Context, dir string, check entity.FailedCheck) (string, error)
+	Reply(ctx context.Context, dir string, thread entity.PullRequestThread, body string) (entity.PullRequestComment, error)
 }

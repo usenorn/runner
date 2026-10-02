@@ -299,8 +299,8 @@ func TestARunHandedBackLearnsWhatMovedOnTheRemoteMeanwhile(t *testing.T) {
 	asked := h.drivers.injections()[0]
 
 	for _, wanted := range []string{
-		"pull latest main", "3 commits this branch does not have yet",
-		"internal/ledger/stats.go", "origin/norn/NORN-47/runner has 1 commits", "refresh_remote",
+		"pull latest main", "3 commits behind it",
+		"internal/ledger/stats.go", "origin/norn/NORN-47/runner has 1 commit somebody pushed", "refresh_remote",
 	} {
 		if !strings.Contains(asked, wanted) {
 			t.Fatalf(

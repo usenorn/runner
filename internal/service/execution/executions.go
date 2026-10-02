@@ -47,6 +47,7 @@ type executionsService struct {
 	credentials repository.Credential
 	access      service.Sessions
 	toolchains  service.Toolchains
+	forges      repository.Forge
 	dir         *statedir.Dir
 	runner      config.Runner
 	app         config.App
@@ -95,6 +96,7 @@ func New(
 	credentials repository.Credential,
 	sessions service.Sessions,
 	toolchains service.Toolchains,
+	forges repository.Forge,
 	dir *statedir.Dir,
 	runner config.Runner,
 	app config.App,
@@ -123,6 +125,7 @@ func New(
 		credentials: credentials,
 		access:      sessions,
 		toolchains:  toolchains,
+		forges:      forges,
 		dir:         dir,
 		runner:      runner,
 		app:         app,

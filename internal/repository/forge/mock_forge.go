@@ -71,6 +71,21 @@ func (mr *MockForgeMockRecorder) Existing(ctx, dir, branch any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Existing", reflect.TypeOf((*MockForge)(nil).Existing), ctx, dir, branch)
 }
 
+// FailedLog mocks base method.
+func (m *MockForge) FailedLog(ctx context.Context, dir string, check entity.FailedCheck) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FailedLog", ctx, dir, check)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FailedLog indicates an expected call of FailedLog.
+func (mr *MockForgeMockRecorder) FailedLog(ctx, dir, check any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FailedLog", reflect.TypeOf((*MockForge)(nil).FailedLog), ctx, dir, check)
+}
+
 // Open mocks base method.
 func (m *MockForge) Open(ctx context.Context, dir string, request entity.PullRequest) (string, error) {
 	m.ctrl.T.Helper()
@@ -84,4 +99,34 @@ func (m *MockForge) Open(ctx context.Context, dir string, request entity.PullReq
 func (mr *MockForgeMockRecorder) Open(ctx, dir, request any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockForge)(nil).Open), ctx, dir, request)
+}
+
+// Reply mocks base method.
+func (m *MockForge) Reply(ctx context.Context, dir string, thread entity.PullRequestThread, body string) (entity.PullRequestComment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reply", ctx, dir, thread, body)
+	ret0, _ := ret[0].(entity.PullRequestComment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Reply indicates an expected call of Reply.
+func (mr *MockForgeMockRecorder) Reply(ctx, dir, thread, body any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reply", reflect.TypeOf((*MockForge)(nil).Reply), ctx, dir, thread, body)
+}
+
+// Status mocks base method.
+func (m *MockForge) Status(ctx context.Context, dir, address string) (entity.PullRequestStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Status", ctx, dir, address)
+	ret0, _ := ret[0].(entity.PullRequestStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Status indicates an expected call of Status.
+func (mr *MockForgeMockRecorder) Status(ctx, dir, address any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockForge)(nil).Status), ctx, dir, address)
 }

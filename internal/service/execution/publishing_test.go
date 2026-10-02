@@ -124,7 +124,7 @@ func TestAPublicationThatStalledStaysApprovedUntilARetryFinishesIt(t *testing.T)
 		t.Fatalf("retry: %v", err)
 	}
 
-	h.awaitState(t, "exec-01ABC", channelv1.StateCompleted)
+	h.awaitState(t, "exec-01ABC", channelv1.StateWatching)
 
 	if pushed := h.pushes(); len(pushed) != 2 {
 		t.Fatalf("the branch was pushed %d times across the attempt and its retry", len(pushed))
@@ -172,7 +172,7 @@ func TestTheSameApprovalDeliveredTwicePublishesOnce(t *testing.T) {
 		}
 	}
 
-	h.awaitState(t, "exec-01ABC", channelv1.StateCompleted)
+	h.awaitState(t, "exec-01ABC", channelv1.StateWatching)
 
 	if requests := h.pullRequests(); requests != 1 {
 		t.Fatalf("a duplicated approval asked for %d pull requests", requests)

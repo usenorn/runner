@@ -36,14 +36,14 @@ func (s RemoteState) Line() string {
 	}
 
 	parts := []string{fmt.Sprintf(
-		"%s: origin/%s is %s, %d commits this branch does not have yet, %d of this branch's not on it",
-		s.Repository, s.Default, ShortSHA(s.DefaultTip), s.Behind, s.Ahead,
+		"%s: origin/%s is at %s, and this branch is %s behind it and %s ahead",
+		s.Repository, s.Default, ShortSHA(s.DefaultTip), plural(s.Behind, "commit"), plural(s.Ahead, "commit"),
 	)}
 
 	if s.Unmerged > 0 {
 		parts = append(parts, fmt.Sprintf(
-			"origin/%s has %d commits somebody pushed to this branch that it does not have yet",
-			s.Branch, s.Unmerged,
+			"origin/%s has %s somebody pushed that this branch does not have yet",
+			s.Branch, plural(s.Unmerged, "commit"),
 		))
 	}
 
