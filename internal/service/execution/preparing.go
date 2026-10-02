@@ -615,9 +615,11 @@ func (s *executionsService) releaseEarlier(ctx context.Context, execution entity
 
 	for _, earlier := range found {
 		if earlier.ID == execution.ID || earlier.IssueKey != execution.IssueKey ||
-			earlier.Attempt >= execution.Attempt || s.holding(earlier.ID) {
+			earlier.Attempt >= execution.Attempt {
 			continue
 		}
+
+		s.supersede(ctx, earlier.ID, execution)
 
 		if _, err := s.runs.Load(ctx, earlier.ID); err != nil {
 			continue
@@ -628,13 +630,21 @@ func (s *executionsService) releaseEarlier(ctx context.Context, execution entity
 	}
 }
 
-func (s *executionsService) holding(executionID string) bool {
+func (s *executionsService) supersede(ctx context.Context, earlierID string, by entity.Execution) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	earlier, holding := s.held[earlierID]
+	underway := holding && s.stop(earlierID)
+	s.mu.Unlock()
 
-	_, held := s.held[executionID]
+	if !holding {
+		return
+	}
 
-	return held
+	s.complain(ctx, earlierID, s.fail(ctx, earlier, entity.Superseded(by)))
+
+	if !underway {
+		s.complain(ctx, earlierID, s.finished(ctx, earlierID))
+	}
 }
 
 func (s *executionsService) stop(executionID string) bool {
