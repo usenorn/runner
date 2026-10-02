@@ -147,6 +147,11 @@ func TestTheFirstCompleteIdentityAuthorsARunsCommits(t *testing.T) {
 		{name: "the runner's config wins", candidates: []entity.GitIdentity{configured, host}, want: configured},
 		{name: "the host's git config stands in", candidates: []entity.GitIdentity{{}, host}, want: host},
 		{name: "half an identity is passed over", candidates: []entity.GitIdentity{nameOnly, host}, want: host},
+		{
+			name:       "the person who connected the runner stands in for a bare machine",
+			candidates: []entity.GitIdentity{{}, {}, configured},
+			want:       configured,
+		},
 		{name: "nobody at all is refused", candidates: []entity.GitIdentity{{}, nameOnly}, err: entity.ErrCommitIdentityMissing},
 	}
 

@@ -394,6 +394,7 @@ func (s *executionsService) author(ctx context.Context, execution entity.Executi
 	identity, err := entity.FirstCompleteIdentity(
 		entity.GitIdentity{Name: s.results.CommitName, Email: s.results.CommitEmail},
 		s.runs.HostIdentity(ctx),
+		execution.Author,
 	)
 	if err != nil {
 		return err

@@ -42,6 +42,8 @@ type storedTask struct {
 	ID           string    `json:"id"`
 	Reference    string    `json:"reference"`
 	IssueKey     string    `json:"issueKey"`
+	AuthorName   string    `json:"authorName,omitempty"`
+	AuthorEmail  string    `json:"authorEmail,omitempty"`
 	Attempt      int       `json:"attempt"`
 	WorkspaceID  string    `json:"workspaceId"`
 	Title        string    `json:"title"`
@@ -380,6 +382,7 @@ func (r *fileRun) readTask(name string) (entity.Execution, error) {
 		ID:            held.ID,
 		Reference:     held.Reference,
 		IssueKey:      held.IssueKey,
+		Author:        entity.GitIdentity{Name: held.AuthorName, Email: held.AuthorEmail},
 		Attempt:       held.Attempt,
 		WorkspaceID:   held.WorkspaceID,
 		Title:         held.Title,
@@ -411,6 +414,8 @@ func storedTaskOf(execution entity.Execution) storedTask {
 		ID:           execution.ID,
 		Reference:    execution.Reference,
 		IssueKey:     execution.IssueKey,
+		AuthorName:   execution.Author.Name,
+		AuthorEmail:  execution.Author.Email,
 		Attempt:      execution.Attempt,
 		WorkspaceID:  execution.WorkspaceID,
 		Title:        execution.Title,
