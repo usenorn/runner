@@ -210,7 +210,10 @@ func (c *Client) StartService(
 	executionID string,
 	request ServiceRequest,
 ) (Service, error) {
-	return ask[Service](ctx, c, http.MethodPost, forRun(ServicesPath, executionID), request)
+	patient, done := context.WithTimeout(ctx, c.steps.StepTimeout+c.cfg.RequestTimeout)
+	defer done()
+
+	return ask[Service](patient, c, http.MethodPost, forRun(ServicesPath, executionID), request)
 }
 
 func (c *Client) StopService(

@@ -66,10 +66,10 @@ func (c Completion) Valid() error {
 		return ErrCompleteEmpty
 	}
 
-	if len(c.Summary)+len(c.Notes) > CompletionTextMax {
+	if length := utf8.RuneCountInString(c.Summary) + utf8.RuneCountInString(c.Notes); length > CompletionTextMax {
 		return fmt.Errorf(
 			"%w: it is %d characters and norn keeps %d",
-			ErrCompleteLong, len(c.Summary)+len(c.Notes), CompletionTextMax,
+			ErrCompleteLong, length, CompletionTextMax,
 		)
 	}
 
@@ -106,4 +106,20 @@ func (r ReviewReply) Valid() error {
 	}
 
 	return nil
+}
+
+func CompletionLimits() string {
+	return fmt.Sprintf(
+		"The summary and the notes together hold at most %d characters; put anything longer in "+
+			"a file and publish_artifact it.",
+		CompletionTextMax,
+	)
+}
+
+func ProgressLimits() string {
+	return fmt.Sprintf("Only the first %d characters of a summary are kept.", ProgressSummaryMax)
+}
+
+func ReplyLimits() string {
+	return fmt.Sprintf("A reply holds at most %d characters.", ReviewReplyMax)
 }

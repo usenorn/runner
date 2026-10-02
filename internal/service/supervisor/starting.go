@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +24,12 @@ func (s *servicesSupervisor) Start(
 	execution, err := s.claim(ctx, executionID)
 	if err != nil {
 		return entity.ServiceRecord{}, err
+	}
+
+	for _, needed := range wanted.Requires {
+		if _, err := s.Await(ctx, executionID, needed); err != nil && !errors.Is(err, entity.ErrServiceUnknown) {
+			return entity.ServiceRecord{}, err
+		}
 	}
 
 	ports, err := s.reserve(ctx, executionID, wanted)

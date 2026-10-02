@@ -231,6 +231,42 @@ func TestAServiceWaitsForWhatItNeedsRatherThanStartingIntoNothing(t *testing.T) 
 	}
 }
 
+func TestAServiceWhoseDependencyIsStillStartingWaitsForItInsteadOfBeingRefused(t *testing.T) {
+	h := newHarness(t, 46300, 46399)
+	stop := h.start(t)
+
+	defer stop()
+
+	ctx := context.Background()
+	execution := h.prepared(t, "exec-01AWAIT")
+
+	defer func() { _ = h.service.Release(ctx, execution.ID) }()
+
+	api := entity.Service{
+		Name:    "api",
+		Command: []string{"sh", "-c", "sleep 1; echo ready; sleep 300"},
+		Health:  entity.Health{Kind: entity.HealthLog, Pattern: "ready"},
+	}
+
+	if _, err := h.service.Start(ctx, execution.ID, api); err != nil {
+		t.Fatalf("start the api: %v", err)
+	}
+
+	web := entity.Service{
+		Name:     "web",
+		Command:  []string{"sh", "-c", "sleep 300"},
+		Requires: []string{"api"},
+	}
+
+	if _, err := h.service.Start(ctx, execution.ID, web); err != nil {
+		t.Fatalf(
+			"a service whose dependency was still starting was refused (%v), so the agent has "+
+				"to guess how long to wait and try again",
+			err,
+		)
+	}
+}
+
 func TestOneServiceReachesAnotherByTheNameItWasGivenRatherThanAGuessedPort(t *testing.T) {
 	h := newHarness(t, 46200, 46299)
 	stop := h.start(t)
