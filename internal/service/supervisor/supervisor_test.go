@@ -137,9 +137,10 @@ func TestGivingARunBackLeavesNothingItStartedRunning(t *testing.T) {
 	ctx := context.Background()
 	execution := h.prepared(t, "exec-01TEARDOWN")
 
-	record, err := h.service.Start(
-		ctx, execution.ID, held("api", "sleep 300 & echo up; sleep 300"),
-	)
+	api := held("api", "sleep 300 & echo up; sleep 300")
+	api.Health = entity.Health{Kind: entity.HealthLog, Pattern: "up"}
+
+	record, err := h.service.Start(ctx, execution.ID, api)
 	if err != nil {
 		t.Fatalf("start a service: %v", err)
 	}
