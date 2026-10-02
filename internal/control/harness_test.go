@@ -239,6 +239,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 		identities,
 		credentials,
 		sessions,
+		toolchainStub{},
 		dir,
 		config.Runner{Capacity: 2, Retention: keeping()},
 		config.App{Version: "test"},
@@ -291,6 +292,7 @@ func newHarness(t *testing.T, handler http.Handler) *harness {
 			uploadStub{},
 			tokens,
 			toolkitStub{},
+			toolchainStub{},
 			build,
 		)
 	}
@@ -474,3 +476,11 @@ func sandboxes(t *testing.T, dir *statedir.Dir, processes repository.Process) re
 		bridged,
 	)
 }
+
+type toolchainStub struct{}
+
+func (toolchainStub) Check(context.Context, entity.ToolchainProbe) (entity.ToolchainReport, error) {
+	return nil, nil
+}
+
+func (toolchainStub) Doctor(context.Context) (entity.Doctor, error) { return entity.Doctor{}, nil }

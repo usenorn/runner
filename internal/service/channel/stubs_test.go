@@ -271,3 +271,11 @@ func (runStub) SaveApproval(context.Context, string, channelv1.Instruction) erro
 func (runStub) LoadApproval(context.Context, string) (channelv1.Instruction, error) {
 	return channelv1.Instruction{}, entity.ErrApprovalMissing
 }
+
+type toolchainStub struct{}
+
+func (toolchainStub) Check(context.Context, entity.ToolchainProbe) (entity.ToolchainReport, error) {
+	return nil, nil
+}
+
+func (toolchainStub) Doctor(context.Context) (entity.Doctor, error) { return entity.Doctor{}, nil }

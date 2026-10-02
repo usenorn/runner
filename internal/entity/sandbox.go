@@ -135,3 +135,15 @@ type SandboxSpec struct {
 	Protected []string
 	Ports     []int
 }
+
+func DoctorSpec(box Sandbox, root string, home RunHome) SandboxSpec {
+	return SandboxSpec{
+		Box:     box,
+		Workdir: root,
+		Mounts: []Mount{
+			{Path: root, ReadOnly: true},
+			{Path: home.Root},
+			{Path: home.Tmp},
+		},
+	}
+}

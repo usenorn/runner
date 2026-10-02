@@ -10,6 +10,7 @@ const (
 	ReasonUnauthorised = "unauthorised"
 
 	StatusPath     = "/v1/status"
+	DoctorPath     = "/v1/doctor"
 	VersionPath    = "/v1/version"
 	ConnectPath    = "/v1/connect"
 	DisconnectPath = "/v1/disconnect"
@@ -402,4 +403,28 @@ type RemoteRepository struct {
 
 type RemoteRefresh struct {
 	Repositories []RemoteRepository `json:"repositories"`
+}
+
+type DoctorTool struct {
+	Name    string   `json:"name"`
+	State   string   `json:"state"`
+	Path    string   `json:"path,omitempty"`
+	Version string   `json:"version,omitempty"`
+	Needed  []string `json:"neededBy"`
+	Summary string   `json:"summary"`
+}
+
+type DoctorCodebase struct {
+	Name    string       `json:"name"`
+	Root    string       `json:"root"`
+	Failure string       `json:"failure,omitempty"`
+	Tools   []DoctorTool `json:"tools"`
+}
+
+type Doctor struct {
+	Healthy      bool             `json:"healthy"`
+	Sandbox      string           `json:"sandbox"`
+	CommitAuthor string           `json:"commitAuthor"`
+	PullRequests string           `json:"pullRequests"`
+	Codebases    []DoctorCodebase `json:"codebases"`
 }

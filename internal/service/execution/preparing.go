@@ -347,6 +347,10 @@ func (s *executionsService) fill(
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepSandbox, err: err}
 	}
 
+	if err := s.buildable(ctx, execution, snapshot); err != nil {
+		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepTools, err: err}
+	}
+
 	if err := s.commands(ctx, execution); err != nil {
 		return entity.Snapshot{}, entity.RunSetup{}, failure{step: entity.StepToolkit, err: err}
 	}
@@ -362,6 +366,28 @@ func (s *executionsService) fill(
 	}
 
 	return snapshot, setup, nil
+}
+
+func (s *executionsService) buildable(
+	ctx context.Context,
+	execution entity.Execution,
+	snapshot entity.Snapshot,
+) error {
+	report, err := s.toolchains.Check(ctx, entity.ToolchainProbe{
+		Box:         execution.Sandbox(),
+		Workdir:     snapshot.Workspace,
+		Environment: taskEnvironment(execution),
+		Roots:       entity.ManifestRootsOf(snapshot),
+	})
+	if err != nil {
+		return err
+	}
+
+	if ready := report.Ready(); ready != "" {
+		s.complain(ctx, execution.ID, s.note(ctx, execution.ID, channelv1.EventPhase, ready))
+	}
+
+	return report.Problem()
 }
 
 func (s *executionsService) author(ctx context.Context, execution entity.Execution) error {

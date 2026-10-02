@@ -68,6 +68,13 @@ func (c *Client) Status(ctx context.Context) (Status, error) {
 	return ask[Status](ctx, c, http.MethodGet, StatusPath, nil)
 }
 
+func (c *Client) Doctor(ctx context.Context) (Doctor, error) {
+	patient, done := context.WithTimeout(ctx, c.steps.StepTimeout+c.cfg.RequestTimeout)
+	defer done()
+
+	return ask[Doctor](patient, c, http.MethodGet, DoctorPath, nil)
+}
+
 func (c *Client) Version(ctx context.Context) (Build, error) {
 	return ask[Build](ctx, c, http.MethodGet, VersionPath, nil)
 }

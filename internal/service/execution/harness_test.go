@@ -44,6 +44,7 @@ import (
 	sessionsvc "github.com/usenorn/runner/internal/service/session"
 	snapshotsvc "github.com/usenorn/runner/internal/service/snapshot"
 	supervisorsvc "github.com/usenorn/runner/internal/service/supervisor"
+	toolchainsvc "github.com/usenorn/runner/internal/service/toolchain"
 	uploadsvc "github.com/usenorn/runner/internal/service/upload"
 )
 
@@ -67,6 +68,8 @@ type harness struct {
 	worktrees   *worktreerepo.MockWorktree
 	forges      *forgerepo.MockForge
 	toolkits    *toolkitrepo.MockToolkit
+	toolchains  *toolchainsvc.MockToolchains
+	tools       entity.ToolchainReport
 	changesets  service.ChangeSets
 	uploads     service.Uploads
 	questions   service.Questions
@@ -219,6 +222,7 @@ func build(
 		worktrees:   worktreerepo.NewMockWorktree(controller),
 		forges:      forgerepo.NewMockForge(controller),
 		toolkits:    toolkitrepo.NewMockToolkit(controller),
+		toolchains:  toolchainsvc.NewMockToolchains(controller),
 		agentToken:  "sk-ant-oat01-test",
 		skillErrs:   map[string]error{},
 		free:        free,
@@ -283,6 +287,7 @@ func build(
 		identities,
 		credentials,
 		h.sessions,
+		h.toolchains,
 		dir,
 		config.Runner{Capacity: capacity, Retention: retention},
 		config.App{Version: "1.4.0"},
@@ -359,6 +364,16 @@ func (h *harness) expect() {
 	h.snapshots.EXPECT().
 		Release(gomock.Any(), gomock.Any()).
 		DoAndReturn(h.release).
+		AnyTimes()
+
+	h.toolchains.EXPECT().
+		Check(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, entity.ToolchainProbe) (entity.ToolchainReport, error) {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+
+			return h.tools, nil
+		}).
 		AnyTimes()
 
 	h.snapshots.EXPECT().

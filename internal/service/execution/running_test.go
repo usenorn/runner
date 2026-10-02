@@ -390,3 +390,43 @@ func TestAnAgentThatStopsForSomethingOnlyItsOwnSessionCouldAnswerFailsTheRunSayi
 		t.Fatalf("a run waiting on a person was carried on regardless")
 	}
 }
+
+func TestARunThisMachineCannotBuildFailsBeforeTheAgentStartsNamingEveryMissingTool(t *testing.T) {
+	h := newHarness(t, 2, 0)
+	h.tools = entity.ToolchainReport{
+		{
+			Requirement: entity.Requirements([]entity.Manifest{{RelPath: "platform", Files: []string{"go.mod"}}})[0],
+			State:       entity.ToolSnap,
+			Path:        "/snap/bin/go",
+		},
+		{
+			Requirement: entity.Requirements([]entity.Manifest{{RelPath: "front", Files: []string{"package.json", "bun.lock"}}})[0],
+			State:       entity.ToolMissing,
+		},
+	}
+
+	stop := h.start(t)
+	defer stop()
+
+	begun(t, h, "exec-01ABC")
+
+	h.awaitState(t, "exec-01ABC", channelv1.StateFailed)
+
+	if began := h.drivers.began(); len(began) != 0 {
+		t.Fatalf("the coding agent was started on a machine that cannot build the work: %+v", began)
+	}
+
+	failed := ""
+
+	for _, reported := range h.reports(t) {
+		if reported.State == string(channelv1.StateFailed) {
+			failed = reported.Reason
+		}
+	}
+
+	for _, wanted := range []string{"go is installed as a snap", "bun is not installed"} {
+		if !strings.Contains(failed, wanted) {
+			t.Fatalf("the run failed saying %q, which never mentions %q", failed, wanted)
+		}
+	}
+}

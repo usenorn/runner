@@ -34,6 +34,7 @@ type Server struct {
 	uploads    service.Uploads
 	tokens     repository.RunToken
 	toolkits   repository.Toolkit
+	toolchains service.Toolchains
 	build      entity.Build
 	startedAt  time.Time
 	handler    http.Handler
@@ -57,6 +58,7 @@ func NewServer(
 	uploads service.Uploads,
 	tokens repository.RunToken,
 	toolkits repository.Toolkit,
+	toolchains service.Toolchains,
 	build entity.Build,
 ) *Server {
 	server := &Server{
@@ -77,6 +79,7 @@ func NewServer(
 		uploads:    uploads,
 		tokens:     tokens,
 		toolkits:   toolkits,
+		toolchains: toolchains,
 		build:      build,
 		startedAt:  time.Now().UTC(),
 	}
@@ -84,6 +87,7 @@ func NewServer(
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+StatusPath, server.status)
 	mux.HandleFunc("GET "+VersionPath, server.version)
+	mux.HandleFunc("GET "+DoctorPath, server.doctor)
 	mux.HandleFunc("POST "+ConnectPath, server.connect)
 	mux.HandleFunc("POST "+DisconnectPath, server.disconnect)
 	mux.HandleFunc("POST "+AgentTokenPath, server.saveAgentToken)
